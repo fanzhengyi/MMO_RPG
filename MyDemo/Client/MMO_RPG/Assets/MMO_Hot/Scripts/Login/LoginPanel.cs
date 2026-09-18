@@ -1,0 +1,128 @@
+using Fantasy;
+using Fantasy.Async;
+using TMPro;
+using UnityEngine;
+using UnityEngine.UI;
+
+/// <summary>
+/// 登录界面只处理输入、按钮状态和显示结果。
+/// 账号验证与网络连接都在 LoginController 中。
+/// </summary>
+public class LoginPanel : BasePanel
+{
+    [Header("注册界面")]
+    public GameObject registerView;
+
+    [Header("登录")]
+    public TMP_InputField inputLoginAccount;
+    public TMP_InputField inputLoginPassword;
+    public Button btnLogin;
+    public Button btnLogin_Register;
+
+    [Header("注册")]
+    public TMP_InputField inputRegisterAccount;
+    public TMP_InputField inputRegisterPassWord;
+    public TMP_InputField inputRegisterSurePassWord;
+    public Button btnRegister;
+    public Button btnCancel;
+
+    private bool _isRequesting;
+
+    protected override void OnInit()
+    {
+        //登录
+        btnLogin.onClick.AddListener(OnLoginClick);
+        btnLogin_Register.onClick.AddListener(() => registerView.SetActive(true));
+        //注册
+        btnRegister.onClick.AddListener(OnRegisterClick);
+        btnCancel.onClick.AddListener(() => registerView.SetActive(false));
+
+        registerView.SetActive(false);
+    }
+
+    private void OnLoginClick()
+    {
+        LoginAsync().Coroutine();
+    }
+
+    private async FTask LoginAsync()
+    {
+        string account = inputLoginAccount.text.Trim();
+        string password = inputLoginPassword.text;
+        //判空
+        if (string.IsNullOrEmpty(account) || string.IsNullOrEmpty(password))
+        {
+            Debug.LogError("账号和密码不能为空。");
+            return;
+        }
+
+        AccountErrorCode result = await LoginController.Instance.LoginAsync(account, password);
+        //飘字
+        ShowTip(result);
+        if (result == AccountErrorCode.LoginSuccess)
+        {
+             btnLogin.interactable = false;
+             Hide();
+            return;
+        }
+    }
+
+    private void OnRegisterClick()
+    {
+        RegisterAsync().Coroutine();
+    }
+
+    private async FTask RegisterAsync()
+    {
+        string account = inputRegisterAccount.text.Trim();
+        string password = inputRegisterPassWord.text;
+        if (string.IsNullOrEmpty(account) || string.IsNullOrEmpty(password))
+        {
+            Debug.LogError("注册账号和密码不能为空。");
+            return;
+        }
+
+        if (password != inputRegisterSurePassWord.text)
+        {
+            Debug.LogError("两次输入的密码不一致。");
+            return;
+        }
+
+        AccountErrorCode result = await LoginController.Instance.RegisterAsync(account, password);
+        //飘字
+        ShowTip(result);
+        if (result == AccountErrorCode.RegisterSuccess)
+           {
+              registerView.SetActive(false);
+              return;
+           }
+
+    }
+    public void ShowTip(AccountErrorCode accountErrorCode)
+    {
+        switch (accountErrorCode)
+        {
+            case AccountErrorCode.LoginSuccess:
+                Debug.Log("登录成功");
+                break;
+            case AccountErrorCode.RegisterSuccess:
+                Debug.Log("注册成功");
+                break;
+            case AccountErrorCode.AccountNotExistOrPasswordError:
+                Debug.Log("账号不存在或密码错误");
+                break;
+            case AccountErrorCode.ServerError:
+                                Debug.Log("服务器错误");
+                break;
+            case AccountErrorCode.RegisterAccountExist:
+                Debug.Log("注册账号已存在");
+                break;
+            case AccountErrorCode.AuthenticationError:
+                Debug.Log("认证错误");
+                break;
+            case AccountErrorCode.AccountPaawordEmpty:
+                         Debug.Log("账号或密码为空");
+                break;
+        }
+    }
+}

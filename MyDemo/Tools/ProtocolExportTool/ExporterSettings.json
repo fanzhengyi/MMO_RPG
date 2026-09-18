@@ -1,0 +1,21 @@
+{
+    "Export": {
+        "NetworkProtocolDirectory": {
+            "Value": "../NetworkProtocol",
+            "Comment": "ProtoBuf文件所在的文件夹位置"
+        },
+        "NetworkProtocolServerDirectory": {
+            "Value": "../../Server/Entity/Generate/NetworkProtocol",
+            "Comment": "ProtoBuf生成到服务端的文件夹位置"
+        },
+        "NetworkProtocolClientDirectory": {
+            "Value": "../../Client/MMO_RPG/Assets/MMO_Hot/Proto",
+            "Comment": "ProtoBuf生成到客户端的临时文件夹位置"
+        },
+        "SharedOpCodeCacheFile": {
+            "Value": "../NetworkProtocol/OpCode.Cache",
+            "Comment": "主协议与子包共享的OpCode缓存文件"
+        },
+        "PackageExports": []
+    }
+}

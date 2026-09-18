@@ -1,0 +1,12 @@
+// Fantasy OpCode cache. Generated automatically; do not edit manually.
+A2A_TestMessage = 536880913
+A2C_LoginResponse = 402663187
+A2C_RegisterResponse = 402663185
+C2A_LoginRequest = 268445459
+C2A_RegisterRequest = 268445457
+C2G_LoginRequest = 268445460
+C2G_TestMessage = 134227729
+C2G_TestRequest = 268445458
+G2C_LoginResponse = 402663188
+G2C_TestResponse = 402663186
+G_2C_RepeaLogin = 134227730

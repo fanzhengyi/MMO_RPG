@@ -1,0 +1,59 @@
+### C# / .NET
+[Bb]in/
+[Oo]bj/
+
+### Visual Studio / IDE
+.vs/
+.vscode/
+*.suo
+*.user
+*.userprefs
+*.csproj
+*.unityproj
+*.sln
+*.slnx
+*.tmp
+
+### Unity
+# Unity 生成目录
+[Ll]ibrary/
+[Tt]emp/
+[Ll]ogs/
+[Uu]ser[Ss]ettings/
+[Bb]uilds/
+[Bb]uild/
+[Mm]emory[Cc]aptures/
+[Oo]bj/
+
+# 热更 / 打包产物（HybridCLR 项目常见）
+HybridCLRData/
+Bundles/
+
+# 必须保留 Assets 下的 .meta
+!/[Aa]ssets/**/*.meta
+!**/*.meta
+
+# 构建产物
+*.apk
+*.aab
+*.unitypackage
+
+### 项目级额外忽略
+.vsconfig
+ExportedObj/
+sysinfo.txt
+*.pidb*
+*.pdb
+*.mdb
+
+### Packages
+**/[Pp]ackages/*
+!**/[Pp]ackages/build/
+!**/[Pp]ackages/manifest.json
+!**/[Pp]ackages/packages-lock.json
+
+### Windows
+Thumbs.db
+[Dd]esktop.ini
+$RECYCLE.BIN/
+*.lnk
