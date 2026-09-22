@@ -6,6 +6,11 @@ namespace Fantasy
     /// </summary>
     public static partial class InnerOpcode
     {
-        public const uint A2A_TestMessage = 536880913;
+        public const uint G2Game_EnterGameRequest = 1073751825;
+        public const uint G2Game_PlayerDisconnect = 939534100;
+        public const uint G2Game_PlayerMove = 939534098;
+        public const uint Game2G_EnterGameResponse = 1207969553;
+        public const uint Game2G_PlayerInfoUpdate = 939534097;
+        public const uint Game2G_PlayerMove = 939534099;
     }
 }

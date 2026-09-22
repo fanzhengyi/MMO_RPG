@@ -24,7 +24,12 @@ enum AccountErrorCode
 	AccountNotExistOrPasswordError=5,
 	///登录成功
 	LoginSuccess=6,
-
+	///有角色
+	HaveRole=7,
+	///无角色
+	NoRole=8,
+	///未登录
+	NoLogin=9,
 }
 message C2A_RegisterRequest // IRequest,A2C_RegisterResponse
 {
@@ -57,8 +62,63 @@ message G2C_LoginResponse // IResponse
 	AccountErrorCode LoginError=1;
 }
 
+message PlayerInfo
+{
+    int64 RoleId = 1;
+    string UserName = 2;
+    int64 Hp = 3;
+    int64 MaxHp = 4;
+    int64 Mp = 5;
+    int64 MaxMp = 6;
+    int64 Gold = 7;
+    float X = 8;        // 登录恢复站位用
+    float Y = 9;
+    float Z = 10;
+    float RotationY = 11;
+}
+
 ///有人顶号的时候发送
 message G_2C_RepeaLogin//IMessage
 {
 
+}
+
+///判断角色是否创建
+message C2G_EnterGameRequest // IRequest,G2C_EnterGameResponse
+{
+}
+
+///进入游戏响应：错误码 + 玩家信息（刷新UI用）
+message G2C_EnterGameResponse // IResponse
+{
+    int32 AccountErrorCode = 1;     // HaveRole=有角色 NoRole=无角色 NoLogin=未登录
+    PlayerInfo Info = 2;     // 有角色时有值
+}
+
+///服务端主动推送玩家状态变化（客户端刷新UI用）
+message G2C_PlayerInfoUpdate // IMessage
+{
+    int64 RoleId = 1;
+    int64 Hp = 2;
+    int64 Mp = 3;
+    int64 Gold = 4;
+}
+
+///客户端上报自己的移动（状态同步入口）
+message C2G_PlayerMove // IMessage
+{
+    float X = 1;
+    float Y = 2;
+    float Z = 3;
+    float RotationY = 4;
+}
+
+///服务器广播其他玩家的移动（推给视野内玩家）
+message G2C_PlayerMove // IMessage
+{
+    int64 RoleId = 1;
+    float X = 2;
+    float Y = 3;
+    float Z = 4;
+    float RotationY = 5;
 }

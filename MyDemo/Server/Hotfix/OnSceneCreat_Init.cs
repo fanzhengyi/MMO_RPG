@@ -2,6 +2,7 @@
 using Fantasy;
 using Fantasy.Async;
 using Fantasy.Event;
+using Fantasy.MongdbModel;
 using System.Threading.Tasks;
 
 public class OnSceneCreat_Init : AsyncEventSystem<OnCreateScene>
@@ -24,6 +25,12 @@ public class OnSceneCreat_Init : AsyncEventSystem<OnCreateScene>
                     scene.AddComponent<GateJwtComponent>();
                     //挂载缓存
                     scene.AddComponent<GateLoginCache>();
+                    break;
+                }
+            case SceneType.Game:
+                {
+                    // Game 负责角色数据和在线玩家容器（状态同步从这里取）。
+                    scene.AddComponent<OnlineComponent>();
                     break;
                 }
         }

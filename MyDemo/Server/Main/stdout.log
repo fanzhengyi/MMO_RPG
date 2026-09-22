@@ -1,0 +1,30 @@
+2026-09-22 10:59:32.1603  
+
+==========================================================================
+ 
+  ¨€¨€¨€¨€¨€¨€¨€¨[ ¨€¨€¨€¨€¨€¨[ ¨€¨€¨€¨[   ¨€¨€¨[¨€¨€¨€¨€¨€¨€¨€¨€¨[ ¨€¨€¨€¨€¨€¨[  ¨€¨€¨€¨€¨€¨€¨[ ¨€¨€¨[   ¨€¨€¨[
+  ¨€¨€¨X¨T¨T¨T¨T¨a¨€¨€¨X¨T¨T¨€¨€¨[¨€¨€¨€¨€¨[  ¨€¨€¨U¨^¨T¨T¨€¨€¨X¨T¨T¨a¨€¨€¨X¨T¨T¨€¨€¨[¨€¨€¨X¨T¨T¨T¨T¨a ¨^¨€¨€¨[ ¨€¨€¨X¨a
+  ¨€¨€¨€¨€¨€¨[  ¨€¨€¨€¨€¨€¨€¨€¨U¨€¨€¨X¨€¨€¨[ ¨€¨€¨U   ¨€¨€¨U   ¨€¨€¨€¨€¨€¨€¨€¨U¨^¨€¨€¨€¨€¨€¨[   ¨^¨€¨€¨€¨€¨X¨a 
+  ¨€¨€¨X¨T¨T¨a  ¨€¨€¨X¨T¨T¨€¨€¨U¨€¨€¨U¨^¨€¨€¨[¨€¨€¨U   ¨€¨€¨U   ¨€¨€¨X¨T¨T¨€¨€¨U¨^¨T¨T¨T¨T¨€¨€¨U   ¨^¨€¨€¨X¨a  
+  ¨€¨€¨U     ¨€¨€¨U  ¨€¨€¨U¨€¨€¨U ¨^¨€¨€¨€¨€¨U   ¨€¨€¨U   ¨€¨€¨U  ¨€¨€¨U¨€¨€¨€¨€¨€¨€¨X¨a    ¨€¨€¨U   
+  ¨^¨T¨a     ¨^¨T¨a  ¨^¨T¨a¨^¨T¨a  ¨^¨T¨T¨T¨a   ¨^¨T¨a   ¨^¨T¨a  ¨^¨T¨a¨^¨T¨T¨T¨T¨T¨a     ¨^¨T¨a   
+                                                            
+ Version : Fantasy 2026.0.1019 Official version
+==========================================================================
+
+2026-09-22 10:59:32.1965  Current inner network protocol:TCP
+2026-09-22 10:59:32.1965  Max Message Size(byte):1048560
+2026-09-22 10:59:32.1965  Current session idle timeout:8000
+2026-09-22 10:59:32.1965  Session-check interval:5000 
+2026-09-22 10:59:33.2722  SceneConfigId = 1001 networkTarget = Inner TCPServer Listen 192.168.150.41:11001
+2026-09-22 10:59:33.6312  SceneConfigId = 1001 networkTarget = Outer KCPServer Listen 192.168.150.41:20001
+2026-09-22 10:59:33.8899  SceneConfigId = 1002 networkTarget = Inner TCPServer Listen 192.168.150.41:11002
+2026-09-22 10:59:34.0952  SceneConfigId = 1002 networkTarget = Outer KCPServer Listen 192.168.150.41:20002
+2026-09-22 10:59:34.3463  SceneConfigId = 1003 networkTarget = Inner TCPServer Listen 192.168.150.41:11003
+2026-09-22 10:59:34.5368  SceneConfigId = 1003 networkTarget = Outer KCPServer Listen 192.168.150.41:20003
+2026-09-22 10:59:34.5368  Process:1 Startup Complete SceneCount:3
+2026-09-22 10:59:34.7933  SceneConfigId = 1050 networkTarget = Inner TCPServer Listen 192.168.150.41:11050
+2026-09-22 10:59:34.9940  SceneConfigId = 1050 networkTarget = Outer KCPServer Listen 192.168.150.41:20050
+2026-09-22 10:59:35.3048  SceneConfigId = 1051 networkTarget = Inner TCPServer Listen 192.168.150.41:11051
+2026-09-22 10:59:35.6085  SceneConfigId = 1051 networkTarget = Outer KCPServer Listen 192.168.150.41:20051
+2026-09-22 10:59:35.6085  Process:2 Startup Complete SceneCount:2

@@ -10,8 +10,13 @@ namespace Fantasy
         public const uint A2C_RegisterResponse = 402663185;
         public const uint C2A_LoginRequest = 268445459;
         public const uint C2A_RegisterRequest = 268445457;
+        public const uint C2G_EnterGameRequest = 268445461;
         public const uint C2G_LoginRequest = 268445460;
+        public const uint C2G_PlayerMove = 134227732;
+        public const uint G2C_EnterGameResponse = 402663189;
         public const uint G2C_LoginResponse = 402663188;
+        public const uint G2C_PlayerInfoUpdate = 134227731;
+        public const uint G2C_PlayerMove = 134227733;
         public const uint G_2C_RepeaLogin = 134227730;
     }
 }
