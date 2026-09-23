@@ -58,6 +58,63 @@ namespace Fantasy
 			using var message = Fantasy.G_2C_RepeaLogin.Create();
 			session.Send(message);
 		}
+		[MethodImpl(MethodImplOptions.AggressiveInlining)]
+		public static async FTask<G2C_EnterGameResponse> C2G_EnterGameRequest(this Session session, C2G_EnterGameRequest C2G_EnterGameRequest_request)
+		{
+			return (G2C_EnterGameResponse)await session.Call(C2G_EnterGameRequest_request);
+		}
+		[MethodImpl(MethodImplOptions.AggressiveInlining)]
+		public static async FTask<G2C_EnterGameResponse> C2G_EnterGameRequest(this Session session)
+		{
+			using var C2G_EnterGameRequest_request = Fantasy.C2G_EnterGameRequest.Create();
+			return (G2C_EnterGameResponse)await session.Call(C2G_EnterGameRequest_request);
+		}
+		[MethodImpl(MethodImplOptions.AggressiveInlining)]
+		public static void G2C_PlayerInfoUpdate(this Session session, G2C_PlayerInfoUpdate G2C_PlayerInfoUpdate_message)
+		{
+			session.Send(G2C_PlayerInfoUpdate_message);
+		}
+		[MethodImpl(MethodImplOptions.AggressiveInlining)]
+		public static void G2C_PlayerInfoUpdate(this Session session, long roleId, long hp, long mp, long gold)
+		{
+			using var G2C_PlayerInfoUpdate_message = Fantasy.G2C_PlayerInfoUpdate.Create();
+			G2C_PlayerInfoUpdate_message.RoleId = roleId;
+			G2C_PlayerInfoUpdate_message.Hp = hp;
+			G2C_PlayerInfoUpdate_message.Mp = mp;
+			G2C_PlayerInfoUpdate_message.Gold = gold;
+			session.Send(G2C_PlayerInfoUpdate_message);
+		}
+		[MethodImpl(MethodImplOptions.AggressiveInlining)]
+		public static void C2G_PlayerMove(this Session session, C2G_PlayerMove C2G_PlayerMove_message)
+		{
+			session.Send(C2G_PlayerMove_message);
+		}
+		[MethodImpl(MethodImplOptions.AggressiveInlining)]
+		public static void C2G_PlayerMove(this Session session, float x, float y, float z, float rotationY)
+		{
+			using var C2G_PlayerMove_message = Fantasy.C2G_PlayerMove.Create();
+			C2G_PlayerMove_message.X = x;
+			C2G_PlayerMove_message.Y = y;
+			C2G_PlayerMove_message.Z = z;
+			C2G_PlayerMove_message.RotationY = rotationY;
+			session.Send(C2G_PlayerMove_message);
+		}
+		[MethodImpl(MethodImplOptions.AggressiveInlining)]
+		public static void G2C_PlayerMove(this Session session, G2C_PlayerMove G2C_PlayerMove_message)
+		{
+			session.Send(G2C_PlayerMove_message);
+		}
+		[MethodImpl(MethodImplOptions.AggressiveInlining)]
+		public static void G2C_PlayerMove(this Session session, long roleId, float x, float y, float z, float rotationY)
+		{
+			using var G2C_PlayerMove_message = Fantasy.G2C_PlayerMove.Create();
+			G2C_PlayerMove_message.RoleId = roleId;
+			G2C_PlayerMove_message.X = x;
+			G2C_PlayerMove_message.Y = y;
+			G2C_PlayerMove_message.Z = z;
+			G2C_PlayerMove_message.RotationY = rotationY;
+			session.Send(G2C_PlayerMove_message);
+		}
 
    }
 }

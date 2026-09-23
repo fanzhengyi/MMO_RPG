@@ -63,6 +63,23 @@ public class LoginPanel : BasePanel
         {
              btnLogin.interactable = false;
              Hide();
+             // 登录成功立刻请求进入游戏，判断有没有角色
+            AccountErrorCode errorCode= await LoginController.Instance.EnterGameAsync();
+             Debug.Log(errorCode);
+             if(errorCode==AccountErrorCode.HaveRole)
+             {
+                 //有角色，进入游戏
+                 
+             }
+             else if(errorCode==AccountErrorCode.NoRole)
+             {
+                 //没有角色，进入创建角色界面
+                 
+             }
+             else
+             {
+                 
+             }
             return;
         }
     }

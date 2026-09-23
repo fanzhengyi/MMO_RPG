@@ -35,7 +35,19 @@ namespace Fantasy
 		/// <summary>
 		/// 登录成功
 		/// </summary>
-		LoginSuccess = 6
+		LoginSuccess = 6,
+		/// <summary>
+		/// 有角色
+		/// </summary>
+		HaveRole = 7,
+		/// <summary>
+		/// 无角色
+		/// </summary>
+		NoRole = 8,
+		/// <summary>
+		/// 未登录
+		/// </summary>
+		NoLogin = 9
 	}
 
 
