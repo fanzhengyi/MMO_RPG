@@ -146,6 +146,8 @@ public static class AuthenticationComponentSystem
                 account.CreatTime = TimeHelper.Now;
                 await wordDatabase.Save(account);
                 self.RegisterCacheDic.Add(username, account);
+                // 注册成功后，清掉之前可能存在的“账号不存在”缓存，避免立刻登录失败
+                self.LoginCacheDic.Remove(username + password);
                 account.AddComponent<RegisterTimeClear>().RegisterCacheClear(4000);
                 return AccountErrorCode.RegisterSuccess;
             }
@@ -161,7 +163,7 @@ public static class AuthenticationComponentSystem
         }
         if (isDispose)
         {
-            self.LoginCacheDic.Remove(username);
+            self.RegisterCacheDic.Remove(username);
             account.Dispose();
         }
     }
@@ -174,6 +176,7 @@ public static class AuthenticationComponentSystem
         }
         if (isDispose)
         {
+            self.LoginCacheDic.Remove(username);
             account.Dispose();
         }
     }

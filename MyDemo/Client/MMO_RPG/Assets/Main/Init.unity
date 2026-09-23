@@ -909,12 +909,12 @@ MonoBehaviour:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 964337491}
-  m_Enabled: 0
+  m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 5151f5be10b05324289a50f9e300084a, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::MyYooAsset
-  playMode: 0
+  playMode: 1
   packageName: DefaultPackage
   defaultHostServer: http://127.0.0.1/CDN/PC/v1.0
   fallbackHostServer: 

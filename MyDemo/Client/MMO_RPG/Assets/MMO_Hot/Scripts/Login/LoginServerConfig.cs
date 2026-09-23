@@ -11,9 +11,9 @@ public static class LoginServerConfig
 {
     private static readonly List<string> LoginServers =new List<string>
     {
-        "192.168.7.153:20001",
-        "192.168.7.153:20002",
-        "192.168.7.153:20003",
+         "127.0.0.1:20001",
+    "127.0.0.1:20002",
+    "127.0.0.1:20003",
     };
 
 

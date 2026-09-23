@@ -105,6 +105,9 @@ public class LoginController : Singleton<LoginController>
                 if (response.Info != null)
                 {
                     PlayerSelfModel.Instance.SetInfo(response.Info);
+                    Debug.Log($"角色: RoleId={response.Info.RoleId} " +
+                              $"Hp={response.Info.Hp}/{response.Info.MaxHp} " +
+                              $"Pos=({response.Info.X},{response.Info.Y},{response.Info.Z})");
                 }
                 break;
             case AccountErrorCode.NoRole:

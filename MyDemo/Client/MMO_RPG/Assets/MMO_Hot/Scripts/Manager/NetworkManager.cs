@@ -22,8 +22,8 @@ public class NetworkManager : Singleton<NetworkManager>
 
         newSession = GlobalManager.Instance.Scene.Connect(
             address,
-            NetworkProtocolType.KCP,
-            () => connectTask.SetResult(newSession),
+            NetworkProtocolType.TCP,
+            () => ConnectSuccess(connectTask,newSession),
             () => connectTask.SetException(new Exception($"连接失败：{address}")),
             () => OnConnectDisconnected(newSession, address),
             false,
@@ -31,6 +31,13 @@ public class NetworkManager : Singleton<NetworkManager>
 
         return await connectTask;
     }
+
+    public void ConnectSuccess(FTask<Session> connectTask,Session session)
+    {
+        Log.Info($"连接成功");
+         connectTask.SetResult(session);
+    } 
+
 
     /// <summary>
     /// 将已通过 Gate 登录验证的连接设为长期游戏连接。
@@ -49,7 +56,6 @@ public class NetworkManager : Singleton<NetworkManager>
             GateSession.Dispose();
         GateSession = null;
     }
-
 
     //连接断开
     private void OnConnectDisconnected(Session session, string address)

@@ -74,7 +74,7 @@ public class LoginPanel : BasePanel
              else if(errorCode==AccountErrorCode.NoRole)
              {
                  //没有角色，进入创建角色界面
-                 
+                 UIManager.Instance.Show<ChooseRolePanel>();
              }
              else
              {
@@ -129,7 +129,7 @@ public class LoginPanel : BasePanel
                 Debug.Log("账号不存在或密码错误");
                 break;
             case AccountErrorCode.ServerError:
-                                Debug.Log("服务器错误");
+                Debug.Log("服务器错误");
                 break;
             case AccountErrorCode.RegisterAccountExist:
                 Debug.Log("注册账号已存在");
