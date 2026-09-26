@@ -26,6 +26,79 @@ namespace Fantasy
 {
     [Serializable]
     [ProtoContract]
+    public partial class RoleData : AMessage, IDisposable
+    {
+        public static RoleData Create(bool autoReturn = true)
+        {
+            var roleData = MessageObjectPool<RoleData>.Rent();
+            roleData.AutoReturn = autoReturn;
+            
+            if (!autoReturn)
+            {
+                roleData.SetIsPool(false);
+            }
+            
+            return roleData;
+        }
+        
+        public void Return()
+        {
+            if (!AutoReturn)
+            {
+                SetIsPool(true);
+                AutoReturn = true;
+            }
+            else if (!IsPool())
+            {
+                return;
+            }
+            Dispose();
+        }
+
+        public void Dispose()
+        {
+            if (!IsPool()) return; 
+            RoleId = default;
+            UserName = default;
+            Hp = default;
+            MaxHp = default;
+            Mp = default;
+            MaxMp = default;
+            Gold = default;
+            X = default;
+            Y = default;
+            Z = default;
+            RotationY = default;
+            NickName = default;
+            MessageObjectPool<RoleData>.Return(this);
+        }
+        [ProtoMember(1)]
+        public long RoleId { get; set; }
+        [ProtoMember(2)]
+        public string UserName { get; set; }
+        [ProtoMember(3)]
+        public long Hp { get; set; }
+        [ProtoMember(4)]
+        public long MaxHp { get; set; }
+        [ProtoMember(5)]
+        public long Mp { get; set; }
+        [ProtoMember(6)]
+        public long MaxMp { get; set; }
+        [ProtoMember(7)]
+        public long Gold { get; set; }
+        [ProtoMember(8)]
+        public float X { get; set; }
+        [ProtoMember(9)]
+        public float Y { get; set; }
+        [ProtoMember(10)]
+        public float Z { get; set; }
+        [ProtoMember(11)]
+        public float RotationY { get; set; }
+        [ProtoMember(12)]
+        public string NickName { get; set; }
+    }
+    [Serializable]
+    [ProtoContract]
     public partial class G2Game_EnterGameRequest : AMessage, IAddressRequest
     {
         public static G2Game_EnterGameRequest Create(bool autoReturn = true)
@@ -109,115 +182,36 @@ namespace Fantasy
             if (!IsPool()) return; 
             ErrorCode = 0;
             AccountErrorCode = default;
-            RoleId = default;
-            UserName = default;
-            Hp = default;
-            MaxHp = default;
-            Mp = default;
-            MaxMp = default;
-            Gold = default;
-            X = default;
-            Y = default;
-            Z = default;
-            RotationY = default;
+            if (Data != null)
+            {
+                Data.Dispose();
+                Data = null;
+            }
             MessageObjectPool<Game2G_EnterGameResponse>.Return(this);
         }
         public uint OpCode() { return InnerOpcode.Game2G_EnterGameResponse; } 
-        [ProtoMember(13)]
+        [ProtoMember(3)]
         public uint ErrorCode { get; set; }
         [ProtoMember(1)]
         public int AccountErrorCode { get; set; }
         [ProtoMember(2)]
-        public long RoleId { get; set; }
-        [ProtoMember(3)]
-        public string UserName { get; set; }
-        [ProtoMember(4)]
-        public long Hp { get; set; }
-        [ProtoMember(5)]
-        public long MaxHp { get; set; }
-        [ProtoMember(6)]
-        public long Mp { get; set; }
-        [ProtoMember(7)]
-        public long MaxMp { get; set; }
-        [ProtoMember(8)]
-        public long Gold { get; set; }
-        [ProtoMember(9)]
-        public float X { get; set; }
-        [ProtoMember(10)]
-        public float Y { get; set; }
-        [ProtoMember(11)]
-        public float Z { get; set; }
-        [ProtoMember(12)]
-        public float RotationY { get; set; }
+        public RoleData Data { get; set; }
     }
     [Serializable]
     [ProtoContract]
-    public partial class Game2G_PlayerInfoUpdate : AMessage, IAddressMessage
+    public partial class G2Game_CreateRoleRequest : AMessage, IAddressRequest
     {
-        public static Game2G_PlayerInfoUpdate Create(bool autoReturn = true)
+        public static G2Game_CreateRoleRequest Create(bool autoReturn = true)
         {
-            var game2G_PlayerInfoUpdate = MessageObjectPool<Game2G_PlayerInfoUpdate>.Rent();
-            game2G_PlayerInfoUpdate.AutoReturn = autoReturn;
+            var g2Game_CreateRoleRequest = MessageObjectPool<G2Game_CreateRoleRequest>.Rent();
+            g2Game_CreateRoleRequest.AutoReturn = autoReturn;
             
             if (!autoReturn)
             {
-                game2G_PlayerInfoUpdate.SetIsPool(false);
+                g2Game_CreateRoleRequest.SetIsPool(false);
             }
             
-            return game2G_PlayerInfoUpdate;
-        }
-        
-        public void Return()
-        {
-            if (!AutoReturn)
-            {
-                SetIsPool(true);
-                AutoReturn = true;
-            }
-            else if (!IsPool())
-            {
-                return;
-            }
-            Dispose();
-        }
-
-        public void Dispose()
-        {
-            if (!IsPool()) return; 
-            GateSessionRuntimeId = default;
-            RoleId = default;
-            Hp = default;
-            Mp = default;
-            Gold = default;
-            MessageObjectPool<Game2G_PlayerInfoUpdate>.Return(this);
-        }
-        public uint OpCode() { return InnerOpcode.Game2G_PlayerInfoUpdate; } 
-        [ProtoMember(1)]
-        public long GateSessionRuntimeId { get; set; }
-        [ProtoMember(2)]
-        public long RoleId { get; set; }
-        [ProtoMember(3)]
-        public long Hp { get; set; }
-        [ProtoMember(4)]
-        public long Mp { get; set; }
-        [ProtoMember(5)]
-        public long Gold { get; set; }
-    }
-    [Serializable]
-    [ProtoContract]
-    public partial class G2Game_PlayerDisconnect : AMessage, IAddressMessage
-    {
-        public static G2Game_PlayerDisconnect Create(bool autoReturn = true)
-        {
-            var g2Game_PlayerDisconnect = MessageObjectPool<G2Game_PlayerDisconnect>.Rent();
-            g2Game_PlayerDisconnect.AutoReturn = autoReturn;
-            
-            if (!autoReturn)
-            {
-                g2Game_PlayerDisconnect.SetIsPool(false);
-            }
-            
-            return g2Game_PlayerDisconnect;
+            return g2Game_CreateRoleRequest;
         }
         
         public void Return()
@@ -238,89 +232,38 @@ namespace Fantasy
         {
             if (!IsPool()) return; 
             UserName = default;
-            GateSessionRuntimeId = default;
-            MessageObjectPool<G2Game_PlayerDisconnect>.Return(this);
-        }
-        public uint OpCode() { return InnerOpcode.G2Game_PlayerDisconnect; } 
-        [ProtoMember(1)]
-        public string UserName { get; set; }
-        [ProtoMember(2)]
-        public long GateSessionRuntimeId { get; set; }
-    }
-    [Serializable]
-    [ProtoContract]
-    public partial class G2Game_PlayerMove : AMessage, IAddressMessage
-    {
-        public static G2Game_PlayerMove Create(bool autoReturn = true)
-        {
-            var g2Game_PlayerMove = MessageObjectPool<G2Game_PlayerMove>.Rent();
-            g2Game_PlayerMove.AutoReturn = autoReturn;
-            
-            if (!autoReturn)
-            {
-                g2Game_PlayerMove.SetIsPool(false);
-            }
-            
-            return g2Game_PlayerMove;
-        }
-        
-        public void Return()
-        {
-            if (!AutoReturn)
-            {
-                SetIsPool(true);
-                AutoReturn = true;
-            }
-            else if (!IsPool())
-            {
-                return;
-            }
-            Dispose();
-        }
-
-        public void Dispose()
-        {
-            if (!IsPool()) return; 
-            UserName = default;
+            NickName = default;
             GateSessionRuntimeId = default;
             GateSceneAddress = default;
-            X = default;
-            Y = default;
-            Z = default;
-            RotationY = default;
-            MessageObjectPool<G2Game_PlayerMove>.Return(this);
+            MessageObjectPool<G2Game_CreateRoleRequest>.Return(this);
         }
-        public uint OpCode() { return InnerOpcode.G2Game_PlayerMove; } 
+        public uint OpCode() { return InnerOpcode.G2Game_CreateRoleRequest; } 
+        [ProtoIgnore]
+        public Game2G_CreateRoleResponse ResponseType { get; set; }
         [ProtoMember(1)]
         public string UserName { get; set; }
         [ProtoMember(2)]
-        public long GateSessionRuntimeId { get; set; }
+        public string NickName { get; set; }
         [ProtoMember(3)]
-        public long GateSceneAddress { get; set; }
+        public long GateSessionRuntimeId { get; set; }
         [ProtoMember(4)]
-        public float X { get; set; }
-        [ProtoMember(5)]
-        public float Y { get; set; }
-        [ProtoMember(6)]
-        public float Z { get; set; }
-        [ProtoMember(7)]
-        public float RotationY { get; set; }
+        public long GateSceneAddress { get; set; }
     }
     [Serializable]
     [ProtoContract]
-    public partial class Game2G_PlayerMove : AMessage, IAddressMessage
+    public partial class Game2G_CreateRoleResponse : AMessage, IAddressResponse
     {
-        public static Game2G_PlayerMove Create(bool autoReturn = true)
+        public static Game2G_CreateRoleResponse Create(bool autoReturn = true)
         {
-            var game2G_PlayerMove = MessageObjectPool<Game2G_PlayerMove>.Rent();
-            game2G_PlayerMove.AutoReturn = autoReturn;
+            var game2G_CreateRoleResponse = MessageObjectPool<Game2G_CreateRoleResponse>.Rent();
+            game2G_CreateRoleResponse.AutoReturn = autoReturn;
             
             if (!autoReturn)
             {
-                game2G_PlayerMove.SetIsPool(false);
+                game2G_CreateRoleResponse.SetIsPool(false);
             }
             
-            return game2G_PlayerMove;
+            return game2G_CreateRoleResponse;
         }
         
         public void Return()
@@ -340,26 +283,21 @@ namespace Fantasy
         public void Dispose()
         {
             if (!IsPool()) return; 
-            GateSessionRuntimeId = default;
-            RoleId = default;
-            X = default;
-            Y = default;
-            Z = default;
-            RotationY = default;
-            MessageObjectPool<Game2G_PlayerMove>.Return(this);
+            ErrorCode = 0;
+            AccountErrorCode = default;
+            if (Data != null)
+            {
+                Data.Dispose();
+                Data = null;
+            }
+            MessageObjectPool<Game2G_CreateRoleResponse>.Return(this);
         }
-        public uint OpCode() { return InnerOpcode.Game2G_PlayerMove; } 
-        [ProtoMember(1)]
-        public long GateSessionRuntimeId { get; set; }
-        [ProtoMember(2)]
-        public long RoleId { get; set; }
+        public uint OpCode() { return InnerOpcode.Game2G_CreateRoleResponse; } 
         [ProtoMember(3)]
-        public float X { get; set; }
-        [ProtoMember(4)]
-        public float Y { get; set; }
-        [ProtoMember(5)]
-        public float Z { get; set; }
-        [ProtoMember(6)]
-        public float RotationY { get; set; }
+        public uint ErrorCode { get; set; }
+        [ProtoMember(1)]
+        public int AccountErrorCode { get; set; }
+        [ProtoMember(2)]
+        public RoleData Data { get; set; }
     }
 }

@@ -44,13 +44,6 @@ public class PlayerSelfModel : Singleton<PlayerSelfModel>
     {
         // 先更新本地缓存
         X = x; Y = y; Z = z; RotationY = rotationY;
-
-        var gateSession = NetworkManager.Instance.GateSession;
-        if (gateSession == null || gateSession.IsDisposed)
-        {
-            return;
-        }
-        gateSession.C2G_PlayerMove(x, y, z, rotationY);
     }
 
     public void Clear()

@@ -5,6 +5,7 @@ public sealed class OnlineInfo : Entity
 {
     // RoleId 就是 Entity.Id（long 雪花ID，自动映射 MongoDB 的 _id），不用自己存
     public string UserName;
+    public string NickName;
     public long Hp;//血量
     public long MaxHp; //最大血量
     public long Mp; //法力

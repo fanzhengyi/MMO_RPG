@@ -47,7 +47,11 @@ namespace Fantasy
 		/// <summary>
 		/// 未登录
 		/// </summary>
-		NoLogin = 9
+		NoLogin = 9,
+		/// <summary>
+		/// 玩家昵称不能为空
+		/// </summary>
+		NickNameNull = 10
 	}
 
 

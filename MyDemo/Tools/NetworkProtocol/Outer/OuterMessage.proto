@@ -7,6 +7,7 @@ package Fantasy.Network.Message;
 // 使用方式:
 // 在message协议上方添加// Protocol+空格+协议名字
 // 例如:// Protocol ProtoBuf 或 // Protocol MemoryPack
+
 ///账号模板错误码
 enum AccountErrorCode
 {
@@ -30,95 +31,103 @@ enum AccountErrorCode
 	NoRole=8,
 	///未登录
 	NoLogin=9,
+	///玩家昵称不能为空
+	NickNameNull=10,
 }
+
+// ==================== 注册/登录（客户端 ↔ Authentication） ====================
+
+///注册请求
 message C2A_RegisterRequest // IRequest,A2C_RegisterResponse
 {
 	string Username = 1;
-	string Password=2;
-	
+	string Password = 2;
 }
+
+///注册响应
 message A2C_RegisterResponse // IResponse
 {
-	AccountErrorCode LoginError=1;
+	AccountErrorCode LoginError = 1;
 }
+
+///登录请求（Authentication验证，成功返回Token）
 message C2A_LoginRequest // IRequest,A2C_LoginResponse
 {
 	string Username = 1;
-	string Password=2;
+	string Password = 2;
 }
+
+///登录响应
 message A2C_LoginResponse // IResponse
 {
-	string Token=1;
-	AccountErrorCode LoginError=2;
+	string Token = 1;
+	AccountErrorCode LoginError = 2;
 }
-///客户端登录到Gate服务器
+
+// ==================== 登录Gate（客户端 ↔ Gate） ====================
+
+///客户端登录到Gate服务器（带Token验证）
 message C2G_LoginRequest // IRequest,G2C_LoginResponse
 {
 	string Token = 1;
-	string UserName=2;
-}
-message G2C_LoginResponse // IResponse
-{
-	AccountErrorCode LoginError=1;
+	string UserName = 2;
 }
 
-message PlayerInfo
+///Gate登录响应
+message G2C_LoginResponse // IResponse
 {
-    int64 RoleId = 1;
-    string UserName = 2;
-    int64 Hp = 3;
-    int64 MaxHp = 4;
-    int64 Mp = 5;
-    int64 MaxMp = 6;
-    int64 Gold = 7;
-    float X = 8;        // 登录恢复站位用
-    float Y = 9;
-    float Z = 10;
-    float RotationY = 11;
+	AccountErrorCode LoginError = 1;
 }
 
 ///有人顶号的时候发送
-message G_2C_RepeaLogin//IMessage
+message G_2C_RepeaLogin // IMessage
 {
-
 }
 
-///判断角色是否创建
+// ==================== 公共结构 ====================
+
+///玩家信息（进游戏/创角返回，客户端刷新UI用）
+message PlayerInfo
+{
+	int64 RoleId = 1;
+	string UserName = 2;
+	int64 Hp = 3;
+	int64 MaxHp = 4;
+	int64 Mp = 5;
+	int64 MaxMp = 6;
+	int64 Gold = 7;
+	float X = 8;
+	float Y = 9;
+	float Z = 10;
+	float RotationY = 11;
+	string NickName = 12;
+}
+
+// ==================== 进入游戏 ====================
+
+///登录成功后请求进入游戏（服务端判断是否有角色）
 message C2G_EnterGameRequest // IRequest,G2C_EnterGameResponse
 {
 }
 
-///进入游戏响应：错误码 + 玩家信息（刷新UI用）
+///进入游戏响应：错误码 + 玩家信息
 message G2C_EnterGameResponse // IResponse
 {
-    int32 AccountErrorCode = 1;     // HaveRole=有角色 NoRole=无角色 NoLogin=未登录
-    PlayerInfo Info = 2;     // 有角色时有值
+	int32 AccountErrorCode = 1;     // HaveRole=有角色 NoRole=无角色 NoLogin=未登录
+	PlayerInfo Info = 2;            // 有角色时有值
 }
 
-///服务端主动推送玩家状态变化（客户端刷新UI用）
-message G2C_PlayerInfoUpdate // IMessage
+// ==================== 创建角色 ====================
+
+///客户端请求创建角色（当前只有默认职业，只传昵称）
+message C2G_CreateRoleRequest // IRequest,G2C_CreateRoleResponse
 {
-    int64 RoleId = 1;
-    int64 Hp = 2;
-    int64 Mp = 3;
-    int64 Gold = 4;
+	string NickName = 1;
 }
 
-///客户端上报自己的移动（状态同步入口）
-message C2G_PlayerMove // IMessage
+///创建角色响应
+message G2C_CreateRoleResponse // IResponse
 {
-    float X = 1;
-    float Y = 2;
-    float Z = 3;
-    float RotationY = 4;
-}
-
-///服务器广播其他玩家的移动（推给视野内玩家）
-message G2C_PlayerMove // IMessage
-{
-    int64 RoleId = 1;
-    float X = 2;
-    float Y = 3;
-    float Z = 4;
-    float RotationY = 5;
+	int32 AccountErrorCode = 1;     // HaveRole=创建成功并已有角色，NoRole=失败
+	PlayerInfo Info = 2;            // 成功后返回角色信息
 }

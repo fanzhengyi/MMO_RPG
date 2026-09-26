@@ -15,14 +15,14 @@ public abstract class BasePanel : MonoBehaviour
     }
 
     // 每次打开面板时调用。
-    public void Show()
+    public virtual void Show()
     {
         gameObject.SetActive(true);
         OnShow();
     }
 
     // 每次关闭面板时调用。
-    public void Hide()
+    public virtual void Hide()
     {
         OnHide();
         gameObject.SetActive(false);

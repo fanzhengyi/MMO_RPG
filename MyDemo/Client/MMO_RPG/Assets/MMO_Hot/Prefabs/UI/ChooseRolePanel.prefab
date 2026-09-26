@@ -63,6 +63,7 @@ GameObject:
   - component: {fileID: 1358805026794395470}
   - component: {fileID: 2703452327504469961}
   - component: {fileID: 5298109493246895834}
+  - component: {fileID: -8232196994351752961}
   m_Layer: 5
   m_Name: ChooseRolePanel
   m_TagString: Untagged
@@ -126,6 +127,19 @@ MonoBehaviour:
     y: 0
     width: 1
     height: 1
+--- !u!114 &-8232196994351752961
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2440708449773688462}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 6859a1aea68dc4246b6b3aae0f97b0d7, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::ChooseRolePanel
+  userName: {fileID: 0}
 --- !u!1 &3511232144659469201
 GameObject:
   m_ObjectHideFlags: 0
@@ -191,7 +205,7 @@ MonoBehaviour:
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_text: "\u5F00\u59CB\u6E38\u620F"
+  m_text: "\u521B\u5EFA\u89D2\u8272"
   m_isRightToLeft: 0
   m_fontAsset: {fileID: 11400000, guid: c9e1c38b2690ce74bbb1f51d5ef27b22, type: 2}
   m_sharedMaterial: {fileID: -7446711773248023901, guid: c9e1c38b2690ce74bbb1f51d5ef27b22, type: 2}

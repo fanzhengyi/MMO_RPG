@@ -2,67 +2,56 @@ syntax = "proto3";
 
 package Fantasy.Network.Message;
 
-// Gate → Game：进入游戏（查库验证 + 带上Gate转发信息）
+// ==================== 公共结构 ====================
+
+// 角色完整数据（进游戏/创角返回复用）
+message RoleData
+{
+    int64 RoleId = 1;
+    string UserName = 2;
+    int64 Hp = 3;
+    int64 MaxHp = 4;
+    int64 Mp = 5;
+    int64 MaxMp = 6;
+    int64 Gold = 7;
+    float X = 8;
+    float Y = 9;
+    float Z = 10;
+    float RotationY = 11;
+    string NickName = 12;
+}
+
+// ==================== 进入游戏 ====================
+
+// Gate → Game：进入游戏（查库验证）
 message G2Game_EnterGameRequest // IAddressRequest,Game2G_EnterGameResponse
 {
     string UserName = 1;
-    int64 GateSessionRuntimeId = 2;  // 玩家挂在哪个Gate Session上（Gate侧转发用）
-    int64 GateSceneAddress = 3;      // Gate场景的地址（Game推送消息时用）
+    int64 GateSessionRuntimeId = 2;  // 玩家挂在哪个Gate Session上
+    int64 GateSceneAddress = 3;      // Gate场景的地址
 }
 
 // Game → Gate：查库结果
 message Game2G_EnterGameResponse // IAddressResponse
 {
     int32 AccountErrorCode = 1;
-    int64 RoleId = 2;
-    string UserName = 3;
-    int64 Hp = 4;
-    int64 MaxHp = 5;
-    int64 Mp = 6;
-    int64 MaxMp = 7;
-    int64 Gold = 8;
-    float X = 9;
-    float Y = 10;
-    float Z = 11;
-    float RotationY = 12;
+    RoleData Data = 2;    // 有角色时填充
 }
 
-// Game → Gate：主动推送玩家状态变化（Gate收到后转给对应客户端）
-message Game2G_PlayerInfoUpdate // IAddressMessage
-{
-    int64 GateSessionRuntimeId = 1;  // 告诉Gate转发给哪个Session
-    int64 RoleId = 2;
-    int64 Hp = 3;
-    int64 Mp = 4;
-    int64 Gold = 5;
-}
+// ==================== 创建角色 ====================
 
-// Gate → Game：玩家掉线通知（Game保存OnlineInfo落库并移出在线容器）
-message G2Game_PlayerDisconnect // IAddressMessage
+// Gate → Game：创建角色
+message G2Game_CreateRoleRequest // IAddressRequest,Game2G_CreateRoleResponse
 {
     string UserName = 1;
-    int64 GateSessionRuntimeId = 2;  // 哪个Session掉线了（顶号时旧Session的通知不会误删新玩家）
+    string NickName = 2;
+    int64 GateSessionRuntimeId = 3;
+    int64 GateSceneAddress = 4;      // Gate场景的地址
 }
 
-// Gate → Game：转发客户端移动上报
-message G2Game_PlayerMove // IAddressMessage
+// Game → Gate：创建结果
+message Game2G_CreateRoleResponse // IAddressResponse
 {
-    string UserName = 1;
-    int64 GateSessionRuntimeId = 2;
-    int64 GateSceneAddress = 3;
-    float X = 4;
-    float Y = 5;
-    float Z = 6;
-    float RotationY = 7;
-}
-
-// Game → Gate：广播某玩家的移动（Gate转发给该Session的客户端）
-message Game2G_PlayerMove // IAddressMessage
-{
-    int64 GateSessionRuntimeId = 1;
-    int64 RoleId = 2;
-    float X = 3;
-    float Y = 4;
-    float Z = 5;
-    float RotationY = 6;
+    int32 AccountErrorCode = 1;
+    RoleData Data = 2;    // 创建成功时填充
 }

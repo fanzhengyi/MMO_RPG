@@ -11,7 +11,7 @@ public class GlobalManager : MonoSingleton<GlobalManager>
 
     private void Start()
     {
-        UIManager.Instance.Show<LoginPanel>();
+        UIManager.Instance.ShowPanel<LoginPanel>();
         InitializeAsync().Coroutine();
     }
 

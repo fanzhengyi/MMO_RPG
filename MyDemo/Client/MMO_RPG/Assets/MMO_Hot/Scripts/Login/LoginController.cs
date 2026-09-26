@@ -96,12 +96,10 @@ public class LoginController : Singleton<LoginController>
 
         using var response = await gateSession.C2G_EnterGameRequest();
         var errorCode = (AccountErrorCode)response.AccountErrorCode;
-
-        switch (errorCode)
+        //有角色
+        if (errorCode == AccountErrorCode.HaveRole)
         {
-            case AccountErrorCode.HaveRole:
-                Debug.Log("有玩家");
-                // 保存自己的角色数据（后续状态同步、移动上报都要用）
+             // 保存自己的角色数据（后续状态同步、移动上报都要用）
                 if (response.Info != null)
                 {
                     PlayerSelfModel.Instance.SetInfo(response.Info);
@@ -109,13 +107,6 @@ public class LoginController : Singleton<LoginController>
                               $"Hp={response.Info.Hp}/{response.Info.MaxHp} " +
                               $"Pos=({response.Info.X},{response.Info.Y},{response.Info.Z})");
                 }
-                break;
-            case AccountErrorCode.NoRole:
-                Debug.Log("没有玩家");
-                break;
-            default:
-                Debug.Log($"进入游戏失败: {errorCode}");
-                break;
         }
         return errorCode;
     }

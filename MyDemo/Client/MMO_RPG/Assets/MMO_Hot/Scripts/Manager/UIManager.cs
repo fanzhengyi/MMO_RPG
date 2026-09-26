@@ -26,7 +26,7 @@ public class UIManager : Singleton<UIManager>
     /// <summary>
     /// 直接显示 UI。通常业务代码只需调用 UIManager.Instance.Show&lt;LoginPanel&gt;()。
     /// </summary>
-    public void Show<T>(Action<T> onComplete = null) where T : BasePanel
+    public void ShowPanel<T>(Action<T> onComplete = null) where T : BasePanel
     {
         ShowAsync<T>().ContinueWith(panel => onComplete?.Invoke(panel)).Forget(Debug.LogException);
     }

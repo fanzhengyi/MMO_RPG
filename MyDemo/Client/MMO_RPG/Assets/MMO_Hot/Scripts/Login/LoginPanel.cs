@@ -18,6 +18,7 @@ public class LoginPanel : BasePanel
     public TMP_InputField inputLoginPassword;
     public Button btnLogin;
     public Button btnLogin_Register;
+    public GameObject objDragon;
 
     [Header("注册")]
     public TMP_InputField inputRegisterAccount;
@@ -36,7 +37,7 @@ public class LoginPanel : BasePanel
         //注册
         btnRegister.onClick.AddListener(OnRegisterClick);
         btnCancel.onClick.AddListener(() => registerView.SetActive(false));
-
+        objDragon=GameObject.Find("Dragon");
         registerView.SetActive(false);
     }
 
@@ -52,7 +53,7 @@ public class LoginPanel : BasePanel
         //判空
         if (string.IsNullOrEmpty(account) || string.IsNullOrEmpty(password))
         {
-            Debug.LogError("账号和密码不能为空。");
+            TipManager.Instance.ShowTip("账号和密码不能为空");
             return;
         }
 
@@ -74,13 +75,13 @@ public class LoginPanel : BasePanel
              else if(errorCode==AccountErrorCode.NoRole)
              {
                  //没有角色，进入创建角色界面
-                 UIManager.Instance.Show<ChooseRolePanel>();
+                 UIManager.Instance.ShowPanel<ChooseRolePanel>();
+                 Hide();
              }
              else
              {
-                 
+                 TipManager.Instance.ShowTip("服务器错误");
              }
-            return;
         }
     }
 
@@ -95,13 +96,13 @@ public class LoginPanel : BasePanel
         string password = inputRegisterPassWord.text;
         if (string.IsNullOrEmpty(account) || string.IsNullOrEmpty(password))
         {
-            Debug.LogError("注册账号和密码不能为空。");
+            TipManager.Instance.ShowTip("注册账号和密码不能为空");
             return;
         }
 
         if (password != inputRegisterSurePassWord.text)
         {
-            Debug.LogError("两次输入的密码不一致。");
+            TipManager.Instance.ShowTip("两次输入的密码不一致");
             return;
         }
 
@@ -120,26 +121,32 @@ public class LoginPanel : BasePanel
         switch (accountErrorCode)
         {
             case AccountErrorCode.LoginSuccess:
-                Debug.Log("登录成功");
+                TipManager.Instance.ShowTip("登录成功");
                 break;
             case AccountErrorCode.RegisterSuccess:
-                Debug.Log("注册成功");
+                TipManager.Instance.ShowTip("注册成功");
                 break;
             case AccountErrorCode.AccountNotExistOrPasswordError:
-                Debug.Log("账号不存在或密码错误");
+                TipManager.Instance.ShowTip("账号不存在或密码错误");
                 break;
             case AccountErrorCode.ServerError:
-                Debug.Log("服务器错误");
+                TipManager.Instance.ShowTip("服务器错误");
                 break;
             case AccountErrorCode.RegisterAccountExist:
-                Debug.Log("注册账号已存在");
+                TipManager.Instance.ShowTip("注册账号已存在");
                 break;
             case AccountErrorCode.AuthenticationError:
-                Debug.Log("认证错误");
+                TipManager.Instance.ShowTip("认证错误");
                 break;
             case AccountErrorCode.AccountPaawordEmpty:
-                         Debug.Log("账号或密码为空");
+                 TipManager.Instance.ShowTip("账号或密码为空");
                 break;
         }
+    }
+
+    public override void Hide()
+    {
+        base.Hide();
+        GameObject.Destroy(objDragon);
     }
 }

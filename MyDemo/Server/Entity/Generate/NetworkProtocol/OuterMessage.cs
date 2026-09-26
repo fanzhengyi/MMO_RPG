@@ -23,6 +23,9 @@ using Fantasy.Serialize;
 // ReSharper disable ConditionIsAlwaysTrueOrFalseAccordingToNullableAPIContract
 namespace Fantasy
 {
+    /// <summary>
+    /// 注册请求
+    /// </summary>
     [Serializable]
     [ProtoContract]
     public partial class C2A_RegisterRequest : AMessage, IRequest
@@ -69,6 +72,9 @@ namespace Fantasy
         [ProtoMember(2)]
         public string Password { get; set; }
     }
+    /// <summary>
+    /// 注册响应
+    /// </summary>
     [Serializable]
     [ProtoContract]
     public partial class A2C_RegisterResponse : AMessage, IResponse
@@ -113,6 +119,9 @@ namespace Fantasy
         [ProtoMember(1)]
         public AccountErrorCode LoginError { get; set; }
     }
+    /// <summary>
+    /// 登录请求（Authentication验证，成功返回Token）
+    /// </summary>
     [Serializable]
     [ProtoContract]
     public partial class C2A_LoginRequest : AMessage, IRequest
@@ -159,6 +168,9 @@ namespace Fantasy
         [ProtoMember(2)]
         public string Password { get; set; }
     }
+    /// <summary>
+    /// 登录响应
+    /// </summary>
     [Serializable]
     [ProtoContract]
     public partial class A2C_LoginResponse : AMessage, IResponse
@@ -207,7 +219,7 @@ namespace Fantasy
         public AccountErrorCode LoginError { get; set; }
     }
     /// <summary>
-    /// 客户端登录到Gate服务器
+    /// 客户端登录到Gate服务器（带Token验证）
     /// </summary>
     [Serializable]
     [ProtoContract]
@@ -255,6 +267,9 @@ namespace Fantasy
         [ProtoMember(2)]
         public string UserName { get; set; }
     }
+    /// <summary>
+    /// Gate登录响应
+    /// </summary>
     [Serializable]
     [ProtoContract]
     public partial class G2C_LoginResponse : AMessage, IResponse
@@ -299,6 +314,50 @@ namespace Fantasy
         [ProtoMember(1)]
         public AccountErrorCode LoginError { get; set; }
     }
+    /// <summary>
+    /// 有人顶号的时候发送
+    /// </summary>
+    [Serializable]
+    [ProtoContract]
+    public partial class G_2C_RepeaLogin : AMessage, IMessage
+    {
+        public static G_2C_RepeaLogin Create(bool autoReturn = true)
+        {
+            var g_2C_RepeaLogin = MessageObjectPool<G_2C_RepeaLogin>.Rent();
+            g_2C_RepeaLogin.AutoReturn = autoReturn;
+            
+            if (!autoReturn)
+            {
+                g_2C_RepeaLogin.SetIsPool(false);
+            }
+            
+            return g_2C_RepeaLogin;
+        }
+        
+        public void Return()
+        {
+            if (!AutoReturn)
+            {
+                SetIsPool(true);
+                AutoReturn = true;
+            }
+            else if (!IsPool())
+            {
+                return;
+            }
+            Dispose();
+        }
+
+        public void Dispose()
+        {
+            if (!IsPool()) return; 
+            MessageObjectPool<G_2C_RepeaLogin>.Return(this);
+        }
+        public uint OpCode() { return OuterOpcode.G_2C_RepeaLogin; } 
+    }
+    /// <summary>
+    /// 玩家信息（进游戏/创角返回，客户端刷新UI用）
+    /// </summary>
     [Serializable]
     [ProtoContract]
     public partial class PlayerInfo : AMessage, IDisposable
@@ -344,6 +403,7 @@ namespace Fantasy
             Y = default;
             Z = default;
             RotationY = default;
+            NickName = default;
             MessageObjectPool<PlayerInfo>.Return(this);
         }
         [ProtoMember(1)]
@@ -368,50 +428,11 @@ namespace Fantasy
         public float Z { get; set; }
         [ProtoMember(11)]
         public float RotationY { get; set; }
+        [ProtoMember(12)]
+        public string NickName { get; set; }
     }
     /// <summary>
-    /// 有人顶号的时候发送
-    /// </summary>
-    [Serializable]
-    [ProtoContract]
-    public partial class G_2C_RepeaLogin : AMessage, IMessage
-    {
-        public static G_2C_RepeaLogin Create(bool autoReturn = true)
-        {
-            var g_2C_RepeaLogin = MessageObjectPool<G_2C_RepeaLogin>.Rent();
-            g_2C_RepeaLogin.AutoReturn = autoReturn;
-            
-            if (!autoReturn)
-            {
-                g_2C_RepeaLogin.SetIsPool(false);
-            }
-            
-            return g_2C_RepeaLogin;
-        }
-        
-        public void Return()
-        {
-            if (!AutoReturn)
-            {
-                SetIsPool(true);
-                AutoReturn = true;
-            }
-            else if (!IsPool())
-            {
-                return;
-            }
-            Dispose();
-        }
-
-        public void Dispose()
-        {
-            if (!IsPool()) return; 
-            MessageObjectPool<G_2C_RepeaLogin>.Return(this);
-        }
-        public uint OpCode() { return OuterOpcode.G_2C_RepeaLogin; } 
-    }
-    /// <summary>
-    /// 判断角色是否创建
+    /// 登录成功后请求进入游戏（服务端判断是否有角色）
     /// </summary>
     [Serializable]
     [ProtoContract]
@@ -454,7 +475,7 @@ namespace Fantasy
         public G2C_EnterGameResponse ResponseType { get; set; }
     }
     /// <summary>
-    /// 进入游戏响应：错误码 + 玩家信息（刷新UI用）
+    /// 进入游戏响应：错误码 + 玩家信息
     /// </summary>
     [Serializable]
     [ProtoContract]
@@ -508,23 +529,23 @@ namespace Fantasy
         public PlayerInfo Info { get; set; }
     }
     /// <summary>
-    /// 服务端主动推送玩家状态变化（客户端刷新UI用）
+    /// 客户端请求创建角色（当前只有默认职业，只传昵称）
     /// </summary>
     [Serializable]
     [ProtoContract]
-    public partial class G2C_PlayerInfoUpdate : AMessage, IMessage
+    public partial class C2G_CreateRoleRequest : AMessage, IRequest
     {
-        public static G2C_PlayerInfoUpdate Create(bool autoReturn = true)
+        public static C2G_CreateRoleRequest Create(bool autoReturn = true)
         {
-            var g2C_PlayerInfoUpdate = MessageObjectPool<G2C_PlayerInfoUpdate>.Rent();
-            g2C_PlayerInfoUpdate.AutoReturn = autoReturn;
+            var c2G_CreateRoleRequest = MessageObjectPool<C2G_CreateRoleRequest>.Rent();
+            c2G_CreateRoleRequest.AutoReturn = autoReturn;
             
             if (!autoReturn)
             {
-                g2C_PlayerInfoUpdate.SetIsPool(false);
+                c2G_CreateRoleRequest.SetIsPool(false);
             }
             
-            return g2C_PlayerInfoUpdate;
+            return c2G_CreateRoleRequest;
         }
         
         public void Return()
@@ -544,40 +565,33 @@ namespace Fantasy
         public void Dispose()
         {
             if (!IsPool()) return; 
-            RoleId = default;
-            Hp = default;
-            Mp = default;
-            Gold = default;
-            MessageObjectPool<G2C_PlayerInfoUpdate>.Return(this);
+            NickName = default;
+            MessageObjectPool<C2G_CreateRoleRequest>.Return(this);
         }
-        public uint OpCode() { return OuterOpcode.G2C_PlayerInfoUpdate; } 
+        public uint OpCode() { return OuterOpcode.C2G_CreateRoleRequest; } 
+        [ProtoIgnore]
+        public G2C_CreateRoleResponse ResponseType { get; set; }
         [ProtoMember(1)]
-        public long RoleId { get; set; }
-        [ProtoMember(2)]
-        public long Hp { get; set; }
-        [ProtoMember(3)]
-        public long Mp { get; set; }
-        [ProtoMember(4)]
-        public long Gold { get; set; }
+        public string NickName { get; set; }
     }
     /// <summary>
-    /// 客户端上报自己的移动（状态同步入口）
+    /// 创建角色响应
     /// </summary>
     [Serializable]
     [ProtoContract]
-    public partial class C2G_PlayerMove : AMessage, IMessage
+    public partial class G2C_CreateRoleResponse : AMessage, IResponse
     {
-        public static C2G_PlayerMove Create(bool autoReturn = true)
+        public static G2C_CreateRoleResponse Create(bool autoReturn = true)
         {
-            var c2G_PlayerMove = MessageObjectPool<C2G_PlayerMove>.Rent();
-            c2G_PlayerMove.AutoReturn = autoReturn;
+            var g2C_CreateRoleResponse = MessageObjectPool<G2C_CreateRoleResponse>.Rent();
+            g2C_CreateRoleResponse.AutoReturn = autoReturn;
             
             if (!autoReturn)
             {
-                c2G_PlayerMove.SetIsPool(false);
+                g2C_CreateRoleResponse.SetIsPool(false);
             }
             
-            return c2G_PlayerMove;
+            return g2C_CreateRoleResponse;
         }
         
         public void Return()
@@ -597,76 +611,21 @@ namespace Fantasy
         public void Dispose()
         {
             if (!IsPool()) return; 
-            X = default;
-            Y = default;
-            Z = default;
-            RotationY = default;
-            MessageObjectPool<C2G_PlayerMove>.Return(this);
+            ErrorCode = 0;
+            AccountErrorCode = default;
+            if (Info != null)
+            {
+                Info.Dispose();
+                Info = null;
+            }
+            MessageObjectPool<G2C_CreateRoleResponse>.Return(this);
         }
-        public uint OpCode() { return OuterOpcode.C2G_PlayerMove; } 
-        [ProtoMember(1)]
-        public float X { get; set; }
-        [ProtoMember(2)]
-        public float Y { get; set; }
+        public uint OpCode() { return OuterOpcode.G2C_CreateRoleResponse; } 
         [ProtoMember(3)]
-        public float Z { get; set; }
-        [ProtoMember(4)]
-        public float RotationY { get; set; }
-    }
-    /// <summary>
-    /// 服务器广播其他玩家的移动（推给视野内玩家）
-    /// </summary>
-    [Serializable]
-    [ProtoContract]
-    public partial class G2C_PlayerMove : AMessage, IMessage
-    {
-        public static G2C_PlayerMove Create(bool autoReturn = true)
-        {
-            var g2C_PlayerMove = MessageObjectPool<G2C_PlayerMove>.Rent();
-            g2C_PlayerMove.AutoReturn = autoReturn;
-            
-            if (!autoReturn)
-            {
-                g2C_PlayerMove.SetIsPool(false);
-            }
-            
-            return g2C_PlayerMove;
-        }
-        
-        public void Return()
-        {
-            if (!AutoReturn)
-            {
-                SetIsPool(true);
-                AutoReturn = true;
-            }
-            else if (!IsPool())
-            {
-                return;
-            }
-            Dispose();
-        }
-
-        public void Dispose()
-        {
-            if (!IsPool()) return; 
-            RoleId = default;
-            X = default;
-            Y = default;
-            Z = default;
-            RotationY = default;
-            MessageObjectPool<G2C_PlayerMove>.Return(this);
-        }
-        public uint OpCode() { return OuterOpcode.G2C_PlayerMove; } 
+        public uint ErrorCode { get; set; }
         [ProtoMember(1)]
-        public long RoleId { get; set; }
+        public int AccountErrorCode { get; set; }
         [ProtoMember(2)]
-        public float X { get; set; }
-        [ProtoMember(3)]
-        public float Y { get; set; }
-        [ProtoMember(4)]
-        public float Z { get; set; }
-        [ProtoMember(5)]
-        public float RotationY { get; set; }
+        public PlayerInfo Info { get; set; }
     }
 }
