@@ -53,7 +53,7 @@ public class C2G_CreateRoleHandler : MessageRPC<C2G_CreateRoleRequest, G2C_Creat
 
         // 把结果原样转给客户端
         response.AccountErrorCode = gameResponse.AccountErrorCode;
-        if (gameResponse.AccountErrorCode == (int)AccountErrorCode.HaveRole)
+        if (gameResponse.AccountErrorCode == (int)AccountErrorCode.CreateRoleSuccess)
         {
             response.Info = new PlayerInfo
             {

@@ -33,6 +33,8 @@ enum AccountErrorCode
 	NoLogin=9,
 	///玩家昵称不能为空
 	NickNameNull=10,
+	///创建角色成功（新角色）
+	CreateRoleSuccess = 11,
 }
 
 // ==================== 注册/登录（客户端 ↔ Authentication） ====================
@@ -128,6 +130,6 @@ message C2G_CreateRoleRequest // IRequest,G2C_CreateRoleResponse
 ///创建角色响应
 message G2C_CreateRoleResponse // IResponse
 {
-	int32 AccountErrorCode = 1;     // HaveRole=创建成功并已有角色，NoRole=失败
+	int32 AccountErrorCode = 1;     // CreateRoleSuccess=创建成功 HaveRole=已有角色直接上线 NickNameNull=昵称为空 失败为其他错误码
 	PlayerInfo Info = 2;            // 成功后返回角色信息
 }

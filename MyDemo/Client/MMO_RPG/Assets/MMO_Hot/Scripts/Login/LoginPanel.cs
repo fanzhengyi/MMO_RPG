@@ -65,7 +65,7 @@ public class LoginPanel : BasePanel
              btnLogin.interactable = false;
              Hide();
              // 登录成功立刻请求进入游戏，判断有没有角色
-            AccountErrorCode errorCode= await LoginController.Instance.EnterGameAsync();
+            AccountErrorCode errorCode= await CreatRoleController.Instance.EnterGameAsync();
              Debug.Log(errorCode);
              if(errorCode==AccountErrorCode.HaveRole)
              {

@@ -51,7 +51,8 @@ namespace Fantasy
 		/// <summary>
 		/// 玩家昵称不能为空
 		/// </summary>
-		NickNameNull = 10
+		NickNameNull = 10,
+		CreateRoleSuccess = 11
 	}
 
 

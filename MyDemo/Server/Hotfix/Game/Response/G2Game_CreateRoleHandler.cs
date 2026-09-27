@@ -71,7 +71,7 @@ public class G2Game_CreateRoleHandler : AddressRPC<Scene, G2Game_CreateRoleReque
             onlineComponent.Players[onlineInfo.Id] = onlineInfo;
             onlineComponent.PlayersByName[onlineInfo.UserName] = onlineInfo;
 
-            response.AccountErrorCode = (int)AccountErrorCode.HaveRole;
+            response.AccountErrorCode = (int)AccountErrorCode.CreateRoleSuccess;
             FillData(response, onlineInfo);
         }
     }
