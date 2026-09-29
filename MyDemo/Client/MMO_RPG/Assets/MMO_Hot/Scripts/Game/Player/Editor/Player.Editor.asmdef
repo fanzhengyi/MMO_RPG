@@ -1,0 +1,6 @@
+{
+    "name": "Player.Editor",
+    "references": ["Player.Runtime"],
+    "includePlatforms": ["Editor"],
+    "autoReferenced": true
+}

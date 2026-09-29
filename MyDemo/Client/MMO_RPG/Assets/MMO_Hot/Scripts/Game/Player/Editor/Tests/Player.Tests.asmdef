@@ -1,0 +1,7 @@
+{
+    "name": "Player.Tests",
+    "references": ["Player.Runtime", "Player.Editor", "Unity.InputSystem"],
+    "includePlatforms": ["Editor"],
+    "optionalUnityReferences": ["TestAssemblies"],
+    "autoReferenced": false
+}
