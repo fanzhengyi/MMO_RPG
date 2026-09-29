@@ -1,133 +1,124 @@
-using System;
 using UnityEngine;
 
 /// <summary>本地角色入口，按输入、状态、位移、表现的顺序组织一帧。</summary>
 [DisallowMultipleComponent]
 [RequireComponent(typeof(CharacterController), typeof(PlayerInputSource))]
+[DefaultExecutionOrder(100)]
 public sealed class PlayerController : MonoBehaviour
 {
     [SerializeField] private PlayerInputSource inputSource;
+    [SerializeField] private Animator animator;
     [Tooltip("拖入实际渲染的主相机 Transform；为空时自动查找 MainCamera。")]
     [SerializeField] private Transform cameraRoot;
-    [SerializeField] private PlayerSettings settings = new PlayerSettings();
 
-    public PlayerStateType State => fsm?.State ?? PlayerStateType.Idle;
-    public int CurrentAttackStep => fsm?.CurrentAttackStep ?? 0;
-    public int CurrentSkillIndex => fsm?.CurrentSkillIndex ?? 0;
-    public float HorizontalSpeed => motor?.HorizontalSpeed ?? 0f;
-    public float VerticalVelocity => motor?.VerticalVelocity ?? 0f;
-    public bool IsGrounded => motor != null && motor.IsGrounded;
-    public int LastInputSeq => inputSeq;
-    public PlayerSettings Settings => settings;
+    [Header("移动")]
+    [SerializeField, Min(0.1f)] private float walkSpeed = 4f;
+    [SerializeField, Min(0.1f)] private float runSpeed = 6.5f;
+    [SerializeField, Min(1f)] private float acceleration = 35f;
+    [SerializeField, Min(1f)] private float rotationSpeed = 720f;
+    [SerializeField, Min(0.1f)] private float jumpHeight = 1.5f;
+    [SerializeField] private float gravity = -20f;
+    [SerializeField, Min(1f)] private float terminalSpeed = 40f;
+    [SerializeField, Min(0f)] private float animationDampTime = 0.08f;
 
-    public event Action<PlayerStateType, PlayerStateType> StateChanged;
-    public event Action JumpTriggered;
-    public event Action<PlayerStateType, int> ActionStarted;
-    public event Action<PlayerStateType, int> ActionImpact;
-    // 同步适配层可订阅每个输入帧，自行批量发送，避免低频采样漏掉点击。
-    public event Action<PlayerInputFrame> InputSampled;
+    public PlayerFsmCore.StateType State => fsm.State;
+    public float HorizontalSpeed { get; private set; }
 
     private CharacterController characterController;
-    private PlayerMotor motor;
     private PlayerFsmCore fsm;
-    private int inputSeq;
+    private Vector3 horizontalVelocity;
+    private float verticalVelocity;
+    private float groundedStepOffset;
 
-    /// <summary>组装输入、位移和状态机，并绑定业务事件。</summary>
+    /// <summary>获取组件、相机，并创建状态机。</summary>
     private void Awake()
     {
         characterController = GetComponent<CharacterController>();
-        if (inputSource == null)
-            inputSource = GetComponent<PlayerInputSource>();
-        if (cameraRoot == null && Camera.main != null)
-            cameraRoot = Camera.main.transform;
-
-        settings ??= new PlayerSettings();
-        settings.Validate();
-        motor = new PlayerMotor(characterController, cameraRoot, settings);
-        fsm = new PlayerFsmCore(settings);
-        fsm.StateChanged += OnStateChanged;
-        fsm.ActionStarted += OnActionStarted;
-        fsm.ActionImpact += OnActionImpact;
+        groundedStepOffset = characterController.stepOffset;
+        fsm = new PlayerFsmCore();
     }
 
-    /// <summary>采样输入、推进状态，再执行一次 CharacterController 位移。</summary>
+    /// <summary>读取输入、推进状态机，再执行一次胶囊移动。</summary>
     private void Update()
     {
-        if (Time.deltaTime <= 0f || !characterController.enabled)
+        if (Time.deltaTime <= 0f)
             return;
 
-        var input = inputSource.Sample(++inputSeq, transform.eulerAngles.y);
-        fsm.Tick(input, Time.deltaTime, motor.IsGrounded, motor.VerticalVelocity);
-        motor.Tick(input.Move, fsm.MovementSpeed, fsm.JumpRequested, fsm.BlocksMovement, Time.deltaTime);
-
-        if (fsm.JumpRequested)
-            JumpTriggered?.Invoke();
-        InputSampled?.Invoke(input);
+        var input = inputSource.Sample();
+        fsm.Tick(input, characterController.isGrounded, verticalVelocity, walkSpeed, runSpeed);
+        Move(input.Move, fsm.MovementSpeed, fsm.JumpRequested, Time.deltaTime);
+        UpdateAnimation();
     }
 
-    /// <summary>停用角色时清理速度，重新启用后不会继承旧惯性。</summary>
+    /// <summary>把输入按相机水平朝向换算，再处理跳跃、重力和碰撞。</summary>
+    private void Move(Vector2 input, float speed, bool jump, float deltaTime)
+    {
+        var direction = ToWorldDirection(input);
+        var targetVelocity = direction * speed;
+        horizontalVelocity = Vector3.MoveTowards(horizontalVelocity, targetVelocity, acceleration * deltaTime);
+
+        if (direction.sqrMagnitude > 0.001f)
+        {
+            var targetRotation = Quaternion.LookRotation(direction);
+            transform.rotation = Quaternion.RotateTowards(transform.rotation, targetRotation, rotationSpeed * deltaTime);
+        }
+
+        if (characterController.isGrounded && verticalVelocity < 0f)
+            verticalVelocity = -2f;
+        if (jump && characterController.isGrounded)
+            verticalVelocity = Mathf.Sqrt(jumpHeight * -2f * gravity);
+
+        verticalVelocity = Mathf.Max(verticalVelocity + gravity * deltaTime, -terminalSpeed);
+        characterController.stepOffset = characterController.isGrounded ? groundedStepOffset : 0f;
+
+        var beforeMove = transform.position;
+        var displacement = horizontalVelocity + Vector3.up * verticalVelocity;
+        var flags = characterController.Move(displacement * deltaTime);
+        if ((flags & CollisionFlags.Above) != 0 && verticalVelocity > 0f)
+            verticalVelocity = 0f;
+
+        var actualMove = transform.position - beforeMove;
+        actualMove.y = 0f;
+        HorizontalSpeed = actualMove.magnitude / deltaTime;
+    }
+
+    /// <summary>按相机水平旋转，把 WASD 方向转换为世界方向。</summary>
+    private Vector3 ToWorldDirection(Vector2 input)
+    {
+        var localDirection = new Vector3(input.x, 0f, input.y);
+        var view =cameraRoot;
+        if (view == null)
+            return localDirection;
+
+        return Quaternion.Euler(0f, view.eulerAngles.y, 0f) * localDirection;
+    }
+
+    /// <summary>停用角色时清除残留速度。</summary>
     private void OnDisable()
     {
-        motor?.ResetMotion();
+        horizontalVelocity = Vector3.zero;
+        verticalVelocity = 0f;
+        HorizontalSpeed = 0f;
+        if (characterController != null)
+            characterController.stepOffset = groundedStepOffset;
     }
 
-    /// <summary>销毁时解除状态机事件。</summary>
-    private void OnDestroy()
-    {
-        if (fsm == null)
-            return;
-        fsm.StateChanged -= OnStateChanged;
-        fsm.ActionStarted -= OnActionStarted;
-        fsm.ActionImpact -= OnActionImpact;
-    }
-
-    /// <summary>Inspector 修改配置时修正参数范围。</summary>
+    /// <summary>限制 Inspector 中的移动参数。</summary>
     private void OnValidate()
     {
-        settings ??= new PlayerSettings();
-        settings.Validate();
+        walkSpeed = Mathf.Max(0.1f, walkSpeed);
+        runSpeed = Mathf.Max(walkSpeed, runSpeed);
+        acceleration = Mathf.Max(1f, acceleration);
+        rotationSpeed = Mathf.Max(1f, rotationSpeed);
+        jumpHeight = Mathf.Max(0.1f, jumpHeight);
+        gravity = Mathf.Min(-0.1f, gravity);
+        terminalSpeed = Mathf.Max(1f, terminalSpeed);
     }
 
-    /// <summary>由生命值或服务器适配层调用，立即打断当前动作。</summary>
-    public void SetDead()
+    /// <summary>把 FSM 状态和实际水平速度写入 Animator。</summary>
+    private void UpdateAnimation()
     {
-        fsm.SetDead();
-    }
-
-    /// <summary>复活到指定位置，并重置状态与技能冷却。</summary>
-    public void Revive(Vector3 position, float rotationY)
-    {
-        motor.Teleport(position, rotationY);
-        fsm.Reset();
-    }
-
-    /// <summary>外部传送入口；网络校正策略应放在独立同步适配层。</summary>
-    public void Teleport(Vector3 position, float rotationY)
-    {
-        motor.Teleport(position, rotationY);
-    }
-
-    /// <summary>获取指定技能的剩余冷却，技能编号为 1-4。</summary>
-    public float GetSkillCooldown(int index)
-    {
-        return fsm.GetSkillCooldown(index);
-    }
-
-    /// <summary>转发状态变化，供外围系统订阅。</summary>
-    private void OnStateChanged(PlayerStateType previous, PlayerStateType next)
-    {
-        StateChanged?.Invoke(previous, next);
-    }
-
-    /// <summary>转发动作开始；index 为普攻段数或技能编号。</summary>
-    private void OnActionStarted(PlayerStateType type, int index)
-    {
-        ActionStarted?.Invoke(type, index);
-    }
-
-    /// <summary>转发表现触发点，供音效和特效系统订阅。</summary>
-    private void OnActionImpact(PlayerStateType type, int index)
-    {
-        ActionImpact?.Invoke(type, index);
+        animator.SetInteger("State", (int)fsm.State);
+        animator.SetFloat("Speed", HorizontalSpeed, animationDampTime, Time.deltaTime);
     }
 }

@@ -1,5 +1,5 @@
 {
     "name": "Player.Runtime",
-    "references": ["Unity.InputSystem", "UnityEngine.UI"],
+    "references": ["Unity.InputSystem"],
     "autoReferenced": true
 }
