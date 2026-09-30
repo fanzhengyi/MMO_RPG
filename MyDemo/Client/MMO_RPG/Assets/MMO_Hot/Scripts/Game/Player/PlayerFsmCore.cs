@@ -1,7 +1,6 @@
-/// <summary>只处理待机、移动、奔跑、跳跃和下落状态。</summary>
+/// <summary>创建并切换人物的移动状态。</summary>
 public sealed class PlayerFsmCore
 {
-    // 数值与现有 Animator 条件保持一致。
     public enum StateType
     {
         Idle = 0,
@@ -11,69 +10,62 @@ public sealed class PlayerFsmCore
         Fall = 7
     }
 
-    public StateType State { get; private set; } = StateType.Idle;
+    public StateType State => current.Type;
     public float MovementSpeed { get; private set; }
     public bool JumpRequested { get; private set; }
+    public PlayerInputSource.Frame Input { get; private set; }
+    public bool IsGrounded { get; private set; }
+    public float VerticalVelocity { get; private set; }
+    public float WalkSpeed { get; }
+    public float RunSpeed { get; }
 
-    /// <summary>根据输入和 CharacterController 结果更新当前状态。</summary>
-    public void Tick(PlayerInputSource.Frame input, bool grounded, float verticalVelocity,
-        float walkSpeed, float runSpeed)
+    public PlayerIdleState Idle { get; }
+    public PlayerMoveState Move { get; }
+    public PlayerRunState Run { get; }
+    public PlayerJumpState Jump { get; }
+    public PlayerFallState Fall { get; }
+
+    private PlayerState current;
+
+    /// <summary>创建并保存五种状态实例。</summary>
+    public PlayerFsmCore(float walkSpeed, float runSpeed)
     {
+        WalkSpeed = walkSpeed;
+        RunSpeed = runSpeed;
+        Idle = new PlayerIdleState(this);
+        Move = new PlayerMoveState(this);
+        Run = new PlayerRunState(this);
+        Jump = new PlayerJumpState(this);
+        Fall = new PlayerFallState(this);
+        current = Idle;
+        current.Enter();
+    }
+
+    /// <summary>把本帧输入和碰撞结果交给当前状态处理。</summary>
+    public void Tick(PlayerInputSource.Frame input, bool grounded, float verticalVelocity)
+    {
+        Input = input;
+        IsGrounded = grounded;
+        VerticalVelocity = verticalVelocity;
         JumpRequested = false;
-
-        switch (State)
-        {
-            case StateType.Jump:
-                if (verticalVelocity <= 0f)
-                    ChangeState(grounded ? GroundState(input) : StateType.Fall);
-                break;
-            case StateType.Fall:
-                if (grounded)
-                {
-                    if (input.JumpPressed)
-                    {
-                        ChangeState(StateType.Jump);
-                        JumpRequested = true;
-                    }
-                    else
-                        ChangeState(GroundState(input));
-                }
-                break;
-            default:
-                if (!grounded)
-                    ChangeState(StateType.Fall);
-                else if (input.JumpPressed)
-                {
-                    ChangeState(StateType.Jump);
-                    JumpRequested = true;
-                }
-                else
-                    ChangeState(GroundState(input));
-                break;
-        }
-
-        var hasMove = input.Move.sqrMagnitude > 0.001f;
-        if (State == StateType.Move)
-            MovementSpeed = walkSpeed;
-        else if (State == StateType.Run)
-            MovementSpeed = runSpeed;
-        else if ((State == StateType.Jump || State == StateType.Fall) && hasMove)
-            MovementSpeed = input.RunHeld ? runSpeed : walkSpeed;
-        else
-            MovementSpeed = 0f;
+        current.Tick();
+        MovementSpeed = current.MovementSpeed;
     }
 
-    /// <summary>地面上按方向和 Shift 选择待机、移动或奔跑。</summary>
-    private static StateType GroundState(PlayerInputSource.Frame input)
+    /// <summary>通知控制器在本帧施加起跳速度。</summary>
+    internal void RequestJump()
     {
-        if (input.Move.sqrMagnitude <= 0.001f)
-            return StateType.Idle;
-        return input.RunHeld ? StateType.Run : StateType.Move;
+        JumpRequested = true;
     }
 
-    /// <summary>切换当前状态。</summary>
-    private void ChangeState(StateType next)
+    /// <summary>切换状态并调用进入、离开回调。</summary>
+    public void ChangeState(PlayerState next)
     {
-        State = next;
+        if (current == next)
+            return;
+
+        current.Exit();
+        current = next;
+        current.Enter();
     }
 }

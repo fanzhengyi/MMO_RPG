@@ -59,9 +59,9 @@ public sealed class PlayerInputSource : MonoBehaviour
 
         return new Frame
         {
-            Move = move == null ? Vector2.zero : Vector2.ClampMagnitude(move.ReadValue<Vector2>(), 1f),
-            RunHeld = run != null && run.IsPressed(),
-            JumpPressed = jump != null && jump.WasPressedThisFrame()
+            Move =Vector2.ClampMagnitude(move.ReadValue<Vector2>(), 1f),
+            RunHeld = run.IsPressed(),
+            JumpPressed = jump.WasPressedThisFrame()
         };
     }
 

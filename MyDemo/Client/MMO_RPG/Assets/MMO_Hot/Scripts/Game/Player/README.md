@@ -3,7 +3,7 @@
 人物上只挂两个自定义脚本：
 
 - `PlayerInputSource` 读取 Move、Run、Jump。
-- `PlayerFsmCore` 管理 Idle、Move、Run、Jump、Fall。
+- `PlayerFsmCore` 管理状态切换；Idle、Move、Run、Jump、Fall 各有独立状态类。
 - `PlayerController` 根据状态移动胶囊并处理相机方向、转向和重力。
 
 人物根节点挂 `CharacterController`、`PlayerInputSource`、`PlayerController`。模型子物体保留 Unity `Animator`。FSM 是普通 C# 对象，由 `PlayerController` 创建；控制器同时更新 Animator 参数。

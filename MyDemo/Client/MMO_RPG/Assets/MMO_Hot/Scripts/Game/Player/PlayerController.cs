@@ -34,8 +34,14 @@ public sealed class PlayerController : MonoBehaviour
     private void Awake()
     {
         characterController = GetComponent<CharacterController>();
+        if (inputSource == null)
+            inputSource = GetComponent<PlayerInputSource>();
+        if (animator == null)
+            animator = GetComponentInChildren<Animator>();
+        if (cameraRoot == null && Camera.main != null)
+            cameraRoot = Camera.main.transform;
         groundedStepOffset = characterController.stepOffset;
-        fsm = new PlayerFsmCore();
+        fsm = new PlayerFsmCore(walkSpeed, runSpeed);
     }
 
     /// <summary>读取输入、推进状态机，再执行一次胶囊移动。</summary>
@@ -45,7 +51,7 @@ public sealed class PlayerController : MonoBehaviour
             return;
 
         var input = inputSource.Sample();
-        fsm.Tick(input, characterController.isGrounded, verticalVelocity, walkSpeed, runSpeed);
+        fsm.Tick(input, characterController.isGrounded, verticalVelocity);
         Move(input.Move, fsm.MovementSpeed, fsm.JumpRequested, Time.deltaTime);
         UpdateAnimation();
     }
@@ -74,22 +80,20 @@ public sealed class PlayerController : MonoBehaviour
         var beforeMove = transform.position;
         var displacement = horizontalVelocity + Vector3.up * verticalVelocity;
         var flags = characterController.Move(displacement * deltaTime);
+
         if ((flags & CollisionFlags.Above) != 0 && verticalVelocity > 0f)
             verticalVelocity = 0f;
 
-        var actualMove = transform.position - beforeMove;
-        actualMove.y = 0f;
-        HorizontalSpeed = actualMove.magnitude / deltaTime;
     }
 
     /// <summary>按相机水平旋转，把 WASD 方向转换为世界方向。</summary>
     private Vector3 ToWorldDirection(Vector2 input)
     {
         var localDirection = new Vector3(input.x, 0f, input.y);
-        var view =cameraRoot;
-        if (view == null)
+        if (cameraRoot == null)
             return localDirection;
 
+        var view = cameraRoot;
         return Quaternion.Euler(0f, view.eulerAngles.y, 0f) * localDirection;
     }
 
@@ -98,27 +102,14 @@ public sealed class PlayerController : MonoBehaviour
     {
         horizontalVelocity = Vector3.zero;
         verticalVelocity = 0f;
-        HorizontalSpeed = 0f;
         if (characterController != null)
             characterController.stepOffset = groundedStepOffset;
-    }
-
-    /// <summary>限制 Inspector 中的移动参数。</summary>
-    private void OnValidate()
-    {
-        walkSpeed = Mathf.Max(0.1f, walkSpeed);
-        runSpeed = Mathf.Max(walkSpeed, runSpeed);
-        acceleration = Mathf.Max(1f, acceleration);
-        rotationSpeed = Mathf.Max(1f, rotationSpeed);
-        jumpHeight = Mathf.Max(0.1f, jumpHeight);
-        gravity = Mathf.Min(-0.1f, gravity);
-        terminalSpeed = Mathf.Max(1f, terminalSpeed);
     }
 
     /// <summary>把 FSM 状态和实际水平速度写入 Animator。</summary>
     private void UpdateAnimation()
     {
         animator.SetInteger("State", (int)fsm.State);
-        animator.SetFloat("Speed", HorizontalSpeed, animationDampTime, Time.deltaTime);
+        animator.SetFloat("Speed", Time.deltaTime);
     }
 }
