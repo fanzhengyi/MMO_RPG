@@ -1,0 +1,8 @@
+{
+    "name": "Camera.Runtime",
+    "references": [
+        "Unity.InputSystem",
+        "Unity.Cinemachine"
+    ],
+    "autoReferenced": true
+}

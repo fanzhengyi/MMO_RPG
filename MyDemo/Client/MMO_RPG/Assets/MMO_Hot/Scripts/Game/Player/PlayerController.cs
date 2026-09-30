@@ -19,7 +19,6 @@ public sealed class PlayerController : MonoBehaviour
     [SerializeField, Min(0.1f)] private float jumpHeight = 1.5f;
     [SerializeField] private float gravity = -20f;
     [SerializeField, Min(1f)] private float terminalSpeed = 40f;
-    [SerializeField, Min(0f)] private float animationDampTime = 0.08f;
 
     public PlayerFsmCore.StateType State => fsm.State;
     public float HorizontalSpeed { get; private set; }
@@ -34,10 +33,6 @@ public sealed class PlayerController : MonoBehaviour
     private void Awake()
     {
         characterController = GetComponent<CharacterController>();
-        if (inputSource == null)
-            inputSource = GetComponent<PlayerInputSource>();
-        if (animator == null)
-            animator = GetComponentInChildren<Animator>();
         if (cameraRoot == null && Camera.main != null)
             cameraRoot = Camera.main.transform;
         groundedStepOffset = characterController.stepOffset;
@@ -84,6 +79,9 @@ public sealed class PlayerController : MonoBehaviour
         if ((flags & CollisionFlags.Above) != 0 && verticalVelocity > 0f)
             verticalVelocity = 0f;
 
+        var actualMove = transform.position - beforeMove;
+        actualMove.y = 0f;
+        HorizontalSpeed = actualMove.magnitude / deltaTime;
     }
 
     /// <summary>按相机水平旋转，把 WASD 方向转换为世界方向。</summary>
@@ -102,6 +100,7 @@ public sealed class PlayerController : MonoBehaviour
     {
         horizontalVelocity = Vector3.zero;
         verticalVelocity = 0f;
+        HorizontalSpeed = 0f;
         if (characterController != null)
             characterController.stepOffset = groundedStepOffset;
     }
@@ -109,7 +108,10 @@ public sealed class PlayerController : MonoBehaviour
     /// <summary>把 FSM 状态和实际水平速度写入 Animator。</summary>
     private void UpdateAnimation()
     {
+        if (animator == null || animator.runtimeAnimatorController == null)
+            return;
+
         animator.SetInteger("State", (int)fsm.State);
-        animator.SetFloat("Speed", Time.deltaTime);
+        animator.SetFloat("Speed", HorizontalSpeed);
     }
 }
