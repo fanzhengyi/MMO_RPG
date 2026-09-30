@@ -81,6 +81,43 @@ namespace Fantasy
 			C2G_CreateRoleRequest_request.NickName = nickName;
 			return (G2C_CreateRoleResponse)await session.Call(C2G_CreateRoleRequest_request);
 		}
+		[MethodImpl(MethodImplOptions.AggressiveInlining)]
+		public static void C2G_PlayerMove(this Session session, C2G_PlayerMove C2G_PlayerMove_message)
+		{
+			session.Send(C2G_PlayerMove_message);
+		}
+		[MethodImpl(MethodImplOptions.AggressiveInlining)]
+		public static void C2G_PlayerMove(this Session session, float x, float y, float z, float rotationY, uint sequence, int state, float speed)
+		{
+			using var C2G_PlayerMove_message = Fantasy.C2G_PlayerMove.Create();
+			C2G_PlayerMove_message.X = x;
+			C2G_PlayerMove_message.Y = y;
+			C2G_PlayerMove_message.Z = z;
+			C2G_PlayerMove_message.RotationY = rotationY;
+			C2G_PlayerMove_message.Sequence = sequence;
+			C2G_PlayerMove_message.State = state;
+			C2G_PlayerMove_message.Speed = speed;
+			session.Send(C2G_PlayerMove_message);
+		}
+		[MethodImpl(MethodImplOptions.AggressiveInlining)]
+		public static void G2C_PlayerMove(this Session session, G2C_PlayerMove G2C_PlayerMove_message)
+		{
+			session.Send(G2C_PlayerMove_message);
+		}
+		[MethodImpl(MethodImplOptions.AggressiveInlining)]
+		public static void G2C_PlayerMove(this Session session, long roleId, float x, float y, float z, float rotationY, uint sequence, int state, float speed)
+		{
+			using var G2C_PlayerMove_message = Fantasy.G2C_PlayerMove.Create();
+			G2C_PlayerMove_message.RoleId = roleId;
+			G2C_PlayerMove_message.X = x;
+			G2C_PlayerMove_message.Y = y;
+			G2C_PlayerMove_message.Z = z;
+			G2C_PlayerMove_message.RotationY = rotationY;
+			G2C_PlayerMove_message.Sequence = sequence;
+			G2C_PlayerMove_message.State = state;
+			G2C_PlayerMove_message.Speed = speed;
+			session.Send(G2C_PlayerMove_message);
+		}
 
    }
 }

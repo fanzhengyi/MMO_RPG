@@ -628,4 +628,131 @@ namespace Fantasy
         [ProtoMember(2)]
         public PlayerInfo Info { get; set; }
     }
+    /// <summary>
+    /// 客户端按变化频率上报自己的移动快照
+    /// </summary>
+    [Serializable]
+    [ProtoContract]
+    public partial class C2G_PlayerMove : AMessage, IMessage
+    {
+        public static C2G_PlayerMove Create(bool autoReturn = true)
+        {
+            var c2G_PlayerMove = MessageObjectPool<C2G_PlayerMove>.Rent();
+            c2G_PlayerMove.AutoReturn = autoReturn;
+            
+            if (!autoReturn)
+            {
+                c2G_PlayerMove.SetIsPool(false);
+            }
+            
+            return c2G_PlayerMove;
+        }
+        
+        public void Return()
+        {
+            if (!AutoReturn)
+            {
+                SetIsPool(true);
+                AutoReturn = true;
+            }
+            else if (!IsPool())
+            {
+                return;
+            }
+            Dispose();
+        }
+
+        public void Dispose()
+        {
+            if (!IsPool()) return; 
+            X = default;
+            Y = default;
+            Z = default;
+            RotationY = default;
+            Sequence = default;
+            State = default;
+            Speed = default;
+            MessageObjectPool<C2G_PlayerMove>.Return(this);
+        }
+        public uint OpCode() { return OuterOpcode.C2G_PlayerMove; } 
+        [ProtoMember(1)]
+        public float X { get; set; }
+        [ProtoMember(2)]
+        public float Y { get; set; }
+        [ProtoMember(3)]
+        public float Z { get; set; }
+        [ProtoMember(4)]
+        public float RotationY { get; set; }
+        [ProtoMember(5)]
+        public uint Sequence { get; set; }
+        [ProtoMember(6)]
+        public int State { get; set; }
+        [ProtoMember(7)]
+        public float Speed { get; set; }
+    }
+    /// <summary>
+    /// 服务端广播玩家移动快照
+    /// </summary>
+    [Serializable]
+    [ProtoContract]
+    public partial class G2C_PlayerMove : AMessage, IMessage
+    {
+        public static G2C_PlayerMove Create(bool autoReturn = true)
+        {
+            var g2C_PlayerMove = MessageObjectPool<G2C_PlayerMove>.Rent();
+            g2C_PlayerMove.AutoReturn = autoReturn;
+            
+            if (!autoReturn)
+            {
+                g2C_PlayerMove.SetIsPool(false);
+            }
+            
+            return g2C_PlayerMove;
+        }
+        
+        public void Return()
+        {
+            if (!AutoReturn)
+            {
+                SetIsPool(true);
+                AutoReturn = true;
+            }
+            else if (!IsPool())
+            {
+                return;
+            }
+            Dispose();
+        }
+
+        public void Dispose()
+        {
+            if (!IsPool()) return; 
+            RoleId = default;
+            X = default;
+            Y = default;
+            Z = default;
+            RotationY = default;
+            Sequence = default;
+            State = default;
+            Speed = default;
+            MessageObjectPool<G2C_PlayerMove>.Return(this);
+        }
+        public uint OpCode() { return OuterOpcode.G2C_PlayerMove; } 
+        [ProtoMember(1)]
+        public long RoleId { get; set; }
+        [ProtoMember(2)]
+        public float X { get; set; }
+        [ProtoMember(3)]
+        public float Y { get; set; }
+        [ProtoMember(4)]
+        public float Z { get; set; }
+        [ProtoMember(5)]
+        public float RotationY { get; set; }
+        [ProtoMember(6)]
+        public uint Sequence { get; set; }
+        [ProtoMember(7)]
+        public int State { get; set; }
+        [ProtoMember(8)]
+        public float Speed { get; set; }
+    }
 }

@@ -133,3 +133,30 @@ message G2C_CreateRoleResponse // IResponse
 	int32 AccountErrorCode = 1;     // CreateRoleSuccess=创建成功 HaveRole=已有角色直接上线 NickNameNull=昵称为空 失败为其他错误码
 	PlayerInfo Info = 2;            // 成功后返回角色信息
 }
+
+// ==================== 玩家移动 ====================
+
+///客户端按变化频率上报自己的移动快照
+message C2G_PlayerMove // IMessage
+{
+	float X = 1;
+	float Y = 2;
+	float Z = 3;
+	float RotationY = 4;
+	uint32 Sequence = 5;
+	int32 State = 6;
+	float Speed = 7;
+}
+
+///服务端广播玩家移动快照
+message G2C_PlayerMove // IMessage
+{
+	int64 RoleId = 1;
+	float X = 2;
+	float Y = 3;
+	float Z = 4;
+	float RotationY = 5;
+	uint32 Sequence = 6;
+	int32 State = 7;
+	float Speed = 8;
+}
