@@ -1,0 +1,13 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <AssemblyName>Hotfix</AssemblyName>
+    <RootNamespace>Fantasy</RootNamespace>
+    <DebugType>portable</DebugType>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Entity\Entity.csproj" />
+    <PackageReference Include="Fantasy-Net" Version="$(FantasyNetVersion)" />
+  </ItemGroup>
+
+</Project>

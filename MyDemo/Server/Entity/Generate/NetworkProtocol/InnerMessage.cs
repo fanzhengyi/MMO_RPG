@@ -300,4 +300,143 @@ namespace Fantasy
         [ProtoMember(2)]
         public RoleData Data { get; set; }
     }
+    /// <summary>
+    /// Gate 已验证身份的玩家移动快照，单向转发给 Game
+    /// </summary>
+    [Serializable]
+    [ProtoContract]
+    public partial class G2Game_PlayerMove : AMessage, IAddressMessage
+    {
+        public static G2Game_PlayerMove Create(bool autoReturn = true)
+        {
+            var g2Game_PlayerMove = MessageObjectPool<G2Game_PlayerMove>.Rent();
+            g2Game_PlayerMove.AutoReturn = autoReturn;
+            
+            if (!autoReturn)
+            {
+                g2Game_PlayerMove.SetIsPool(false);
+            }
+            
+            return g2Game_PlayerMove;
+        }
+        
+        public void Return()
+        {
+            if (!AutoReturn)
+            {
+                SetIsPool(true);
+                AutoReturn = true;
+            }
+            else if (!IsPool())
+            {
+                return;
+            }
+            Dispose();
+        }
+
+        public void Dispose()
+        {
+            if (!IsPool()) return; 
+            UserName = default;
+            GateSessionRuntimeId = default;
+            GateSceneAddress = default;
+            X = default;
+            Y = default;
+            Z = default;
+            RotationY = default;
+            Sequence = default;
+            State = default;
+            Speed = default;
+            MessageObjectPool<G2Game_PlayerMove>.Return(this);
+        }
+        public uint OpCode() { return InnerOpcode.G2Game_PlayerMove; } 
+        [ProtoMember(1)]
+        public string UserName { get; set; }
+        [ProtoMember(2)]
+        public long GateSessionRuntimeId { get; set; }
+        [ProtoMember(3)]
+        public long GateSceneAddress { get; set; }
+        [ProtoMember(4)]
+        public float X { get; set; }
+        [ProtoMember(5)]
+        public float Y { get; set; }
+        [ProtoMember(6)]
+        public float Z { get; set; }
+        [ProtoMember(7)]
+        public float RotationY { get; set; }
+        [ProtoMember(8)]
+        public uint Sequence { get; set; }
+        [ProtoMember(9)]
+        public int State { get; set; }
+        [ProtoMember(10)]
+        public float Speed { get; set; }
+    }
+    /// <summary>
+    /// Game 将其他玩家的移动快照定向转发给目标 Gate
+    /// </summary>
+    [Serializable]
+    [ProtoContract]
+    public partial class Game2G_PlayerMove : AMessage, IAddressMessage
+    {
+        public static Game2G_PlayerMove Create(bool autoReturn = true)
+        {
+            var game2G_PlayerMove = MessageObjectPool<Game2G_PlayerMove>.Rent();
+            game2G_PlayerMove.AutoReturn = autoReturn;
+            
+            if (!autoReturn)
+            {
+                game2G_PlayerMove.SetIsPool(false);
+            }
+            
+            return game2G_PlayerMove;
+        }
+        
+        public void Return()
+        {
+            if (!AutoReturn)
+            {
+                SetIsPool(true);
+                AutoReturn = true;
+            }
+            else if (!IsPool())
+            {
+                return;
+            }
+            Dispose();
+        }
+
+        public void Dispose()
+        {
+            if (!IsPool()) return; 
+            GateSessionRuntimeId = default;
+            RoleId = default;
+            X = default;
+            Y = default;
+            Z = default;
+            RotationY = default;
+            Sequence = default;
+            State = default;
+            Speed = default;
+            MessageObjectPool<Game2G_PlayerMove>.Return(this);
+        }
+        public uint OpCode() { return InnerOpcode.Game2G_PlayerMove; } 
+        [ProtoMember(1)]
+        public long GateSessionRuntimeId { get; set; }
+        [ProtoMember(2)]
+        public long RoleId { get; set; }
+        [ProtoMember(3)]
+        public float X { get; set; }
+        [ProtoMember(4)]
+        public float Y { get; set; }
+        [ProtoMember(5)]
+        public float Z { get; set; }
+        [ProtoMember(6)]
+        public float RotationY { get; set; }
+        [ProtoMember(7)]
+        public uint Sequence { get; set; }
+        [ProtoMember(8)]
+        public int State { get; set; }
+        [ProtoMember(9)]
+        public float Speed { get; set; }
+    }
 }

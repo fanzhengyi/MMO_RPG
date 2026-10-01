@@ -1,28 +1,19 @@
-$exe = 'C:\Program Files\dotnet\dotnet.exe'
-$dll = 'D:\My\MyDemo\MMO_RPG\MyDemo\Server\Main\bin\Debug\net8.0\Main.dll'
-$wd  = 'D:\My\MyDemo\MMO_RPG\MyDemo\Server\Main\bin\Debug\net8.0'
-$out = 'D:\My\MyDemo\MMO_RPG\MyDemo\Server\Main\stdout.log'
-$err = 'D:\My\MyDemo\MMO_RPG\MyDemo\Server\Main\stderr.log'
+$ErrorActionPreference = 'Stop'
 
-# kill any existing Main
-Get-Process Main -ErrorAction SilentlyContinue | Stop-Process -Force
+$serverRoot = Split-Path -Parent $PSScriptRoot
+$solutionPath = Join-Path $serverRoot 'Server.sln'
+$outputPath = Join-Path $PSScriptRoot 'bin\Debug\net8.0'
 
-$p = Start-Process -FilePath $exe -ArgumentList @($dll,'-m','Develop') `
-        -WorkingDirectory $wd -RedirectStandardOutput $out -RedirectStandardError $err `
-        -PassThru -WindowStyle Hidden
-Write-Output ('PID:' + $p.Id)
-
-Start-Sleep -Seconds 45
-
-$alive = Get-Process -Id $p.Id -ErrorAction SilentlyContinue
-if ($alive) {
-    Write-Output 'ALIVE: yes (killing now)'
-    $alive | Stop-Process -Force
-} else {
-    Write-Output 'ALIVE: no (exited)'
+dotnet build $solutionPath --configuration Debug
+if ($LASTEXITCODE -ne 0) {
+    exit $LASTEXITCODE
 }
 
-Write-Output '---STDOUT---'
-Get-Content $out
-Write-Output '---STDERR---'
-Get-Content $err
+Push-Location $outputPath
+try {
+    dotnet .\Main.dll --m Develop
+    exit $LASTEXITCODE
+}
+finally {
+    Pop-Location
+}

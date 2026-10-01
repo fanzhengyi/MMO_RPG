@@ -27,8 +27,7 @@ public class G2Game_CreateRoleHandler : AddressRPC<Scene, G2Game_CreateRoleReque
             // 1. 先查内存（在线说明已有角色）
             if (onlineComponent.PlayersByName.TryGetValue(request.UserName, out var onlineInfo))
             {
-                onlineInfo.GateSessionRuntimeId = request.GateSessionRuntimeId;
-                onlineInfo.GateSceneAddress = request.GateSceneAddress;
+                onlineInfo.BindGateSession(request.GateSessionRuntimeId, request.GateSceneAddress);
 
                 response.AccountErrorCode = (int)AccountErrorCode.HaveRole;
                 FillData(response, onlineInfo);
@@ -42,8 +41,7 @@ public class G2Game_CreateRoleHandler : AddressRPC<Scene, G2Game_CreateRoleReque
             {
                 // 已有角色：直接上线（激活 + 入在线容器）
                 exist.Deserialize(scene);
-                exist.GateSessionRuntimeId = request.GateSessionRuntimeId;
-                exist.GateSceneAddress = request.GateSceneAddress;
+                exist.BindGateSession(request.GateSessionRuntimeId, request.GateSceneAddress);
                 onlineComponent.Players[exist.Id] = exist;
                 onlineComponent.PlayersByName[exist.UserName] = exist;
 
@@ -66,8 +64,7 @@ public class G2Game_CreateRoleHandler : AddressRPC<Scene, G2Game_CreateRoleReque
 
             // 4. 上线：激活 + 入在线容器 + 保存 Gate 转发映射
             onlineInfo.Deserialize(scene);
-            onlineInfo.GateSessionRuntimeId = request.GateSessionRuntimeId;
-            onlineInfo.GateSceneAddress = request.GateSceneAddress;
+            onlineInfo.BindGateSession(request.GateSessionRuntimeId, request.GateSceneAddress);
             onlineComponent.Players[onlineInfo.Id] = onlineInfo;
             onlineComponent.PlayersByName[onlineInfo.UserName] = onlineInfo;
 

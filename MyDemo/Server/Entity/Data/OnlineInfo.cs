@@ -23,4 +23,35 @@ public sealed class OnlineInfo : Entity
     public long GateSessionRuntimeId;  // 玩家挂在哪个 Gate Session 上
     [BsonIgnore]
     public long GateSceneAddress;      // 那个 Gate 场景的地址
+
+    // 以下字段只用于 Game 内存态，避免随角色数据写入 MongoDB。
+    [BsonIgnore]
+    public uint LastMoveSequence;
+    [BsonIgnore]
+    public bool HasLastMoveSequence;
+    [BsonIgnore]
+    public long LastMoveReceivedAt;
+    [BsonIgnore]
+    public long LastPositionSavedAt;
+    [BsonIgnore]
+    public int MovementState;
+    [BsonIgnore]
+    public float MovementSpeed;
+
+    /// <summary>绑定玩家当前 Gate 连接，并在换连接时重置移动序号。</summary>
+    public void BindGateSession(long gateSessionRuntimeId, long gateSceneAddress)
+    {
+        if (GateSessionRuntimeId != gateSessionRuntimeId)
+        {
+            LastMoveSequence = 0;
+            HasLastMoveSequence = false;
+            LastMoveReceivedAt = 0;
+            LastPositionSavedAt = 0;
+            MovementState = 0;
+            MovementSpeed = 0f;
+        }
+
+        GateSessionRuntimeId = gateSessionRuntimeId;
+        GateSceneAddress = gateSceneAddress;
+    }
 }

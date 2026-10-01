@@ -55,3 +55,34 @@ message Game2G_CreateRoleResponse // IAddressResponse
     int32 AccountErrorCode = 1;
     RoleData Data = 2;    // 创建成功时填充
 }
+
+// ==================== 玩家移动 ====================
+
+///Gate 已验证身份的玩家移动快照，单向转发给 Game
+message G2Game_PlayerMove // IAddressMessage
+{
+    string UserName = 1;
+    int64 GateSessionRuntimeId = 2;
+    int64 GateSceneAddress = 3;
+    float X = 4;
+    float Y = 5;
+    float Z = 6;
+    float RotationY = 7;
+    uint32 Sequence = 8;
+    int32 State = 9;
+    float Speed = 10;
+}
+
+///Game 将其他玩家的移动快照定向转发给目标 Gate
+message Game2G_PlayerMove // IAddressMessage
+{
+    int64 GateSessionRuntimeId = 1;
+    int64 RoleId = 2;
+    float X = 3;
+    float Y = 4;
+    float Z = 5;
+    float RotationY = 6;
+    uint32 Sequence = 7;
+    int32 State = 8;
+    float Speed = 9;
+}

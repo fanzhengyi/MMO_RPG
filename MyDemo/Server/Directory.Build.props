@@ -1,0 +1,15 @@
+<Project>
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>annotations</Nullable>
+    <LangVersion>latest</LangVersion>
+    <FantasyNetVersion>2026.0.1019</FantasyNetVersion>
+  </PropertyGroup>
+
+  <ItemDefinitionGroup Condition="'$(MSBuildProjectName)' == 'Entity' Or '$(MSBuildProjectName)' == 'Hotfix'">
+    <None>
+      <CopyToPublishDirectory>Never</CopyToPublishDirectory>
+    </None>
+  </ItemDefinitionGroup>
+</Project>

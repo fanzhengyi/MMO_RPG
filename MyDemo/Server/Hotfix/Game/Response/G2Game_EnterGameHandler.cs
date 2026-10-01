@@ -38,8 +38,7 @@ public class G2Game_EnterGameHandler: AddressRPC<Scene, G2Game_EnterGameRequest,
         }
 
         // 5. 保存 Gate 转发映射
-        onlineInfo.GateSessionRuntimeId = request.GateSessionRuntimeId;
-        onlineInfo.GateSceneAddress = request.GateSceneAddress;
+        onlineInfo.BindGateSession(request.GateSessionRuntimeId, request.GateSceneAddress);
 
         // 6. 返回角色数据（Gate 再转给客户端刷新UI，位置用于恢复站位）
         response.AccountErrorCode = (int)AccountErrorCode.HaveRole;

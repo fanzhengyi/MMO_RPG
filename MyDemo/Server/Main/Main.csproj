@@ -1,0 +1,38 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <AssemblyName>Main</AssemblyName>
+    <RootNamespace>Fantasy</RootNamespace>
+    <DebugType>portable</DebugType>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Entity\Entity.csproj" />
+    <ProjectReference Include="..\Hotfix\Hotfix.csproj" ReferenceOutputAssembly="false" />
+    <PackageReference Include="Fantasy-Net" Version="$(FantasyNetVersion)" />
+    <PackageReference Include="NLog" Version="5.4.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Update="Fantasy.config" CopyToOutputDirectory="PreserveNewest" />
+    <None Update="Fantasy.xsd" CopyToOutputDirectory="PreserveNewest" />
+    <None Update="NLog.config" CopyToOutputDirectory="PreserveNewest" />
+    <None Update="NLog.xsd" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
+  <Target Name="CopyHotfixArtifacts" AfterTargets="Build">
+    <ItemGroup>
+      <HotfixArtifacts Include="..\Hotfix\bin\$(Configuration)\$(TargetFramework)\Hotfix.dll" />
+      <HotfixArtifacts Include="..\Hotfix\bin\$(Configuration)\$(TargetFramework)\Hotfix.pdb" />
+    </ItemGroup>
+    <Copy SourceFiles="@(HotfixArtifacts)" DestinationFolder="$(OutDir)" SkipUnchangedFiles="true" />
+  </Target>
+
+  <Target Name="CopyHotfixArtifactsToPublish" AfterTargets="Publish">
+    <ItemGroup>
+      <HotfixPublishArtifacts Include="..\Hotfix\bin\$(Configuration)\$(TargetFramework)\Hotfix.dll" />
+      <HotfixPublishArtifacts Include="..\Hotfix\bin\$(Configuration)\$(TargetFramework)\Hotfix.pdb" />
+    </ItemGroup>
+    <Copy SourceFiles="@(HotfixPublishArtifacts)" DestinationFolder="$(PublishDir)" SkipUnchangedFiles="true" />
+  </Target>
+</Project>

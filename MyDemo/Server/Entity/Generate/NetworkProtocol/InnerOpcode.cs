@@ -8,7 +8,9 @@ namespace Fantasy
     {
         public const uint G2Game_CreateRoleRequest = 1073751826;
         public const uint G2Game_EnterGameRequest = 1073751825;
+        public const uint G2Game_PlayerMove = 939534101;
         public const uint Game2G_CreateRoleResponse = 1207969554;
         public const uint Game2G_EnterGameResponse = 1207969553;
+        public const uint Game2G_PlayerMove = 939534102;
     }
 }
