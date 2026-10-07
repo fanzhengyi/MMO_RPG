@@ -17,6 +17,8 @@ namespace Fantasy
         public const uint G2C_CreateRoleResponse = 402663190;
         public const uint G2C_EnterGameResponse = 402663189;
         public const uint G2C_LoginResponse = 402663188;
+        public const uint G2C_PlayerEntered = 134227734;
+        public const uint G2C_PlayerLeft = 134227735;
         public const uint G2C_PlayerMove = 134227733;
         public const uint G_2C_RepeaLogin = 134227730;
     }

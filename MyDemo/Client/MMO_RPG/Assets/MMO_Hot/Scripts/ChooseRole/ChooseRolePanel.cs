@@ -21,26 +21,34 @@ public class ChooseRolePanel : BasePanel
     {
         CreateRoleAsync().Coroutine();
     }
-     private async FTask CreateRoleAsync()
+    private async FTask CreateRoleAsync()
     {
-        if(_isRequesting)return;
-        _isRequesting=true;
-        btnCreatRole.interactable=false;
+        if (_isRequesting) return;
+        _isRequesting = true;
+        btnCreatRole.interactable = false;
         try
         {
             //判空
             if (string.IsNullOrEmpty(userName.text))
             {
                 TipManager.Instance.ShowTip("昵称不能为空");
+                return;
             }
-            AccountErrorCode errcode=await CreatRoleController.Instance.CreatRoleAsync(userName.text);
+            AccountErrorCode errcode = await CreatRoleController.Instance.CreatRoleAsync(userName.text);
+            if (errcode == AccountErrorCode.CreateRoleSuccess)
+            {
+                TipManager.Instance.ShowTip("角色创建成功");
+                Hide();
+                return;
+            }
+
             Cheak(errcode);
-            
+
         }
         finally
         {
-            _isRequesting=false;
-            btnCreatRole.interactable=true;
+            _isRequesting = false;
+            btnCreatRole.interactable = true;
         }
     }
 
@@ -50,17 +58,17 @@ public class ChooseRolePanel : BasePanel
         switch (accountErrorCode)
         {
             case AccountErrorCode.CreateRoleSuccess:
-                TipManager.Instance.ShowTip("已经拥有角色");
-            break;
+                TipManager.Instance.ShowTip("角色创建成功");
+                break;
             case AccountErrorCode.NickNameNull:
                 TipManager.Instance.ShowTip("角色名字不能为空");
-            break;
+                break;
             case AccountErrorCode.NoLogin:
                 TipManager.Instance.ShowTip("登录失效，请重新登录");
-            break;
+                break;
             default:
                 TipManager.Instance.ShowTip("服务器错误");
-            break;
+                break;
         }
     }
 }

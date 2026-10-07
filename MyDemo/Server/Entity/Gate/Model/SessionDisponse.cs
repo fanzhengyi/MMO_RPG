@@ -6,4 +6,6 @@ public class SessionDisponse : Entity
     public string userName;
     // 该玩家负责的 Game 场景地址（登录成功时算好缓存，转发时直接取）
     public long gameSceneAddress;
+    public long gateSceneAddress;
+    public long gateSessionRuntimeId;
 }

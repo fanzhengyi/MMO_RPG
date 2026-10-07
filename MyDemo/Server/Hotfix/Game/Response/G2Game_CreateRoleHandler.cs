@@ -34,7 +34,7 @@ public class G2Game_CreateRoleHandler : AddressRPC<Scene, G2Game_CreateRoleReque
                 return;
             }
 
-            // 2. 再查 MongoDB
+            // 2. 再查 MongoDB，数据库有角色
             var exist = await scene.World.Database
                 .First<OnlineInfo>(d => d.UserName == request.UserName);
             if (exist != null)
@@ -50,7 +50,7 @@ public class G2Game_CreateRoleHandler : AddressRPC<Scene, G2Game_CreateRoleReque
                 return;
             }
 
-            // 3. 没角色：创建（初始数值写死，只有默认职业）
+            // 3. 数据库没角色：创建（初始数值写死，只有默认职业）
             onlineInfo = Entity.Create<OnlineInfo>(scene, true, true);
             onlineInfo.UserName = request.UserName;
             onlineInfo.NickName = request.NickName;

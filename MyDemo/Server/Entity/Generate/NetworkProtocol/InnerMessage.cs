@@ -439,4 +439,175 @@ namespace Fantasy
         [ProtoMember(9)]
         public float Speed { get; set; }
     }
+    /// <summary>
+    /// Game 将玩家进入场景事件定向转发给目标 Gate
+    /// </summary>
+    [Serializable]
+    [ProtoContract]
+    public partial class Game2G_PlayerEntered : AMessage, IAddressMessage
+    {
+        public static Game2G_PlayerEntered Create(bool autoReturn = true)
+        {
+            var game2G_PlayerEntered = MessageObjectPool<Game2G_PlayerEntered>.Rent();
+            game2G_PlayerEntered.AutoReturn = autoReturn;
+
+            if (!autoReturn)
+            {
+                game2G_PlayerEntered.SetIsPool(false);
+            }
+
+            return game2G_PlayerEntered;
+        }
+
+        public void Return()
+        {
+            if (!AutoReturn)
+            {
+                SetIsPool(true);
+                AutoReturn = true;
+            }
+            else if (!IsPool())
+            {
+                return;
+            }
+            Dispose();
+        }
+
+        public void Dispose()
+        {
+            if (!IsPool()) return;
+            GateSessionRuntimeId = default;
+            RoleId = default;
+            UserName = default;
+            NickName = default;
+            X = default;
+            Y = default;
+            Z = default;
+            RotationY = default;
+            State = default;
+            Speed = default;
+            Sequence = default;
+            MessageObjectPool<Game2G_PlayerEntered>.Return(this);
+        }
+        public uint OpCode() { return InnerOpcode.Game2G_PlayerEntered; }
+        [ProtoMember(1)]
+        public long GateSessionRuntimeId { get; set; }
+        [ProtoMember(2)]
+        public long RoleId { get; set; }
+        [ProtoMember(3)]
+        public string UserName { get; set; }
+        [ProtoMember(4)]
+        public string NickName { get; set; }
+        [ProtoMember(5)]
+        public float X { get; set; }
+        [ProtoMember(6)]
+        public float Y { get; set; }
+        [ProtoMember(7)]
+        public float Z { get; set; }
+        [ProtoMember(8)]
+        public float RotationY { get; set; }
+        [ProtoMember(9)]
+        public int State { get; set; }
+        [ProtoMember(10)]
+        public float Speed { get; set; }
+        [ProtoMember(11)]
+        public uint Sequence { get; set; }
+    }
+    /// <summary>
+    /// Gate 在玩家连接离线宽限期结束后通知 Game 清除在线会话
+    /// </summary>
+    [Serializable]
+    [ProtoContract]
+    public partial class G2Game_PlayerLeft : AMessage, IAddressMessage
+    {
+        public static G2Game_PlayerLeft Create(bool autoReturn = true)
+        {
+            var g2Game_PlayerLeft = MessageObjectPool<G2Game_PlayerLeft>.Rent();
+            g2Game_PlayerLeft.AutoReturn = autoReturn;
+
+            if (!autoReturn)
+            {
+                g2Game_PlayerLeft.SetIsPool(false);
+            }
+
+            return g2Game_PlayerLeft;
+        }
+
+        public void Return()
+        {
+            if (!AutoReturn)
+            {
+                SetIsPool(true);
+                AutoReturn = true;
+            }
+            else if (!IsPool())
+            {
+                return;
+            }
+            Dispose();
+        }
+
+        public void Dispose()
+        {
+            if (!IsPool()) return;
+            UserName = default;
+            GateSessionRuntimeId = default;
+            GateSceneAddress = default;
+            MessageObjectPool<G2Game_PlayerLeft>.Return(this);
+        }
+        public uint OpCode() { return InnerOpcode.G2Game_PlayerLeft; }
+        [ProtoMember(1)]
+        public string UserName { get; set; }
+        [ProtoMember(2)]
+        public long GateSessionRuntimeId { get; set; }
+        [ProtoMember(3)]
+        public long GateSceneAddress { get; set; }
+    }
+    /// <summary>
+    /// Game 将玩家离开场景事件定向转发给目标 Gate
+    /// </summary>
+    [Serializable]
+    [ProtoContract]
+    public partial class Game2G_PlayerLeft : AMessage, IAddressMessage
+    {
+        public static Game2G_PlayerLeft Create(bool autoReturn = true)
+        {
+            var game2G_PlayerLeft = MessageObjectPool<Game2G_PlayerLeft>.Rent();
+            game2G_PlayerLeft.AutoReturn = autoReturn;
+
+            if (!autoReturn)
+            {
+                game2G_PlayerLeft.SetIsPool(false);
+            }
+
+            return game2G_PlayerLeft;
+        }
+
+        public void Return()
+        {
+            if (!AutoReturn)
+            {
+                SetIsPool(true);
+                AutoReturn = true;
+            }
+            else if (!IsPool())
+            {
+                return;
+            }
+            Dispose();
+        }
+
+        public void Dispose()
+        {
+            if (!IsPool()) return;
+            GateSessionRuntimeId = default;
+            RoleId = default;
+            MessageObjectPool<Game2G_PlayerLeft>.Return(this);
+        }
+        public uint OpCode() { return InnerOpcode.Game2G_PlayerLeft; }
+        [ProtoMember(1)]
+        public long GateSessionRuntimeId { get; set; }
+        [ProtoMember(2)]
+        public long RoleId { get; set; }
+    }
 }

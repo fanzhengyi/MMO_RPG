@@ -34,6 +34,23 @@ public static class GameAccountHelper
         self.Scene.GetComponent<GateLoginCache>().Remove(self.UserName);
     }
 
+    public static void NotifyGameLeft(Scene scene, string userName, long gameSceneAddress,
+        long gateSessionRuntimeId, long gateSceneAddress)
+    {
+        if (string.IsNullOrEmpty(userName) || gameSceneAddress == 0
+            || gateSessionRuntimeId == 0 || gateSceneAddress == 0)
+        {
+            return;
+        }
+
+        scene.Send(gameSceneAddress, new G2Game_PlayerLeft
+        {
+            UserName = userName,
+            GateSessionRuntimeId = gateSessionRuntimeId,
+            GateSceneAddress = gateSceneAddress,
+        });
+    }
+
     public static async FTask Disconnect(Scene scene, string userName, int TimeOut = 1000 * 60 * 5)
     {
         // 断线后默认保留 5 分钟，期间重连可以复用原来的在线状态。

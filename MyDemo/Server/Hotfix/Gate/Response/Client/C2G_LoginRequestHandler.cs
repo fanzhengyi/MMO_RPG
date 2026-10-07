@@ -52,7 +52,14 @@ public class C2G_LoginRequestHandler : MessageRPC<C2G_LoginRequest, G2C_LoginRes
             if (session.Scene.TryGetEntity<Session>(gameAccount.SessionRunTime, out var oldSession))
             {
                 // 顶号时通知旧客户端，并延迟销毁旧 Session。
-                oldSession.GetComponent<SessionDisponse>().userName = "";
+                var oldSessionInfo = oldSession.GetComponent<SessionDisponse>();
+                if (oldSessionInfo != null)
+                {
+                    GameAccountHelper.NotifyGameLeft(oldSession.Scene, oldSessionInfo.userName,
+                        oldSessionInfo.gameSceneAddress, oldSessionInfo.gateSessionRuntimeId,
+                        oldSessionInfo.gateSceneAddress);
+                    oldSessionInfo.userName = "";
+                }
                 oldSession.Send(new G_2C_RepeaLogin());
                 oldSession.SetTimeout(3000);
             }
@@ -64,6 +71,8 @@ public class C2G_LoginRequestHandler : MessageRPC<C2G_LoginRequest, G2C_LoginRes
         var gameScenes = SceneConfigData.Instance.GetSceneBySceneType(SceneType.Game);
         var gameSceneConfig = gameScenes[(int)(HashCodeHelper.MurmurHash3(request.UserName) % gameScenes.Count)];
         disponse.gameSceneAddress = gameSceneConfig.Address;
+        disponse.gateSceneAddress = SceneConfigData.Instance.Get(session.Scene.SceneConfigId).Address;
+        disponse.gateSessionRuntimeId = session.RuntimeId;
         
         gameAccount.SessionRunTime = session.RuntimeId;
         response.LoginError = AccountErrorCode.LoginSuccess;

@@ -755,4 +755,119 @@ namespace Fantasy
         [ProtoMember(8)]
         public float Speed { get; set; }
     }
+    /// <summary>
+    /// 玩家进入场景时，通知其他客户端创建或更新远端角色
+    /// </summary>
+    [Serializable]
+    [ProtoContract]
+    public partial class G2C_PlayerEntered : AMessage, IMessage
+    {
+        public static G2C_PlayerEntered Create(bool autoReturn = true)
+        {
+            var g2C_PlayerEntered = MessageObjectPool<G2C_PlayerEntered>.Rent();
+            g2C_PlayerEntered.AutoReturn = autoReturn;
+
+            if (!autoReturn)
+            {
+                g2C_PlayerEntered.SetIsPool(false);
+            }
+
+            return g2C_PlayerEntered;
+        }
+
+        public void Return()
+        {
+            if (!AutoReturn)
+            {
+                SetIsPool(true);
+                AutoReturn = true;
+            }
+            else if (!IsPool())
+            {
+                return;
+            }
+            Dispose();
+        }
+
+        public void Dispose()
+        {
+            if (!IsPool()) return;
+            RoleId = default;
+            UserName = default;
+            NickName = default;
+            X = default;
+            Y = default;
+            Z = default;
+            RotationY = default;
+            State = default;
+            Speed = default;
+            Sequence = default;
+            MessageObjectPool<G2C_PlayerEntered>.Return(this);
+        }
+        public uint OpCode() { return OuterOpcode.G2C_PlayerEntered; }
+        [ProtoMember(1)]
+        public long RoleId { get; set; }
+        [ProtoMember(2)]
+        public string UserName { get; set; }
+        [ProtoMember(3)]
+        public string NickName { get; set; }
+        [ProtoMember(4)]
+        public float X { get; set; }
+        [ProtoMember(5)]
+        public float Y { get; set; }
+        [ProtoMember(6)]
+        public float Z { get; set; }
+        [ProtoMember(7)]
+        public float RotationY { get; set; }
+        [ProtoMember(8)]
+        public int State { get; set; }
+        [ProtoMember(9)]
+        public float Speed { get; set; }
+        [ProtoMember(10)]
+        public uint Sequence { get; set; }
+    }
+    /// <summary>
+    /// 玩家离开场景时通知客户端销毁远端角色
+    /// </summary>
+    [Serializable]
+    [ProtoContract]
+    public partial class G2C_PlayerLeft : AMessage, IMessage
+    {
+        public static G2C_PlayerLeft Create(bool autoReturn = true)
+        {
+            var g2C_PlayerLeft = MessageObjectPool<G2C_PlayerLeft>.Rent();
+            g2C_PlayerLeft.AutoReturn = autoReturn;
+
+            if (!autoReturn)
+            {
+                g2C_PlayerLeft.SetIsPool(false);
+            }
+
+            return g2C_PlayerLeft;
+        }
+
+        public void Return()
+        {
+            if (!AutoReturn)
+            {
+                SetIsPool(true);
+                AutoReturn = true;
+            }
+            else if (!IsPool())
+            {
+                return;
+            }
+            Dispose();
+        }
+
+        public void Dispose()
+        {
+            if (!IsPool()) return;
+            RoleId = default;
+            MessageObjectPool<G2C_PlayerLeft>.Return(this);
+        }
+        public uint OpCode() { return OuterOpcode.G2C_PlayerLeft; }
+        [ProtoMember(1)]
+        public long RoleId { get; set; }
+    }
 }

@@ -26,23 +26,24 @@ public sealed class OnlineInfo : Entity
 
     // 以下字段只用于 Game 内存态，避免随角色数据写入 MongoDB。
     [BsonIgnore]
-    public uint LastMoveSequence;
+    public uint LastMoveSequence; //当前连接最后接受的移动序号
     [BsonIgnore]
-    public bool HasLastMoveSequence;
+    public bool HasLastMoveSequence; //当前连接是否已接受过移动；新连接首包不和旧连接快照比较
     [BsonIgnore]
-    public long LastMoveReceivedAt;
+    public long LastMoveReceivedAt; //上一次接收客户端消息的服务器时间
     [BsonIgnore]
-    public long LastPositionSavedAt;
+    public long LastPositionSavedAt; //上次把位置保存到数据库的服务器时间
     [BsonIgnore]
-    public int MovementState;
+    public int MovementState; //客户端状态机状态，用于远端角色播放动画
     [BsonIgnore]
-    public float MovementSpeed;
+    public float MovementSpeed; //客户端上报的动画速度参数
 
-    /// <summary>绑定玩家当前 Gate 连接，并在换连接时重置移动序号。</summary>
+    /// <summary>记录玩家当前所在的 Gate 连接；换连接时重置只属于旧连接的移动统计。</summary>
     public void BindGateSession(long gateSessionRuntimeId, long gateSceneAddress)
     {
         if (GateSessionRuntimeId != gateSessionRuntimeId)
         {
+            // 新连接会从自己的第一条移动序号重新开始，旧连接的时间和动画状态也不再适用。
             LastMoveSequence = 0;
             HasLastMoveSequence = false;
             LastMoveReceivedAt = 0;

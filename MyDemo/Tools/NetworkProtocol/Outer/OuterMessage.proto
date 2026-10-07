@@ -160,3 +160,24 @@ message G2C_PlayerMove // IMessage
 	int32 State = 7;
 	float Speed = 8;
 }
+
+///玩家进入场景时，通知其他客户端创建或更新远端角色
+message G2C_PlayerEntered // IMessage
+{
+	int64 RoleId = 1;
+	string UserName = 2;
+	string NickName = 3;
+	float X = 4;
+	float Y = 5;
+	float Z = 6;
+	float RotationY = 7;
+	int32 State = 8;
+	float Speed = 9;
+	uint32 Sequence = 10;
+}
+
+///玩家离开场景时通知客户端销毁远端角色
+message G2C_PlayerLeft // IMessage
+{
+	int64 RoleId = 1;
+}

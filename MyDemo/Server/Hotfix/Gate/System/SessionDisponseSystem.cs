@@ -9,6 +9,8 @@ public class SessionDisponseDestrySystem : DestroySystem<SessionDisponse>
         // Session 销毁时触发账号断线逻辑，而不是立即删除账号数据。
         if (self.userName != "")
         {
+            GameAccountHelper.NotifyGameLeft(self.Scene, self.userName, self.gameSceneAddress,
+                self.gateSessionRuntimeId, self.gateSceneAddress);
             GameAccountHelper.Disconnect(self.Scene, self.userName).Coroutine();
             self.userName = "";
         }
