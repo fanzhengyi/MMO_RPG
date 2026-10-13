@@ -24,51 +24,32 @@ public class G2Game_CreateRoleHandler : AddressRPC<Scene, G2Game_CreateRoleReque
         {
             var onlineComponent = scene.GetComponent<OnlineComponent>();
 
-            // 1. 先查内存（在线说明已有角色）
-            if (onlineComponent.PlayersByName.TryGetValue(request.UserName, out var onlineInfo))
+            var result = AccountErrorCode.HaveRole;
+            if (!onlineComponent.PlayersByName.TryGetValue(request.UserName, out var onlineInfo))
             {
-                onlineInfo.BindGateSession(request.GateSessionRuntimeId, request.GateSceneAddress);
+                // 内存中没有角色时再查数据库；确实不存在才创建。
+                onlineInfo = await scene.World.Database
+                    .First<OnlineInfo>(d => d.UserName == request.UserName);
+                if (onlineInfo == null)
+                {
+                    onlineInfo = Entity.Create<OnlineInfo>(scene, true, true);
+                    onlineInfo.UserName = request.UserName;
+                    onlineInfo.NickName = request.NickName;
+                    onlineInfo.Hp = 100;
+                    onlineInfo.MaxHp = 100;
+                    onlineInfo.Mp = 100;
+                    onlineInfo.MaxMp = 100;
+                    onlineInfo.Gold = 0;
+                    await scene.World.Database.Save(onlineInfo);
+                    result = AccountErrorCode.CreateRoleSuccess;
+                }
 
-                response.AccountErrorCode = (int)AccountErrorCode.HaveRole;
-                FillData(response, onlineInfo);
-                return;
+                onlineInfo.Deserialize(scene);
+                onlineComponent.PlayersByName[onlineInfo.UserName] = onlineInfo;
             }
 
-            // 2. 再查 MongoDB，数据库有角色
-            var exist = await scene.World.Database
-                .First<OnlineInfo>(d => d.UserName == request.UserName);
-            if (exist != null)
-            {
-                // 已有角色：直接上线（激活 + 入在线容器）
-                exist.Deserialize(scene);
-                exist.BindGateSession(request.GateSessionRuntimeId, request.GateSceneAddress);
-                onlineComponent.Players[exist.Id] = exist;
-                onlineComponent.PlayersByName[exist.UserName] = exist;
-
-                response.AccountErrorCode = (int)AccountErrorCode.HaveRole;
-                FillData(response, exist);
-                return;
-            }
-
-            // 3. 数据库没角色：创建（初始数值写死，只有默认职业）
-            onlineInfo = Entity.Create<OnlineInfo>(scene, true, true);
-            onlineInfo.UserName = request.UserName;
-            onlineInfo.NickName = request.NickName;
-            onlineInfo.Hp = 100;
-            onlineInfo.MaxHp = 100;
-            onlineInfo.Mp = 100;
-            onlineInfo.MaxMp = 100;
-            onlineInfo.Gold = 0;
-
-            await scene.World.Database.Save(onlineInfo);
-
-            // 4. 上线：激活 + 入在线容器 + 保存 Gate 转发映射
-            onlineInfo.Deserialize(scene);
             onlineInfo.BindGateSession(request.GateSessionRuntimeId, request.GateSceneAddress);
-            onlineComponent.Players[onlineInfo.Id] = onlineInfo;
-            onlineComponent.PlayersByName[onlineInfo.UserName] = onlineInfo;
-
-            response.AccountErrorCode = (int)AccountErrorCode.CreateRoleSuccess;
+            response.AccountErrorCode = (int)result;
             FillData(response, onlineInfo);
         }
     }

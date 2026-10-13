@@ -7,7 +7,7 @@ using Fantasy.Network.Interface;
 public sealed class G2C_PlayerEnteredHandler : Message<G2C_PlayerEntered>
 {
     /// <summary>进入通知提供初始位置；管理器据此创建或更新远端角色。</summary>
-    protected override FTask Run(Session session, G2C_PlayerEntered message)
+    protected override async FTask Run(Session session, G2C_PlayerEntered message)
     {
         RemotePlayerManager.PlayerEntered(new RemotePlayerManager.Snapshot
         {
@@ -18,14 +18,14 @@ public sealed class G2C_PlayerEnteredHandler : Message<G2C_PlayerEntered>
             Speed = message.Speed,
         });
 
-        return FTask.CompletedTask;
+        await FTask.CompletedTask;
     }
 }
 
 /// <summary>移动通知更新目标位置和动画；远端角色尚未生成时由管理器暂存。</summary>
 public sealed class G2C_PlayerMoveHandler : Message<G2C_PlayerMove>
 {
-    protected override FTask Run(Session session, G2C_PlayerMove message)
+    protected override async FTask Run(Session session, G2C_PlayerMove message)
     {
         RemotePlayerManager.PlayerMoved(new RemotePlayerManager.Snapshot
         {
@@ -36,16 +36,16 @@ public sealed class G2C_PlayerMoveHandler : Message<G2C_PlayerMove>
             Speed = message.Speed,
         });
 
-        return FTask.CompletedTask;
+        await FTask.CompletedTask;
     }
 }
 
 /// <summary>离开通知清除该角色及其尚未应用的缓存快照。</summary>
 public sealed class G2C_PlayerLeftHandler : Message<G2C_PlayerLeft>
 {
-    protected override FTask Run(Session session, G2C_PlayerLeft message)
+    protected override async FTask Run(Session session, G2C_PlayerLeft message)
     {
         RemotePlayerManager.PlayerLeft(message.RoleId);
-        return FTask.CompletedTask;
+        await FTask.CompletedTask;
     }
 }

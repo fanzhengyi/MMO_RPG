@@ -39,7 +39,7 @@ public sealed class PlayerMovementSync : MonoBehaviour
         var player = PlayerSelfModel.Instance;
         if (player.HasRole)
         {
-            // 服务端保存的位置作为本地角色进入场景时的起点。
+            // 场景首帧同步前先恢复服务端保存的位置。
             transform.SetPositionAndRotation(
                 new Vector3(player.X, player.Y, player.Z),
                 Quaternion.Euler(0f, player.RotationY, 0f));

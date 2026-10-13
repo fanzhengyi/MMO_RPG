@@ -1,9 +1,8 @@
 using Fantasy;
-using UnityEngine;
 
 /// <summary>
 /// 本地玩家自己的数据快照（从 PlayerInfo 拷贝，因为协议对象会被回收回对象池）。
-/// 后续移动上报、UI刷新都从这里取。
+/// 进入场景和 UI 刷新从这里读取角色初始数据。
 /// </summary>
 public class PlayerSelfModel : Singleton<PlayerSelfModel>
 {
@@ -35,15 +34,6 @@ public class PlayerSelfModel : Singleton<PlayerSelfModel>
         Y = info.Y;
         Z = info.Z;
         RotationY = info.RotationY;
-    }
-
-    /// <summary>
-    /// 上报自己的移动（状态同步入口），由移动逻辑按固定频率调用。
-    /// </summary>
-    public void ReportMove(float x, float y, float z, float rotationY)
-    {
-        // 先更新本地缓存
-        X = x; Y = y; Z = z; RotationY = rotationY;
     }
 
     public void Clear()

@@ -67,7 +67,7 @@ public sealed class G2Game_PlayerMoveHandler : Address<Scene, G2Game_PlayerMove>
         player.LastMoveReceivedAt = now;
 
         // Game 不直接保存客户端连接；按每个接收者记录的 Gate 地址和 Session ID 转发。
-        foreach (var receiver in onlineComponent.Players.Values)
+        foreach (var receiver in onlineComponent.PlayersByName.Values)
         {
             // 不把自己的移动发回发送者，也不向已断开或尚未绑定 Gate 的角色转发。
             if (receiver.Id == player.Id

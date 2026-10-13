@@ -66,15 +66,9 @@ public sealed class RemotePlayerManager : MonoBehaviour
         }
 
         instance.Upsert(snapshot);
-        if (pendingMoves.TryGetValue(snapshot.RoleId, out var pendingMove))
-        {
-            // 先按进入消息创建模型，再应用可能已经到达的较新位置。
-            instance.views[snapshot.RoleId].SetSnapshot(pendingMove);
-            pendingMoves.Remove(snapshot.RoleId);
-        }
     }
 
-    /// <summary>更新遠端角色的目标位置和动画状态。</summary>
+    /// <summary>更新远端角色的目标位置和动画状态。</summary>
     public static void PlayerMoved(Snapshot snapshot)
     {
         if (snapshot.RoleId == 0 || snapshot.RoleId == PlayerSelfModel.Instance.RoleId)
@@ -127,50 +121,41 @@ public sealed class RemotePlayerManager : MonoBehaviour
             Upsert(snapshot);
         }
         pendingEntries.Clear();
-
-        var resolvedMoves = new List<long>();
-        foreach (var pair in pendingMoves)
-        {
-            if (views.TryGetValue(pair.Key, out var view))
-            {
-                // 只消费已经有模型的移动；尚无进入通知的移动继续留在缓存里。
-                view.SetSnapshot(pair.Value);
-                resolvedMoves.Add(pair.Key);
-            }
-        }
-
-        foreach (var roleId in resolvedMoves)
-        {
-            // 遍历字典时不能直接删除元素，所以先记下键，再统一移除。
-            pendingMoves.Remove(roleId);
-        }
     }
 
     private void Upsert(Snapshot snapshot)
     {
-        if (views.TryGetValue(snapshot.RoleId, out var existingView))
+        if (views.TryGetValue(snapshot.RoleId, out var view))
         {
             // 重复进入通知只刷新状态，不重复创建模型。
-            existingView.SetSnapshot(snapshot);
-            return;
+            view.SetSnapshot(snapshot);
+        }
+        else
+        {
+            // 根对象承载位置和朝向，子对象只复用角色外观模型。
+            var avatar = new GameObject($"RemotePlayer_{snapshot.RoleId}");
+            avatar.transform.SetParent(transform, false);
+            avatar.transform.localScale = avatarScale;
+            avatar.transform.SetPositionAndRotation(
+                snapshot.Position,
+                Quaternion.Euler(0f, snapshot.RotationY, 0f));
+
+            var visual = Instantiate(visualTemplate.gameObject, avatar.transform, false);
+            visual.transform.localPosition = visualLocalPosition;
+            visual.transform.localRotation = visualLocalRotation;
+            visual.transform.localScale = visualLocalScale;
+
+            view = avatar.AddComponent<RemotePlayerView>();
+            view.Initialize(snapshot, visual.GetComponentInChildren<Animator>(true));
+            views.Add(snapshot.RoleId, view);
         }
 
-        // 根对象承载位置和朝向，子对象只复用角色外观模型。
-        var avatar = new GameObject($"RemotePlayer_{snapshot.RoleId}");
-        avatar.transform.SetParent(transform, false);
-        avatar.transform.localScale = avatarScale;
-        avatar.transform.SetPositionAndRotation(
-            snapshot.Position,
-            Quaternion.Euler(0f, snapshot.RotationY, 0f));
-
-        var visual = Instantiate(visualTemplate.gameObject, avatar.transform, false);
-        visual.transform.localPosition = visualLocalPosition;
-        visual.transform.localRotation = visualLocalRotation;
-        visual.transform.localScale = visualLocalScale;
-
-        var view = avatar.AddComponent<RemotePlayerView>();
-        view.Initialize(snapshot, visual.GetComponentInChildren<Animator>(true));
-        views.Add(snapshot.RoleId, view);
+        // 进入消息到来前暂存的移动，统一在模型创建或刷新后应用。
+        if (pendingMoves.TryGetValue(snapshot.RoleId, out var pendingMove))
+        {
+            view.SetSnapshot(pendingMove);
+            pendingMoves.Remove(snapshot.RoleId);
+        }
     }
 
     private void OnDestroy()

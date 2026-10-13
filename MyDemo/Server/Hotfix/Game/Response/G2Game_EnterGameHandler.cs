@@ -15,7 +15,7 @@ public class G2Game_EnterGameHandler: AddressRPC<Scene, G2Game_EnterGameRequest,
             response.AccountErrorCode = (int)AccountErrorCode.ServerError;
             return;
         }
-        // 在线表同时按账号和角色 ID 建索引，移动广播从这里枚举接收者。
+        // 在线表按账号查找，广播时遍历当前角色。
         var onlineComponent = scene.GetComponent<OnlineComponent>();
 
         // 先复用当前 Game 内存里的角色；只有不在内存时才查数据库。
@@ -34,7 +34,6 @@ public class G2Game_EnterGameHandler: AddressRPC<Scene, G2Game_EnterGameRequest,
 
             // Deserialize 把数据库实体恢复到当前 Scene，再加入在线索引供后续同步使用。
             onlineInfo.Deserialize(scene);
-            onlineComponent.Players[onlineInfo.Id] = onlineInfo;
             onlineComponent.PlayersByName[onlineInfo.UserName] = onlineInfo;
         }
 
@@ -42,9 +41,12 @@ public class G2Game_EnterGameHandler: AddressRPC<Scene, G2Game_EnterGameRequest,
         onlineInfo.BindGateSession(request.GateSessionRuntimeId, request.GateSceneAddress);
 
         // 双向发送进入通知：新人获得现有玩家列表，老玩家获得新人的初始状态。
-        foreach (var otherPlayer in onlineComponent.Players.Values)
+        foreach (var otherPlayer in onlineComponent.PlayersByName.Values)
         {
-            if (otherPlayer.Id == onlineInfo.Id)
+            // 断线角色仍留在内存中供重连使用，但不应出现在新玩家的视野里。
+            if (otherPlayer.Id == onlineInfo.Id
+                || otherPlayer.GateSessionRuntimeId == 0
+                || otherPlayer.GateSceneAddress == 0)
             {
                 continue;
             }

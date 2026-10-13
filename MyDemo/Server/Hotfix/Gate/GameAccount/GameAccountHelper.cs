@@ -1,7 +1,6 @@
 using Fantasy;
 using Fantasy.Async;
 using Fantasy.Entitas.Interface;
-using Fantasy.Network;
 
 public sealed class GameAccountSystemDestory : DestroySystem<GameAccount>
 {
@@ -54,13 +53,9 @@ public static class GameAccountHelper
     public static async FTask Disconnect(Scene scene, string userName, int TimeOut = 1000 * 60 * 5)
     {
         // 断线后默认保留 5 分钟，期间重连可以复用原来的在线状态。
+        // 此时 Session 可能已经销毁，账号仍由 Gate 缓存持有。
         var gateCache = scene.GetComponent<GateLoginCache>();
         if (!gateCache.TryGet(userName, out var account))
-        {
-            Log.Error("出错了");
-            return;
-        }
-        if (!scene.TryGetEntity<Session>(account.SessionRunTime, out var session))
         {
             Log.Error("出错了");
             return;

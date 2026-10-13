@@ -58,11 +58,6 @@ public class CreatRoleController : Singleton<CreatRoleController>
         using (var response = await gateSession.C2G_CreateRoleRequest(userName))
         {
             errorCode = (AccountErrorCode)response.AccountErrorCode;
-            if ((errorCode == AccountErrorCode.CreateRoleSuccess || errorCode == AccountErrorCode.HaveRole)
-                && response.Info != null)
-            {
-                PlayerSelfModel.Instance.SetInfo(response.Info);
-            }
         }
 
         if (errorCode == AccountErrorCode.CreateRoleSuccess || errorCode == AccountErrorCode.HaveRole)
