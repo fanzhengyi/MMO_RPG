@@ -3,7 +3,6 @@ using System.Collections.Generic;
 using System.Threading;
 using Cysharp.Threading.Tasks;
 using UnityEngine;
-using UnityEngine.SceneManagement;
 using UnityEngine.Serialization;
 using YooAsset;
 
@@ -81,14 +80,14 @@ public class MyYooAsset : MonoBehaviour
             {
                 SetDownloadProgress(1f, "编辑器模拟模式：跳过热更新");
                 //加载场景
-                await LoadMainSceneAsync(cancellationToken);
+                await LoadMainSceneAsync();
                 return;
             }
 
             // 以下操作只在实际客户端的 HostPlayMode 执行。
             await UpdateRemoteResourcesAsync(cancellationToken);
             await ClearUnusedCacheAsync(cancellationToken);
-            await LoadMainSceneAsync(cancellationToken);
+            await LoadMainSceneAsync();
         }
         catch (OperationCanceledException)
         {
@@ -206,10 +205,8 @@ public class MyYooAsset : MonoBehaviour
         SetStatus("资源准备完成");
     }
 
-    /// <summary>
-    /// 【热更完成后场景跳转的位置】
-    /// </summary>
-    private async UniTask LoadMainSceneAsync(CancellationToken cancellationToken)
+    /// <summary>资源准备完成后加载登录场景。</summary>
+    private async UniTask LoadMainSceneAsync()
     {
         SetStatus("正在加载主场景");
         await ResManager.Instance.LoadSceneAsync(mainSceneLocation);

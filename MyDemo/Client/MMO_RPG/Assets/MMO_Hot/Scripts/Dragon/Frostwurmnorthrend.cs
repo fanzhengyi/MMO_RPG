@@ -1,15 +1,12 @@
-using System.Collections;
-using System.Collections.Generic;
 using UnityEngine;
-//*****************************************
-//创建人： Trigger 
-//功能说明：主界面冰霜巨龙特效控制
-//***************************************** 
+
+/// <summary>登录背景特效；公开方法由 Timeline 动画事件调用。</summary>
 public class Frostwurmnorthrend : MonoBehaviour
 {
     private ParticleSystem smokePS;
     private ParticleSystem firePS;
 
+    /// <summary>缓存特效组件，初始隐藏。</summary>
     private void Awake()
     {
         smokePS = transform.Find("Smoke").GetComponent<ParticleSystem>();
@@ -19,23 +16,27 @@ public class Frostwurmnorthrend : MonoBehaviour
     }
 
 
+    /// <summary>动画事件：播放落地烟雾。</summary>
     public void PlayGroundSmoke()
     {
         smokePS.gameObject.SetActive(true);
         smokePS.Play();
     }
 
+    /// <summary>动画事件：播放冰霜吐息。</summary>
     public void PlayIceFire()
     {
         firePS.gameObject.SetActive(true);
         firePS.Play();
     }
 
+    /// <summary>动画事件：停止吐息发射，等待已有粒子消散。</summary>
     public void StopIceFire()
     {
         firePS.Stop();
     }
 
+    /// <summary>动画事件：停止并隐藏所有特效。</summary>
     public void HideAll()
     {
         firePS.Stop();
