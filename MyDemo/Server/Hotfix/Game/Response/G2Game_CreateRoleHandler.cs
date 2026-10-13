@@ -1,72 +1,45 @@
 using Fantasy;
 using Fantasy.Async;
+using Fantasy.Entitas;
 using Fantasy.MongdbModel;
 using Fantasy.Network.Interface;
-using Fantasy.Entitas;
 
-/// <summary>
-/// Gate 转发创建角色请求：查库判断是否已有角色，没有则创建并上线。
-/// </summary>
-public class G2Game_CreateRoleHandler : AddressRPC<Scene, G2Game_CreateRoleRequest, Game2G_CreateRoleResponse>
+/// <summary>创建角色和进入游戏共用角色锁，防止并发加载出两个角色实例。</summary>
+public sealed class G2Game_CreateRoleHandler : AddressRPC<Scene, G2Game_CreateRoleRequest, Game2G_CreateRoleResponse>
 {
+    /// <summary>已有角色直接返回；没有角色才创建并保存。</summary>
     protected override async FTask Run(Scene scene, G2Game_CreateRoleRequest request,
         Game2G_CreateRoleResponse response, Action reply)
     {
-        if (string.IsNullOrEmpty(request.UserName) || string.IsNullOrEmpty(request.NickName))
+        response.AccountErrorCode = (int)AccountErrorCode.ServerError;
+        if (string.IsNullOrEmpty(request.UserName) || request.GateSessionRuntimeId == 0
+            || request.GateSceneAddress == 0) return;
+        if (string.IsNullOrWhiteSpace(request.NickName) || request.NickName.Trim().Length > 24)
         {
             response.AccountErrorCode = (int)AccountErrorCode.NickNameNull;
             return;
         }
 
-        // 协程锁：同一账号并发创建不会插出两条数据
-        using (await scene.CoroutineLockComponent.Wait(
-            (int)LockType.RegisterLock, request.UserName.GetHashCode()))
+        using (await scene.CoroutineLockComponent.Wait((int)LockType.PlayerData, request.UserName.GetHashCode()))
         {
-            var onlineComponent = scene.GetComponent<OnlineComponent>();
-
+            var player = await OnlinePlayerSystem.LoadAsync(scene, request.UserName);
             var result = AccountErrorCode.HaveRole;
-            if (!onlineComponent.PlayersByName.TryGetValue(request.UserName, out var onlineInfo))
+            if (player == null)
             {
-                // 内存中没有角色时再查数据库；确实不存在才创建。
-                onlineInfo = await scene.World.Database
-                    .First<OnlineInfo>(d => d.UserName == request.UserName);
-                if (onlineInfo == null)
-                {
-                    onlineInfo = Entity.Create<OnlineInfo>(scene, true, true);
-                    onlineInfo.UserName = request.UserName;
-                    onlineInfo.NickName = request.NickName;
-                    onlineInfo.Hp = 100;
-                    onlineInfo.MaxHp = 100;
-                    onlineInfo.Mp = 100;
-                    onlineInfo.MaxMp = 100;
-                    onlineInfo.Gold = 0;
-                    await scene.World.Database.Save(onlineInfo);
-                    result = AccountErrorCode.CreateRoleSuccess;
-                }
-
-                onlineInfo.Deserialize(scene);
-                onlineComponent.PlayersByName[onlineInfo.UserName] = onlineInfo;
+                // 角色是长期数据实体，创建时不复用对象池中的旧角色。
+                player = Entity.Create<OnlineInfo>(scene, false, true);
+                player.UserName = request.UserName;
+                player.NickName = request.NickName.Trim();
+                player.Hp = player.MaxHp = 100;
+                player.Mp = player.MaxMp = 100;
+                try { await scene.World.Database.Save(player); }
+                catch { player.Dispose(); throw; }
+                scene.GetComponent<OnlineComponent>().PlayersByName[player.UserName] = player;
+                result = AccountErrorCode.CreateRoleSuccess;
             }
-
-            onlineInfo.BindGateSession(request.GateSessionRuntimeId, request.GateSceneAddress);
+            // 这里只创建数据；连接绑定和在线通知统一由 EnterGame 完成。
             response.AccountErrorCode = (int)result;
-            FillData(response, onlineInfo);
+            response.Data = PlayerMessageMapper.ToRoleData(player);
         }
-    }
-
-    private static void FillData(Game2G_CreateRoleResponse response, OnlineInfo info)
-    {
-        response.Data.RoleId = info.Id;
-        response.Data.UserName = info.UserName;
-        response.Data.NickName = info.NickName;
-        response.Data.Hp = info.Hp;
-        response.Data.MaxHp = info.MaxHp;
-        response.Data.Mp = info.Mp;
-        response.Data.MaxMp = info.MaxMp;
-        response.Data.Gold = info.Gold;
-        response.Data.X = info.X;
-        response.Data.Y = info.Y;
-        response.Data.Z = info.Z;
-        response.Data.RotationY = info.RotationY;
     }
 }

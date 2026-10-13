@@ -9,6 +9,7 @@ public sealed class G2C_PlayerEnteredHandler : Message<G2C_PlayerEntered>
     /// <summary>进入通知提供初始位置；管理器据此创建或更新远端角色。</summary>
     protected override async FTask Run(Session session, G2C_PlayerEntered message)
     {
+        if (NetworkManager.Instance.GateSession != session) return;
         RemotePlayerManager.PlayerEntered(new RemotePlayerManager.Snapshot
         {
             RoleId = message.RoleId,
@@ -16,6 +17,7 @@ public sealed class G2C_PlayerEnteredHandler : Message<G2C_PlayerEntered>
             RotationY = message.RotationY,
             State = message.State,
             Speed = message.Speed,
+            Sequence = message.Sequence,
         });
 
         await FTask.CompletedTask;
@@ -27,6 +29,12 @@ public sealed class G2C_PlayerMoveHandler : Message<G2C_PlayerMove>
 {
     protected override async FTask Run(Session session, G2C_PlayerMove message)
     {
+        if (NetworkManager.Instance.GateSession != session) return;
+        if (message.RoleId == PlayerSelfModel.Instance.RoleId)
+        {
+            PlayerSelfModel.Instance.CorrectPosition(message.Sequence, message.X, message.Y, message.Z, message.RotationY);
+            return;
+        }
         RemotePlayerManager.PlayerMoved(new RemotePlayerManager.Snapshot
         {
             RoleId = message.RoleId,
@@ -34,6 +42,7 @@ public sealed class G2C_PlayerMoveHandler : Message<G2C_PlayerMove>
             RotationY = message.RotationY,
             State = message.State,
             Speed = message.Speed,
+            Sequence = message.Sequence,
         });
 
         await FTask.CompletedTask;
@@ -45,6 +54,7 @@ public sealed class G2C_PlayerLeftHandler : Message<G2C_PlayerLeft>
 {
     protected override async FTask Run(Session session, G2C_PlayerLeft message)
     {
+        if (NetworkManager.Instance.GateSession != session) return;
         RemotePlayerManager.PlayerLeft(message.RoleId);
         await FTask.CompletedTask;
     }

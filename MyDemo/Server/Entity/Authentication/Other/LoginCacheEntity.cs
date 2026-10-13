@@ -1,7 +1,8 @@
+using Fantasy;
 using Fantasy.Entitas;
 
-public class LoginCacheEntity : Entity
+/// <summary>登录缓存只保存验证结果，不挂载数据库账号实体。</summary>
+public sealed class LoginCacheEntity : Entity
 {
-    // 该实体本身不保存账号数据，只作为登录缓存的容器。
-    // 成功时挂载 Account，失败时不挂载 Account。
+    public AccountErrorCode Result;
 }

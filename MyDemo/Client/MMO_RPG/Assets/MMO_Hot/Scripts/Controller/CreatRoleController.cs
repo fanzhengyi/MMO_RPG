@@ -5,89 +5,76 @@ using Fantasy.Network;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 
-public class CreatRoleController : Singleton<CreatRoleController>
+/// <summary>请求角色数据并加载游戏场景，场景准备完成后才开启角色同步。</summary>
+public sealed class CreatRoleController : Singleton<CreatRoleController>
 {
     private const string GameSceneLocation = "Assets/MMO_Hot/Scenes/Scene Night.unity";
+    private bool requesting;
 
-    /// <summary>
-    /// 登录成功后调用：请求进入游戏，服务器会判断有没有角色。
-    /// 有角色 → 拿到自己的数据（位置等，后续状态同步用）；无角色 → 去创建角色界面。
-    /// </summary>
+    /// <summary>已有角色进入世界；无角色返回 NoRole，由界面选择下一步。</summary>
     public async FTask<AccountErrorCode> EnterGameAsync()
     {
-        var gateSession = NetworkManager.Instance.GateSession;
-        if (gateSession == null || gateSession.IsDisposed)
-        {
-            Log.Error("Gate 连接不存在，无法进入游戏。");
-            return AccountErrorCode.NoLogin;
-        }
+        if (requesting) return AccountErrorCode.ServerError;
+        requesting = true;
+        try { return await EnterGameCoreAsync(); }
+        catch (Exception exception) { Log.Error(exception); return AccountErrorCode.ServerError; }
+        finally { requesting = false; }
+    }
 
+    /// <summary>创建成功后复用进入流程；nickname 是昵称，不是登录账号。</summary>
+    public async FTask<AccountErrorCode> CreatRoleAsync(string nickname)
+    {
+        nickname = nickname?.Trim();
+        if (string.IsNullOrEmpty(nickname) || nickname.Length > 24) return AccountErrorCode.NickNameNull;
+        if (requesting) return AccountErrorCode.ServerError;
+        var session = NetworkManager.Instance.GateSession;
+        if (session == null || session.IsDisposed) return AccountErrorCode.NoLogin;
+        var sessionRuntimeId = session.RuntimeId;
+        requesting = true;
         try
         {
-            using var response = await gateSession.C2G_EnterGameRequest();
-            var errorCode = (AccountErrorCode)response.AccountErrorCode;
-            //没角色就返回错误码
-            if (errorCode != AccountErrorCode.HaveRole || response.Info == null)
-            {
-                return errorCode;
-            }
-            //有角色
+            AccountErrorCode result;
+            using (var response = await session.C2G_CreateRoleRequest(nickname))
+                result = (AccountErrorCode)response.AccountErrorCode;
+            if (result != AccountErrorCode.CreateRoleSuccess && result != AccountErrorCode.HaveRole) return result;
+            if (!NetworkManager.Instance.IsCurrentGate(session, sessionRuntimeId)) return AccountErrorCode.NoLogin;
+            var entered = await EnterGameCoreAsync();
+            return entered == AccountErrorCode.HaveRole ? AccountErrorCode.CreateRoleSuccess : entered;
+        }
+        catch (Exception exception) { Log.Error(exception); return AccountErrorCode.ServerError; }
+        finally { requesting = false; }
+    }
+
+    /// <summary>复制响应后释放协议对象，再等待场景加载。</summary>
+    private async FTask<AccountErrorCode> EnterGameCoreAsync()
+    {
+        var session = NetworkManager.Instance.GateSession;
+        if (session == null || session.IsDisposed) return AccountErrorCode.NoLogin;
+        var sessionRuntimeId = session.RuntimeId;
+        PlayerSelfModel.Instance.IsInWorld = false;
+        RemotePlayerManager.Reset();
+        using (var response = await session.C2G_EnterGameRequest())
+        {
+            var result = (AccountErrorCode)response.AccountErrorCode;
+            if (result != AccountErrorCode.HaveRole) return result;
+            if (response.Info == null) return AccountErrorCode.ServerError;
+            if (!NetworkManager.Instance.IsCurrentGate(session, sessionRuntimeId)) return AccountErrorCode.NoLogin;
             PlayerSelfModel.Instance.SetInfo(response.Info);
-            Debug.Log($"角色: RoleId={response.Info.RoleId} " +
-                      $"Hp={response.Info.Hp}/{response.Info.MaxHp} " +
-                      $"Pos=({response.Info.X},{response.Info.Y},{response.Info.Z})");
-
-            return await EnterWorldAsync();
-        }
-        catch (System.Exception exception)
-        {
-            Debug.LogException(exception);
-            return AccountErrorCode.ServerError;
-        }
-    }
-
-    public async FTask<AccountErrorCode> CreatRoleAsync(string userName)
-    {
-        var gateSession = NetworkManager.Instance.GateSession;
-        if (gateSession == null || gateSession.IsDisposed)
-        {
-            Log.Info("Gate连接不存在，创建失败");
-            return AccountErrorCode.NoLogin;
-        }
-        AccountErrorCode errorCode;
-        using (var response = await gateSession.C2G_CreateRoleRequest(userName))
-        {
-            errorCode = (AccountErrorCode)response.AccountErrorCode;
         }
 
-        if (errorCode == AccountErrorCode.CreateRoleSuccess || errorCode == AccountErrorCode.HaveRole)
-        {
-            var enterResult = await EnterGameAsync();
-            return enterResult == AccountErrorCode.HaveRole ? AccountErrorCode.CreateRoleSuccess : enterResult;
-        }
-
-        return errorCode;
-    }
-    //进入游戏请求
-    private async FTask<AccountErrorCode> EnterWorldAsync()
-    {
-        var activeScene = SceneManager.GetActiveScene();
-        if (activeScene.path != GameSceneLocation)
-        {
+        if (SceneManager.GetActiveScene().path != GameSceneLocation)
             await ResManager.Instance.LoadSceneAsync(GameSceneLocation);
-        }
+        if (!NetworkManager.Instance.IsCurrentGate(session, sessionRuntimeId)) return AccountErrorCode.NoLogin;
 
-        var localPlayer = GameObject.Find("PlayerRoot");
-        if (localPlayer == null)
-        {
-            Debug.LogError("游戏场景中找不到 PlayerRoot。");
-            return AccountErrorCode.ServerError;
-        }
-
+        // 按组件找角色，不依赖场景物体恰好叫 PlayerRoot。
+        var localPlayer = UnityEngine.Object.FindFirstObjectByType<PlayerController>();
+        if (localPlayer == null) throw new InvalidOperationException("游戏场景中找不到 PlayerController。");
         var player = PlayerSelfModel.Instance;
-        localPlayer.transform.SetPositionAndRotation(new Vector3(player.X, player.Y, player.Z),
-            Quaternion.Euler(0f, player.RotationY, 0f));
-        RemotePlayerManager.Initialize(localPlayer);
+        localPlayer.Place(new Vector3(player.X, player.Y, player.Z), player.RotationY);
+        if (!RemotePlayerManager.Initialize(localPlayer.gameObject))
+            return AccountErrorCode.ServerError;
+        player.IsInWorld = true;
+        localPlayer.SetControlEnabled(true);
         return AccountErrorCode.HaveRole;
     }
 }

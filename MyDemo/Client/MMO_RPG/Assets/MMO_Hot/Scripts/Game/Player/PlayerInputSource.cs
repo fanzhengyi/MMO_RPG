@@ -30,7 +30,10 @@ public sealed class PlayerInputSource : MonoBehaviour
         run = Clone(runAction);
         jump = Clone(jumpAction);
         if (actions.Count != 3)
-            Debug.LogWarning("PlayerInputSource: 请配置 Move、Run 和 Jump。", this);
+        {
+            Debug.LogError("PlayerInputSource: 请配置 Move、Run 和 Jump。", this);
+            enabled = false;
+        }
     }
 
     /// <summary>启用本角色持有的输入副本。</summary>
@@ -54,12 +57,12 @@ public sealed class PlayerInputSource : MonoBehaviour
     /// <summary>采集当前移动方向、奔跑按住状态和跳跃单次按下。</summary>
     public Frame Sample()
     {
-        if (!isActiveAndEnabled)
+        if (!isActiveAndEnabled || actions.Count != 3)
             return default;
 
         return new Frame
         {
-            Move =Vector2.ClampMagnitude(move.ReadValue<Vector2>(), 1f),
+            Move = Vector2.ClampMagnitude(move.ReadValue<Vector2>(), 1f),
             RunHeld = run.IsPressed(),
             JumpPressed = jump.WasPressedThisFrame()
         };

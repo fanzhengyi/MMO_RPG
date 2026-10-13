@@ -1,38 +1,33 @@
-using System;
 using DG.Tweening;
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
 
-public class TipPanel : BasePanel
+/// <summary>单条提示动画；连续提示先停止旧动画，隐藏和销毁时释放 Tween。</summary>
+public sealed class TipPanel : BasePanel
 {
-    private const float BackGroundAlpha = 0.392f; // 预制体里背景图的初始透明度
-
     public TMP_Text textTip;
     public Image bkImage;
     private RectTransform rectTransform;
+
+    /// <summary>缓存文字和动画使用的 RectTransform。</summary>
     protected override void OnInit()
     {
-        textTip ??= GetComponentInChildren<TMP_Text>();
-        rectTransform=transform as RectTransform;
+        if (textTip == null) textTip = GetComponentInChildren<TMP_Text>();
+        rectTransform = (RectTransform)transform;
     }
 
-
-    public void SetText(string text)
+    /// <summary>每条新提示重置位置；登录界面和暂停时也能正常播放。</summary>
+    public void PlayTip(string text, float duration = 1.5f)
     {
+        rectTransform.DOKill();
         textTip.text = text;
+        rectTransform.anchoredPosition = new Vector2(0f, 180f);
+        rectTransform.DOAnchorPosY(300f, duration).SetEase(Ease.OutQuad).SetUpdate(true).OnComplete(Hide);
     }
 
- public void PlayTip(string text, float duration = 1.5f)
-{
-    SetText(text);
-    // 杀掉旧动画（Hide 回调挂在这些 tween 上，会一起被杀掉）
-    rectTransform.DOKill();
-
-    // 重置状态（位置 + 透明度，连续触发不会残留）
-    rectTransform.anchoredPosition = new Vector2(0, 180);
-    rectTransform.DOAnchorPosY(rectTransform.anchoredPosition.y + 120, duration)
-        .SetEase(Ease.OutQuad)
-        .OnComplete(Hide);
-}
+    /// <summary>隐藏时停止旧动画，避免旧完成回调影响下一条提示。</summary>
+    protected override void OnHide() => rectTransform.DOKill();
+    /// <summary>销毁时释放提示动画。</summary>
+    private void OnDestroy() { if (rectTransform != null) rectTransform.DOKill(); }
 }

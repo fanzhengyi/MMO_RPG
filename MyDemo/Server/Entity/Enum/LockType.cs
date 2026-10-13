@@ -1,5 +1,6 @@
-﻿public enum LockType
+/// <summary>不同业务使用独立的协程锁，避免互相阻塞。</summary>
+public enum LockType
 {
-    RegisterLock = 1,
-    LoginLock = 2,
+    Account = 1,
+    PlayerData = 2,
 }

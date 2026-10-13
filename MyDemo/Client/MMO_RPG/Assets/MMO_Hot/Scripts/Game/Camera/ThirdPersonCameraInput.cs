@@ -54,7 +54,6 @@ namespace MMO_Hot.Game.Camera
         /// <summary>按鼠标位移更新 Cinemachine 的环绕水平角和俯仰角。</summary>
         private void RotateCamera(Vector2 mouseDelta)
         {
-            //水平
             var horizontal = orbitalFollow.HorizontalAxis;
             horizontal.Value = horizontal.ClampValue(horizontal.Value + mouseDelta.x * horizontalSensitivity);
             orbitalFollow.HorizontalAxis = horizontal;
@@ -65,7 +64,7 @@ namespace MMO_Hot.Game.Camera
             orbitalFollow.VerticalAxis = vertical;
         }
 
-        //滚轮控制距离
+        /// <summary>按滚轮输入调整距离，并限制缩放范围。</summary>
         private void ZoomCamera(float scroll)
         {
             if (Mathf.Abs(scroll) < 0.001f)
@@ -88,12 +87,14 @@ namespace MMO_Hot.Game.Camera
 
 
 
+        /// <summary>停止监听本组件的输入副本。</summary>
         private void OnDisable()
         {
             look?.Disable();
             zoom?.Disable();
         }
 
+        /// <summary>释放输入副本，避免遗留输入监听。</summary>
         private void OnDestroy()
         {
             look?.Dispose();

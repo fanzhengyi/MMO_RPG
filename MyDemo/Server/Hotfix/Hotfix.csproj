@@ -3,6 +3,9 @@
     <AssemblyName>Hotfix</AssemblyName>
     <RootNamespace>Fantasy</RootNamespace>
     <DebugType>portable</DebugType>
+    <!-- 启服配置由 Entity 统一生成，Hotfix 不再重复生成同名类型或配置模板。 -->
+    <IsDirectFantasyNetReference>false</IsDirectFantasyNetReference>
+    <FantasyConfigAutoDiscoveryEnabled>false</FantasyConfigAutoDiscoveryEnabled>
   </PropertyGroup>
 
   <ItemGroup>

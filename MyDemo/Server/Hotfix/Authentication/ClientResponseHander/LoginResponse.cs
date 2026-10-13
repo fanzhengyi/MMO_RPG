@@ -5,25 +5,29 @@ using Fantasy.Network;
 using Fantasy.Network.Interface;
 using Fantasy.Platform.Net;
 
-public class LoginResponse : MessageRPC<C2A_LoginRequest, A2C_LoginResponse>
+/// <summary>验证账号后签发绑定账号和目标 Gate 的短期 Token。</summary>
+public sealed class LoginResponse : MessageRPC<C2A_LoginRequest, A2C_LoginResponse>
 {
+    /// <summary>校验账号并返回目标 Gate 的短期凭证。</summary>
     protected override async FTask Run(Session session, C2A_LoginRequest request, A2C_LoginResponse response, Action reply)
     {
-        // Authentication 验证账号密码，成功后才签发 Gate Token。
-        var res = await AuthenticationHelper.Login(session.Scene, request.Username, request.Password);
-        if (res == (int)AccountErrorCode.LoginSuccess)
+        response.LoginError = AccountErrorCode.ServerError;
+        if (!session.CheckInterval(500)) return;
+        var scene = session.Scene;
+        var sessionRuntimeId = session.RuntimeId;
+        response.LoginError = await scene.GetComponent<AuthenticationComponent>().Login(request.Username, request.Password);
+        if (session.IsDisposed || session.RuntimeId != sessionRuntimeId) return;
+        if (response.LoginError != AccountErrorCode.LoginSuccess) return;
+        var gates = SceneConfigData.Instance.GetSceneBySceneType(SceneType.Gate);
+        if (gates.Count == 0)
         {
-            // 根据账号哈希分配固定 Gate，保证同一账号总是进入同一组 Gate。
-            var gates = SceneConfigData.Instance.GetSceneBySceneType(SceneType.Gate);
-            var gatePosition = HashCodeHelper.MurmurHash3(request.Username) % gates.Count;
-            var gateConfig = gates[(int)gatePosition];
-            var outPort = gateConfig.OuterPort;
-            var process = ProcessConfigData.Instance.Get(gateConfig.ProcessConfigId);
-            var address = MachineConfigData.Instance.Get(process.MachineId).OuterIP;
-            // Token 内携带 Gate 地址，客户端据此建立长期 Gate 连接。
-            string token = AuthenticationJwtHelper.GenerateToken(session.Scene, $"{address}:{outPort}");
-            response.Token = token;
+            response.LoginError = AccountErrorCode.ServerError;
+            return;
         }
-        response.LoginError = (AccountErrorCode)res;
+        var gate = gates[(int)(HashCodeHelper.MurmurHash3(request.Username) % gates.Count)];
+        var process = ProcessConfigData.Instance.Get(gate.ProcessConfigId);
+        var address = MachineConfigData.Instance.Get(process.MachineId).OuterIP;
+        response.Token = scene.GetComponent<AuthenticationJwtComponent>()
+            .GenerateJwtTokens(request.Username, $"{address}:{gate.OuterPort}");
     }
 }

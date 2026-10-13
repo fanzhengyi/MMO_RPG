@@ -130,7 +130,7 @@ message C2G_CreateRoleRequest // IRequest,G2C_CreateRoleResponse
 ///创建角色响应
 message G2C_CreateRoleResponse // IResponse
 {
-	int32 AccountErrorCode = 1;     // CreateRoleSuccess=创建成功 HaveRole=已有角色直接上线 NickNameNull=昵称为空 失败为其他错误码
+	int32 AccountErrorCode = 1;     // CreateRoleSuccess=创建成功 HaveRole=已有角色 NickNameNull=昵称不合法；成功后仍需请求 EnterGame
 	PlayerInfo Info = 2;            // 成功后返回角色信息
 }
 
@@ -148,7 +148,7 @@ message C2G_PlayerMove // IMessage
 	float Speed = 7;
 }
 
-///服务端广播玩家移动快照
+///服务端移动快照；RoleId 等于自己的角色时表示位置回正
 message G2C_PlayerMove // IMessage
 {
 	int64 RoleId = 1;

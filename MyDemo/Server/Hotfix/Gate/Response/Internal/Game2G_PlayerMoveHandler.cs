@@ -8,20 +8,8 @@ public sealed class Game2G_PlayerMoveHandler : Address<Scene, Game2G_PlayerMove>
 {
     protected override async FTask Run(Scene scene, Game2G_PlayerMove message)
     {
-        // Session 已销毁或消息带有无效 ID 时，这条定向快照已经过期。
-        if (message.GateSessionRuntimeId == 0
-            || !scene.TryGetEntity<Session>(message.GateSessionRuntimeId, out var session)
-            || session.IsDisposed)
-        {
+        if (!GateSessionHelper.TryGetSession(scene, message.GateSessionRuntimeId, out var session))
             return;
-        }
-
-        var sessionInfo = session.GetComponent<SessionDisponse>();
-        // 防止消息到达时目标连接已退出登录。
-        if (sessionInfo == null || string.IsNullOrEmpty(sessionInfo.userName))
-        {
-            return;
-        }
 
         session.Send(new G2C_PlayerMove
         {

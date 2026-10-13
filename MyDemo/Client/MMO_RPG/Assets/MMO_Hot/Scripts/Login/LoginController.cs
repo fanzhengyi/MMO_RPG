@@ -2,113 +2,89 @@ using System;
 using Fantasy;
 using Fantasy.Async;
 using Fantasy.Network;
-using UnityEngine;
 
-public class LoginController : Singleton<LoginController>
+/// <summary>组织鉴权和 Gate 登录；请求互斥，短连接由 finally 释放。</summary>
+public sealed class LoginController : Singleton<LoginController>
 {
+    private bool requesting;
+
+    /// <summary>先取得 Token，再建立经过身份验证的 Gate 长连接。</summary>
     public async FTask<AccountErrorCode> LoginAsync(string account, string password)
     {
-
-        Session loginSession = null;
-        Session gateSession = null;
-
+        account = account?.Trim();
+        if (!ValidCredentials(account, password)) return AccountErrorCode.AccountPaawordEmpty;
+        if (requesting) return AccountErrorCode.ServerError;
+        requesting = true;
+        Session authentication = null;
+        Session gate = null;
         try
         {
-            // 登录前断开旧 Gate，避免同一客户端保留多个长期连接。
             NetworkManager.Instance.DisconnectGate();
-
-            // 第一步：连接 Authentication，验证账号密码并取得 Token。
-            loginSession = await NetworkManager.Instance.ConnectAsync(LoginServerConfig.GetAddress(account));
+            PlayerSelfModel.Instance.Clear();
+            RemotePlayerManager.Reset();
+            authentication = await NetworkManager.Instance.ConnectAsync(LoginServerConfig.GetAddress(account));
             string token;
             string gateAddress;
-
-            using (var request = C2A_LoginRequest.Create())
+            using (var response = await authentication.C2A_LoginRequest(account, password))
             {
-                request.Username = account;
-                request.Password = password;
-
-                using var response = (A2C_LoginResponse)await loginSession.Call(request);
-                if (response.LoginError != AccountErrorCode.LoginSuccess)
-                    return response.LoginError;
-
-                if (!JwtHelper.TryGetPayload(response.Token, out JwtPayload payload))
-                {
-                    Log.Error("登录 Token 格式错误，无法取得 Gate 地址。");
-                    return AccountErrorCode.ServerError;
-                }
-
+                if (response.LoginError != AccountErrorCode.LoginSuccess) return response.LoginError;
+                if (!JwtHelper.TryGetPayload(response.Token, out var payload)) return AccountErrorCode.ServerError;
                 token = response.Token;
                 gateAddress = payload.Address;
             }
+            authentication.Dispose();
+            authentication = null;
 
-            // Authentication 连接只负责登录，拿到 Token 后立即关闭。
-            loginSession.Dispose();
-
-            // 第二步：连接 Gate，验证 Token 后才成为长期游戏连接。
-            gateSession = await NetworkManager.Instance.ConnectAsync(gateAddress);
-            using (var request = C2G_LoginRequest.Create())
+            gate = await NetworkManager.Instance.ConnectAsync(gateAddress);
+            using (var response = await gate.C2G_LoginRequest(token, account))
             {
-                request.Token = token;
-                request.UserName = account;
-
-                using var response = (G2C_LoginResponse)await gateSession.Call(request);
-                if (response.LoginError != AccountErrorCode.LoginSuccess)
-                {
-                    gateSession.Dispose();
-                    return AccountErrorCode.ServerError;
-                }
+                if (response.LoginError != AccountErrorCode.LoginSuccess) return response.LoginError;
             }
-
-            NetworkManager.Instance.SetGateSession(gateSession);
-            gateSession = null;
+            NetworkManager.Instance.SetGateSession(gate);
+            gate = null;
             return AccountErrorCode.LoginSuccess;
         }
         catch (Exception exception)
         {
             Log.Error(exception);
-            NetworkManager.Instance.DisconnectGate();
             return AccountErrorCode.ServerError;
         }
         finally
         {
-            if (loginSession != null && !loginSession.IsDisposed)
-                loginSession.Dispose();
-
-            // Gate 验证失败或中途异常时
-            if (gateSession != null && !gateSession.IsDisposed)
-                gateSession.Dispose();
-
+            if (authentication != null && !authentication.IsDisposed) authentication.Dispose();
+            if (gate != null && !gate.IsDisposed) gate.Dispose();
+            requesting = false;
         }
     }
 
-  
-
+    /// <summary>注册使用短连接；和登录共用请求保护。</summary>
     public async FTask<AccountErrorCode> RegisterAsync(string account, string password)
     {
-        Session loginSession = null;
-
+        account = account?.Trim();
+        if (!ValidCredentials(account, password)) return AccountErrorCode.AccountPaawordEmpty;
+        if (requesting) return AccountErrorCode.ServerError;
+        requesting = true;
+        Session session = null;
         try
         {
-            loginSession = await NetworkManager.Instance.ConnectAsync(LoginServerConfig.GetAddress(account));
-            using (var request = C2A_RegisterRequest.Create())
-            {
-                request.Username = account;
-                request.Password = password;
-
-                using var response = (A2C_RegisterResponse)await loginSession.Call(request);
-                return response.LoginError;
-            }
+            session = await NetworkManager.Instance.ConnectAsync(LoginServerConfig.GetAddress(account));
+            using var response = await session.C2A_RegisterRequest(account, password);
+            return response.LoginError;
         }
         catch (Exception exception)
         {
-            Debug.LogException(exception);
+            Log.Error(exception);
             return AccountErrorCode.ServerError;
         }
         finally
         {
-
-            if (loginSession != null && !loginSession.IsDisposed)
-                loginSession.Dispose();
+            if (session != null && !session.IsDisposed) session.Dispose();
+            requesting = false;
         }
     }
+
+    /// <summary>客户端限制输入长度，服务端仍会独立验证。</summary>
+    private static bool ValidCredentials(string account, string password)
+        => !string.IsNullOrWhiteSpace(account) && account.Length <= 64
+            && !string.IsNullOrEmpty(password) && password.Length <= 128;
 }

@@ -1,55 +1,40 @@
 using System.IdentityModel.Tokens.Jwt;
+using System.Security.Claims;
 using System.Security.Cryptography;
-using Fantasy;
 using Fantasy.Entitas.Interface;
 using Microsoft.IdentityModel.Tokens;
 
-public sealed class AuthenticationJwtComponentAwakeSystem : AwakeSystem<AuthenticationJwtComponent>
+public sealed class AuthenticationJwtAwakeSystem : AwakeSystem<AuthenticationJwtComponent>
 {
+    /// <summary>加载私钥，创建签名配置。</summary>
     protected override void Awake(AuthenticationJwtComponent self)
     {
-        self.Awake();
+        self.Rsa = RSA.Create();
+        self.Rsa.ImportRSAPrivateKey(JwtKeyStore.ReadPrivateKey(), out _);
+        self.SigningCredentials = new SigningCredentials(new RsaSecurityKey(self.Rsa), SecurityAlgorithms.RsaSha256);
     }
 }
 
-public static class AuthenticationJwtHelperAuthenticationJwtComponentSystem
+public sealed class AuthenticationJwtDestroySystem : DestroySystem<AuthenticationJwtComponent>
 {
-    public static void Awake(this AuthenticationJwtComponent self)
+    /// <summary>释放 RSA 并清除签名引用。</summary>
+    protected override void Destroy(AuthenticationJwtComponent self)
     {
-        // Authentication 使用私钥签发 Token；Gate 只保存公钥进行验证。
-        var rsa = RSA.Create();
-        rsa.ImportRSAPublicKey(Convert.FromBase64String(self.PublicKeyPem), out _);
-        rsa.ImportRSAPrivateKey(Convert.FromBase64String(self.PrivateKeyPem), out _);
-        self.SigningCredentials = new SigningCredentials(new RsaSecurityKey(rsa), SecurityAlgorithms.RsaSha256);
-        self.TokenValidationParameters = new TokenValidationParameters()
-        {
-            ValidateIssuer = true,
-            ValidateAudience = true,
-            ValidateLifetime = false,
-            ValidateIssuerSigningKey = true,
-            ValidIssuer = "Fzy",
-            ValidAudience = "Fzy",
-            IssuerSigningKey = new RsaSecurityKey(rsa),
-            ClockSkew = TimeSpan.FromMinutes(5),
-        };
+        self.Rsa?.Dispose();
+        self.Rsa = null!;
+        self.SigningCredentials = null!;
     }
+}
 
-    public static string GenerateJwtTokens(this AuthenticationJwtComponent self, string Address)
+public static class AuthenticationJwtComponentSystem
+{
+    /// <summary>Token 只用于登录 Gate，五分钟后失效。</summary>
+    public static string GenerateJwtTokens(this AuthenticationJwtComponent self, string userName, string address)
     {
-        // Token 中只放 Gate 地址，客户端拿到后再连接对应 Gate。
-        var jwtPayload = new JwtPayload()
-        {
-            { "Address", Address },
-        };
-
-        var jwtSecurityToken = new JwtSecurityToken
-            (issuer: "Fzy",
-            audience: "Fzy",
-            claims: jwtPayload.Claims,
-            expires: DateTime.UtcNow.AddMicroseconds(3000),
-            signingCredentials: self.SigningCredentials
-            );
-        var tokenHandler = new JwtSecurityTokenHandler();
-        return tokenHandler.WriteToken(jwtSecurityToken);
+        var token = new JwtSecurityToken(issuer: "Fzy", audience: "Fzy",
+            claims: new[] { new Claim("UserName", userName), new Claim("Address", address) },
+            notBefore: DateTime.UtcNow, expires: DateTime.UtcNow.AddMinutes(5),
+            signingCredentials: self.SigningCredentials);
+        return new JwtSecurityTokenHandler().WriteToken(token);
     }
 }

@@ -2,16 +2,14 @@ using System;
 using System.Text;
 using Fantasy.Helper;
 
-public class JwtPayload
+/// <summary>客户端只读取 Token 内的 Gate 地址，验签由服务端完成。</summary>
+public sealed class JwtPayload
 {
-    public long aid { get; set; }
     public string Address { get; set; }
-    public int exp { get; set; }
-    public string iss { get; set; }
-    public string aud { get; set; }
 }
 public static class JwtHelper
 {
+    /// <summary>解析 JWT 的 Base64Url 数据段，失败返回 false。</summary>
     public static bool TryGetPayload(string token, out JwtPayload payload)
     {
         payload = null;

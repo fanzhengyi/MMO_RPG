@@ -1,76 +1,52 @@
 using Fantasy;
 using Fantasy.Async;
-using Fantasy.Helper;
 using Fantasy.Network;
 using Fantasy.Network.Interface;
-using Fantasy.Platform.Net;
 
-public class C2G_CreateRoleHandler : MessageRPC<C2G_CreateRoleRequest, G2C_CreateRoleResponse>
+/// <summary>Gate 验证连接身份，Game 负责角色创建和数据保存。</summary>
+public sealed class C2G_CreateRoleHandler : MessageRPC<C2G_CreateRoleRequest, G2C_CreateRoleResponse>
 {
+    /// <summary>核对身份和昵称，转发创建请求并映射结果。</summary>
     protected override async FTask Run(Session session, C2G_CreateRoleRequest request,
         G2C_CreateRoleResponse response, Action reply)
     {
-        // 验证是否登录（C2G_LoginRequest 成功后 Session 上才有 SessionDisponse）
-        var disponse = session.GetComponent<SessionDisponse>();
-        if (disponse == null || string.IsNullOrEmpty(disponse.userName))
-        {
-            response.AccountErrorCode = (int)AccountErrorCode.NoLogin;
+        response.AccountErrorCode = (int)AccountErrorCode.NoLogin;
+        if (!GateSessionHelper.TryGetPlayer(session, out var info))
             return;
-        }
-
-        if (string.IsNullOrEmpty(request.NickName))
+        if (string.IsNullOrWhiteSpace(request.NickName) || request.NickName.Trim().Length > 24)
         {
             response.AccountErrorCode = (int)AccountErrorCode.NickNameNull;
             return;
         }
 
-        if (disponse.gameSceneAddress == 0)
-        {
-            response.AccountErrorCode = (int)AccountErrorCode.ServerError;
-            return;
-        }
-
-        // RPC 转发给 Game 服务器查库/创建角色（Gate 不碰数据库）
-        //    同时带上自己的 Session 信息，Game 保存后用于反向推送
-        //    Game 场景地址用登录时缓存的值，不用每次重复哈希路由
-        var gameResponse = (Game2G_CreateRoleResponse)await session.Scene.Call(
-            disponse.gameSceneAddress,
-            new G2Game_CreateRoleRequest
+        var sessionRuntimeId = session.RuntimeId;
+        using var gameResponse = (Game2G_CreateRoleResponse)await session.Scene.Call(
+            info.GameSceneAddress, new G2Game_CreateRoleRequest
             {
-                UserName = disponse.userName,
-                NickName = request.NickName,
+                UserName = info.UserName,
+                NickName = request.NickName.Trim(),
                 GateSessionRuntimeId = session.RuntimeId,
-                GateSceneAddress = SceneConfigData.Instance.Get(session.Scene.SceneConfigId).Address,
+                GateSceneAddress = info.GateSceneAddress,
             });
 
-        // 转发失败
+        if (session.RuntimeId != sessionRuntimeId || !GateSessionHelper.TryGetPlayer(session, out _))
+            return;
         if (gameResponse == null)
         {
-            Log.Error($"创建角色转发 Game 失败，用户: {disponse.userName}");
             response.AccountErrorCode = (int)AccountErrorCode.ServerError;
             return;
         }
 
-        // 把结果原样转给客户端
         response.AccountErrorCode = gameResponse.AccountErrorCode;
         if (gameResponse.AccountErrorCode == (int)AccountErrorCode.CreateRoleSuccess
             || gameResponse.AccountErrorCode == (int)AccountErrorCode.HaveRole)
         {
-            response.Info = new PlayerInfo
+            if (gameResponse.Data == null)
             {
-                RoleId    = gameResponse.Data.RoleId,
-                UserName  = gameResponse.Data.UserName,
-                NickName  = gameResponse.Data.NickName,
-                Hp        = gameResponse.Data.Hp,
-                MaxHp     = gameResponse.Data.MaxHp,
-                Mp        = gameResponse.Data.Mp,
-                MaxMp     = gameResponse.Data.MaxMp,
-                Gold      = gameResponse.Data.Gold,
-                X         = gameResponse.Data.X,
-                Y         = gameResponse.Data.Y,
-                Z         = gameResponse.Data.Z,
-                RotationY = gameResponse.Data.RotationY,
-            };
+                response.AccountErrorCode = (int)AccountErrorCode.ServerError;
+                return;
+            }
+            response.Info = PlayerMessageMapper.ToPlayerInfo(gameResponse.Data);
         }
     }
 }

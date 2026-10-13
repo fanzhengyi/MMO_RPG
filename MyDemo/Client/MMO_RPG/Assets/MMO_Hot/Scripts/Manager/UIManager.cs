@@ -3,97 +3,82 @@ using System.Collections.Generic;
 using Cysharp.Threading.Tasks;
 using UnityEngine;
 
-/// <summary>
-/// UI 统一入口。面板预制体名必须与面板脚本名一致。
-/// 例如 LoginPanel 对应 LoginPanel.prefab。
-/// </summary>
-public class UIManager : Singleton<UIManager>
+/// <summary>按面板类型缓存实例；并发打开共用创建任务。</summary>
+public sealed class UIManager : Singleton<UIManager>
 {
     private const string UIPrefabPath = "Assets/MMO_Hot/Prefabs/UI/";
-
-    private readonly Dictionary<Type, BasePanel> _panels = new Dictionary<Type, BasePanel>();
-    private readonly HashSet<Type> _loadingPanels = new HashSet<Type>();
-    private Transform _uiRoot;
+    private readonly Dictionary<Type, BasePanel> panels = new Dictionary<Type, BasePanel>();
+    private readonly Dictionary<Type, UniTask<BasePanel>> loading = new Dictionary<Type, UniTask<BasePanel>>();
+    private readonly Transform uiRoot;
 
     public UIManager()
     {
-        GameObject rootPrefab = ResManager.Instance.Load<GameObject>(UIPrefabPath + "UIRoot");
-        GameObject rootObject = GameObject.Instantiate(rootPrefab);
-        _uiRoot = rootObject.transform;
-        GameObject.DontDestroyOnLoad(rootObject);
+        var prefab = ResManager.Instance.Load<GameObject>(UIPrefabPath + "UIRoot");
+        var root = GameObject.Instantiate(prefab);
+        uiRoot = root.transform;
+        GameObject.DontDestroyOnLoad(root);
     }
 
-    /// <summary>
-    /// 直接显示 UI。通常业务代码只需调用 UIManager.Instance.Show&lt;LoginPanel&gt;()。
-    /// </summary>
+    /// <summary>不需要等待时使用回调入口，错误统一交给日志。</summary>
     public void ShowPanel<T>(Action<T> onComplete = null) where T : BasePanel
-    {
-        ShowAsync<T>().ContinueWith(panel => onComplete?.Invoke(panel)).Forget(Debug.LogException);
-    }
+        => ShowAsync<T>().ContinueWith(panel => onComplete?.Invoke(panel)).Forget(Debug.LogException);
 
+    /// <summary>多个打开请求共享成功或失败结果，避免每帧轮询和递归重试。</summary>
     public async UniTask<T> ShowAsync<T>() where T : BasePanel
     {
-        Type type = typeof(T);
-
-        if (_panels.TryGetValue(type, out BasePanel oldPanel))
+        var type = typeof(T);
+        if (panels.TryGetValue(type, out var panel) && panel != null)
         {
-            oldPanel.Show();
-            return (T)oldPanel;
-        }
-
-        // 同一帧连续 Show 时，只让第一个调用真正创建预制体。
-        if (_loadingPanels.Contains(type))
-        {
-            await UniTask.WaitUntil(() => !_loadingPanels.Contains(type));
-            return await ShowAsync<T>();
-        }
-
-        _loadingPanels.Add(type);
-        try
-        {
-            string path = UIPrefabPath + type.Name + ".prefab";
-            GameObject prefab = await ResManager.Instance.LoadAsync<GameObject>(path);
-            GameObject panelObject = GameObject.Instantiate(prefab, _uiRoot, false);
-
-            T panel = panelObject.GetComponent<T>();
-            if (panel == null)
-            {
-                GameObject.Destroy(panelObject);
-                throw new Exception($"UI 根节点没有挂 {type.Name}：{path}");
-            }
-
-            panel.Init();
             panel.Show();
-            _panels.Add(type, panel);
-            return panel;
+            return (T)panel;
         }
+        panels.Remove(type);
+        if (!loading.TryGetValue(type, out var task))
+        {
+            task = CreateAsync<T>().Preserve();
+            loading[type] = task;
+        }
+        try { return (T)await task; }
         finally
         {
-            _loadingPanels.Remove(type);
+            // 旧等待者不能移除失败重试时新建的任务。
+            if (loading.TryGetValue(type, out var current) && current.Equals(task)) loading.Remove(type);
         }
     }
 
+    /// <summary>创建失败时销毁实例，防止留下没有管理者的 UI。</summary>
+    private async UniTask<BasePanel> CreateAsync<T>() where T : BasePanel
+    {
+        var path = UIPrefabPath + typeof(T).Name + ".prefab";
+        var prefab = await ResManager.Instance.LoadAsync<GameObject>(path);
+        var obj = GameObject.Instantiate(prefab, uiRoot, false);
+        try
+        {
+            var panel = obj.GetComponent<T>();
+            if (panel == null) throw new InvalidOperationException($"UI 根节点没有挂 {typeof(T).Name}：{path}");
+            panel.Init();
+            panel.Show();
+            panels[typeof(T)] = panel;
+            return panel;
+        }
+        catch { GameObject.Destroy(obj); throw; }
+    }
+
+    /// <summary>隐藏已有面板，保留实例供下次显示。</summary>
     public void Hide<T>() where T : BasePanel
     {
-        if (_panels.TryGetValue(typeof(T), out BasePanel panel))
-            panel.Hide();
+        if (panels.TryGetValue(typeof(T), out var panel) && panel != null) panel.Hide();
     }
 
+    /// <summary>读取已创建的面板，不触发加载。</summary>
     public T GetPanel<T>() where T : BasePanel
-    {
-        return _panels.TryGetValue(typeof(T), out BasePanel panel) ? panel as T : null;
-    }
+        => panels.TryGetValue(typeof(T), out var panel) ? panel as T : null;
 
-    /// <summary>
-    /// 销毁 UI 实例；需要时 Show 会重新创建。常驻 UI 一般只 Hide，不 Close。
-    /// </summary>
+    /// <summary>销毁缓存面板，下一次显示时重新创建。</summary>
     public void Close<T>() where T : BasePanel
     {
-        Type type = typeof(T);
-        if (!_panels.TryGetValue(type, out BasePanel panel))
-            return;
-
-        _panels.Remove(type);
-        GameObject.Destroy(panel.gameObject);
+        if (!panels.TryGetValue(typeof(T), out var panel)) return;
+        panels.Remove(typeof(T));
+        if (panel != null) GameObject.Destroy(panel.gameObject);
     }
 }

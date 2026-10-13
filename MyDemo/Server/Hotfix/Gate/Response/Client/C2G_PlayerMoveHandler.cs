@@ -1,30 +1,24 @@
 using Fantasy;
 using Fantasy.Async;
-using Fantasy.Helper;
 using Fantasy.Network;
 using Fantasy.Network.Interface;
-using Fantasy.Platform.Net;
 
-/// <summary>从 Gate Session 读取玩家身份，再把客户端移动快照转发到所属 Game。</summary>
+/// <summary>给移动快照附上服务端确认的身份和路由，再单向发给 Game。</summary>
 public sealed class C2G_PlayerMoveHandler : Message<C2G_PlayerMove>
 {
+    /// <summary>限频后附加服务端身份，将移动发给 Game。</summary>
     protected override async FTask Run(Session session, C2G_PlayerMove request)
     {
-        var sessionInfo = session.GetComponent<SessionDisponse>();
-        // 未登录或还没有 Game 路由的连接不能提交角色移动。
-        if (sessionInfo == null || string.IsNullOrEmpty(sessionInfo.userName)
-            || sessionInfo.gameSceneAddress == 0)
-        {
+        if (!GateSessionHelper.TryGetPlayer(session, out var info))
             return;
-        }
+        // 每条连接最多转发 50 次/秒，限制客户端连续切状态或恶意刷包。
+        if (!session.CheckInterval(20)) return;
 
-        // 身份和 Gate 路由都由服务端确定，客户端只提交位置、朝向、序号和动画状态。
-        var gateSceneAddress = SceneConfigData.Instance.Get(session.Scene.SceneConfigId).Address;
-        session.Scene.Send(sessionInfo.gameSceneAddress, new G2Game_PlayerMove
+        session.Scene.Send(info.GameSceneAddress, new G2Game_PlayerMove
         {
-            UserName = sessionInfo.userName,
+            UserName = info.UserName,
             GateSessionRuntimeId = session.RuntimeId,
-            GateSceneAddress = gateSceneAddress,
+            GateSceneAddress = info.GateSceneAddress,
             X = request.X,
             Y = request.Y,
             Z = request.Z,
@@ -33,7 +27,6 @@ public sealed class C2G_PlayerMoveHandler : Message<C2G_PlayerMove>
             State = request.State,
             Speed = request.Speed,
         });
-
         await FTask.CompletedTask;
     }
 }

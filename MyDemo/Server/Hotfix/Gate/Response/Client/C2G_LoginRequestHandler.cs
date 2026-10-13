@@ -5,76 +5,56 @@ using Fantasy.Network;
 using Fantasy.Network.Interface;
 using Fantasy.Platform.Net;
 
-public class C2G_LoginRequestHandler : MessageRPC<C2G_LoginRequest, G2C_LoginResponse>
+/// <summary>验证登录凭证，替换旧连接，并缓存当前玩家的路由。</summary>
+public sealed class C2G_LoginRequestHandler : MessageRPC<C2G_LoginRequest, G2C_LoginResponse>
 {
-    protected override async FTask Run(Session session, C2G_LoginRequest request, G2C_LoginResponse response, Action reply)
+    /// <summary>验证账号凭证和 Gate 路由，登记连接并替换旧登录。</summary>
+    protected override async FTask Run(Session session, C2G_LoginRequest request,
+        G2C_LoginResponse response, Action reply)
     {
-        // 客户端必须先从 Authentication 获取 Token，再连接 Gate。
-        if (string.IsNullOrEmpty(request.Token))
+        response.LoginError = AccountErrorCode.NoLogin;
+        var gates = SceneConfigData.Instance.GetSceneBySceneType(SceneType.Gate);
+        if (string.IsNullOrWhiteSpace(request.UserName) || gates.Count == 0
+            || !session.Scene.GetComponent<GateJwtComponent>().ValidateJwtTokens(request.Token, request.UserName))
+            return;
+
+        var gateIndex = (int)(HashCodeHelper.MurmurHash3(request.UserName) % gates.Count);
+        if (gates[gateIndex].Id != session.Scene.SceneConfigId)
+            return;
+
+        var existingInfo = session.GetComponent<PlayerSessionComponent>();
+        if (existingInfo != null)
         {
-            session.Dispose();
+            // 同一连接重复登录是幂等操作；切换账号必须建立新连接。
+            if (existingInfo.UserName == request.UserName)
+                response.LoginError = AccountErrorCode.LoginSuccess;
             return;
         }
-        var gates = SceneConfigData.Instance.GetSceneBySceneType(SceneType.Gate);
-        // 根据用户名哈希计算客户端应该连接的 Gate。
-        var gateIndex = HashCodeHelper.MurmurHash3(request.UserName) % gates.Count;
-        var gateIdByUser = gates[(int)gateIndex].Id;
 
-        // 同时验证 Token 签名和 Gate 路由，防止连接错误的 Gate。
-        if (!GateJwtHelper.ValidateToken(session.Scene, request.Token) || gateIdByUser != session.Scene.SceneConfigId)
+        var gameScenes = SceneConfigData.Instance.GetSceneBySceneType(SceneType.Game);
+        if (gameScenes.Count == 0)
         {
-            session.Dispose();
+            response.LoginError = AccountErrorCode.ServerError;
             return;
         }
 
         var cache = session.Scene.GetComponent<GateLoginCache>();
-        if (!cache.TryGet(request.UserName, out var gameAccount))
+        if (cache.Sessions.TryGetValue(request.UserName, out var oldRuntimeId)
+            && session.Scene.TryGetEntity<Session>(oldRuntimeId, out var oldSession))
         {
-            // 第一次进入该 Gate，从数据库加载账号运行时数据。
-            gameAccount = await GameAccountHelper.LoadDataBase(session.Scene, request.UserName);
-            if (gameAccount == null)
-            {
-                gameAccount = await GameAccountFactory.CreateGameAccount(session.Scene, request.UserName);
-            }
-
-            cache.Add(gameAccount);
-        }
-        else
-        {
-            // 已经在线的账号可能是断线重连，也可能是重复登录或顶号。
-            gameAccount.CancelTimeOut();
-            if (session.RuntimeId == gameAccount.SessionRunTime)
-            {
-                // 同一个 Session 重复发送登录请求，直接返回。
-                return;
-            }
-
-            if (session.Scene.TryGetEntity<Session>(gameAccount.SessionRunTime, out var oldSession))
-            {
-                // 顶号时通知旧客户端，并延迟销毁旧 Session。
-                var oldSessionInfo = oldSession.GetComponent<SessionDisponse>();
-                if (oldSessionInfo != null)
-                {
-                    GameAccountHelper.NotifyGameLeft(oldSession.Scene, oldSessionInfo.userName,
-                        oldSessionInfo.gameSceneAddress, oldSessionInfo.gateSessionRuntimeId,
-                        oldSessionInfo.gateSceneAddress);
-                    oldSessionInfo.userName = "";
-                }
-                oldSession.Send(new G_2C_RepeaLogin());
-                oldSession.SetTimeout(3000);
-            }
+            GateSessionHelper.Detach(oldSession.GetComponent<PlayerSessionComponent>());
+            oldSession.Send(new G_2C_RepeaLogin());
+            oldSession.SetTimeout(3000);
         }
 
-        var disponse = session.AddComponent<SessionDisponse>();
-        disponse.userName = request.UserName;
-        // 登录时算好 Game 场景，后续转发不用重复算
-        var gameScenes = SceneConfigData.Instance.GetSceneBySceneType(SceneType.Game);
-        var gameSceneConfig = gameScenes[(int)(HashCodeHelper.MurmurHash3(request.UserName) % gameScenes.Count)];
-        disponse.gameSceneAddress = gameSceneConfig.Address;
-        disponse.gateSceneAddress = SceneConfigData.Instance.Get(session.Scene.SceneConfigId).Address;
-        disponse.gateSessionRuntimeId = session.RuntimeId;
-        
-        gameAccount.SessionRunTime = session.RuntimeId;
+        var info = session.AddComponent<PlayerSessionComponent>();
+        info.UserName = request.UserName;
+        // 当前只有一个公共世界；同场景玩家必须进入同一个 Game，不能按账号拆开。
+        info.GameSceneAddress = gameScenes[0].Address;
+        info.GateSceneAddress = SceneConfigData.Instance.Get(session.Scene.SceneConfigId).Address;
+        info.SessionRuntimeId = session.RuntimeId;
+        cache.Sessions[info.UserName] = session.RuntimeId;
         response.LoginError = AccountErrorCode.LoginSuccess;
+        await FTask.CompletedTask;
     }
 }

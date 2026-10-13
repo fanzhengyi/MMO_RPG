@@ -4,6 +4,9 @@
     <AssemblyName>Main</AssemblyName>
     <RootNamespace>Fantasy</RootNamespace>
     <DebugType>portable</DebugType>
+    <!-- Main 使用 Entity 的配置，避免三个项目维护三份启服配置。 -->
+    <IsDirectFantasyNetReference>false</IsDirectFantasyNetReference>
+    <FantasyConfigAutoDiscoveryEnabled>false</FantasyConfigAutoDiscoveryEnabled>
   </PropertyGroup>
 
   <ItemGroup>
@@ -14,8 +17,8 @@
   </ItemGroup>
 
   <ItemGroup>
-    <None Update="Fantasy.config" CopyToOutputDirectory="PreserveNewest" />
-    <None Update="Fantasy.xsd" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="..\Entity\Fantasy.config" Link="Fantasy.config" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+    <None Include="..\Entity\Fantasy.xsd" Link="Fantasy.xsd" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
     <None Update="NLog.config" CopyToOutputDirectory="PreserveNewest" />
     <None Update="NLog.xsd" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>

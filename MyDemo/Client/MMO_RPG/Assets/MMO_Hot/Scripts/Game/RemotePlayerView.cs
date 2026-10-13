@@ -1,49 +1,61 @@
 using UnityEngine;
 
-/// <summary>以平滑插值跟随服务端快照的单个远端角色。</summary>
+/// <summary>远端角色只接受网络快照，平滑位置和朝向，不读取玩家输入。</summary>
 public sealed class RemotePlayerView : MonoBehaviour
 {
-    // 跟随目标的平滑程度；数值越大，模型越快贴近新快照位置。
     private const float FollowSharpness = 15f;
-    // 每次收到网络快照只更新目标值，实际 Transform 在 Update 中平滑追过去。
+    private const float TeleportDistance = 10f;
     private Vector3 targetPosition;
     private Quaternion targetRotation;
     private Animator animator;
+    private uint sequence;
+    private bool moving;
 
+    /// <summary>初次生成直接定位，避免从原点滑入。</summary>
     public void Initialize(RemotePlayerManager.Snapshot snapshot, Animator characterAnimator)
     {
         animator = characterAnimator;
+        if (animator != null) animator.applyRootMotion = false;
+        sequence = snapshot.Sequence;
         targetPosition = snapshot.Position;
         targetRotation = Quaternion.Euler(0f, snapshot.RotationY, 0f);
-        // 第一次创建直接放到进入位置，避免从世界原点滑过来。
         transform.SetPositionAndRotation(targetPosition, targetRotation);
         ApplyAnimation(snapshot);
     }
 
+    /// <summary>只应用新版本；过远的位置变化直接定位，用于传送或长时间延迟。</summary>
     public void SetSnapshot(RemotePlayerManager.Snapshot snapshot)
     {
+        if (unchecked((int)(snapshot.Sequence - sequence)) <= 0) return;
+        sequence = snapshot.Sequence;
         targetPosition = snapshot.Position;
         targetRotation = Quaternion.Euler(0f, snapshot.RotationY, 0f);
+        if ((targetPosition - transform.position).sqrMagnitude > TeleportDistance * TeleportDistance)
+            transform.SetPositionAndRotation(targetPosition, targetRotation);
+        moving = true;
         ApplyAnimation(snapshot);
     }
 
+    /// <summary>到达目标后停止每帧写 Transform，减少静止角色的更新开销。</summary>
     private void Update()
     {
-        // 指数插值会依据帧时间调整，避免插值速度明显受帧率影响。
+        if (!moving) return;
         var blend = 1f - Mathf.Exp(-FollowSharpness * Time.deltaTime);
-        transform.position = Vector3.Lerp(transform.position, targetPosition, blend);
-        transform.rotation = Quaternion.Slerp(transform.rotation, targetRotation, blend);
+        transform.SetPositionAndRotation(
+            Vector3.Lerp(transform.position, targetPosition, blend),
+            Quaternion.Slerp(transform.rotation, targetRotation, blend));
+        if ((targetPosition - transform.position).sqrMagnitude < 0.000001f
+            && Quaternion.Angle(transform.rotation, targetRotation) < 0.1f)
+        {
+            transform.SetPositionAndRotation(targetPosition, targetRotation);
+            moving = false;
+        }
     }
 
+    /// <summary>动画参数与本地角色一致，位置仍完全由快照控制。</summary>
     private void ApplyAnimation(RemotePlayerManager.Snapshot snapshot)
     {
-        // Animator 或 Controller 不存在时只跳过动画，不影响位置同步。
-        if (animator == null || animator.runtimeAnimatorController == null)
-        {
-            return;
-        }
-
-        // Animator 控制器需要包含名为 State（整数）和 Speed（浮点数）的参数。
+        if (animator == null || animator.runtimeAnimatorController == null) return;
         animator.SetInteger("State", snapshot.State);
         animator.SetFloat("Speed", snapshot.Speed);
     }

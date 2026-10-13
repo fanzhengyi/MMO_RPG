@@ -22,6 +22,8 @@ public sealed class PlayerController : MonoBehaviour
 
     public PlayerFsmCore.StateType State => fsm.State;
     public float HorizontalSpeed { get; private set; }
+    public Animator VisualAnimator => animator;
+    private bool controlEnabled = true;
 
     private CharacterController characterController;
     private PlayerFsmCore fsm;
@@ -33,6 +35,9 @@ public sealed class PlayerController : MonoBehaviour
     private void Awake()
     {
         characterController = GetComponent<CharacterController>();
+        if (inputSource == null) inputSource = GetComponent<PlayerInputSource>();
+        if (animator == null) animator = GetComponentInChildren<Animator>();
+        if (animator != null) animator.applyRootMotion = false;
         if (cameraRoot == null && Camera.main != null)
             cameraRoot = Camera.main.transform;
         groundedStepOffset = characterController.stepOffset;
@@ -42,7 +47,7 @@ public sealed class PlayerController : MonoBehaviour
     /// <summary>读取输入、推进状态机，再执行一次胶囊移动。</summary>
     private void Update()
     {
-        if (Time.deltaTime <= 0f)
+        if (!controlEnabled || Time.deltaTime <= 0f)
             return;
 
         var input = inputSource.Sample();
@@ -91,8 +96,7 @@ public sealed class PlayerController : MonoBehaviour
         if (cameraRoot == null)
             return localDirection;
 
-        var view = cameraRoot;
-        return Quaternion.Euler(0f, view.eulerAngles.y, 0f) * localDirection;
+        return Quaternion.Euler(0f, cameraRoot.eulerAngles.y, 0f) * localDirection;
     }
 
     /// <summary>停用角色时清除残留速度。</summary>
@@ -103,6 +107,35 @@ public sealed class PlayerController : MonoBehaviour
         HorizontalSpeed = 0f;
         if (characterController != null)
             characterController.stepOffset = groundedStepOffset;
+    }
+
+    /// <summary>业务层控制是否接受输入，控制器自身不依赖网络或账号数据。</summary>
+    public void SetControlEnabled(bool value)
+    {
+        if (controlEnabled == value) return;
+        controlEnabled = value;
+        if (!value)
+        {
+            horizontalVelocity = Vector3.zero;
+            verticalVelocity = 0f;
+            HorizontalSpeed = 0f;
+            if (fsm != null) fsm.ChangeState(fsm.Idle);
+            if (fsm != null) UpdateAnimation();
+        }
+    }
+
+    /// <summary>出生或传送时暂时关闭胶囊，设置位置并清除旧速度。</summary>
+    public void Place(Vector3 position, float rotationY)
+    {
+        var wasEnabled = characterController.enabled;
+        characterController.enabled = false;
+        transform.SetPositionAndRotation(position, Quaternion.Euler(0f, rotationY, 0f));
+        characterController.enabled = wasEnabled;
+        horizontalVelocity = Vector3.zero;
+        verticalVelocity = 0f;
+        HorizontalSpeed = 0f;
+        fsm.ChangeState(fsm.Idle);
+        UpdateAnimation();
     }
 
     /// <summary>把 FSM 状态和实际水平速度写入 Animator。</summary>

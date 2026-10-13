@@ -1,96 +1,94 @@
 using System.Collections.Generic;
 using UnityEngine;
 
-/// <summary>在场景中创建远端角色，并缓存角色生成前抵达的网络快照。</summary>
+/// <summary>管理远端模型及场景加载期间的快照缓存。</summary>
 public sealed class RemotePlayerManager : MonoBehaviour
 {
+    /// <summary>复制协议数据，避免持有会被回收的网络消息。</summary>
     public struct Snapshot
     {
-        // 服务器角色 ID 用作远端角色字典的唯一键。
         public long RoleId;
-        public Vector3 Position; // 世界坐标
-        public float RotationY; // 绕 Y 轴的朝向角度
-        public int State; // 与本地 Animator 的 State 参数一致
-        public float Speed; // 与本地 Animator 的 Speed 参数一致
+        public Vector3 Position;
+        public float RotationY;
+        public int State;
+        public float Speed;
+        public uint Sequence;
+
+        /// <summary>用序号判断新旧，同时兼容 uint 序号回绕。</summary>
+        public bool IsNewerThan(Snapshot other)
+            => unchecked((int)(Sequence - other.Sequence)) > 0;
     }
 
-    // 当前场景使用的唯一管理器实例。
     private static RemotePlayerManager instance;
-    // 场景管理器尚未准备好时先暂存进入通知；同一角色只保留最新一份。
     private static readonly Dictionary<long, Snapshot> pendingEntries = new Dictionary<long, Snapshot>();
-    // 远端模型还没创建时先暂存移动；避免“移动通知先到”导致位置丢失。
     private static readonly Dictionary<long, Snapshot> pendingMoves = new Dictionary<long, Snapshot>();
-
-    // 已经生成的远端模型，按角色 ID 查找。
     private readonly Dictionary<long, RemotePlayerView> views = new Dictionary<long, RemotePlayerView>();
-    // 本地 Animator 的模型和相对变换，用来生成外观一致的远端角色。
     private Animator visualTemplate;
-    private Vector3 visualLocalPosition;
-    private Quaternion visualLocalRotation;
-    private Vector3 visualLocalScale;
-    private Vector3 avatarScale;
+    private Transform localRoot;
     private bool isReady;
 
-    /// <summary>场景加载后用本地角色的模型作为远端角色外观模板。</summary>
-    public static void Initialize(GameObject localPlayer)
+    /// <summary>绑定本地角色的模型子物体作为临时外观模板。</summary>
+    public static bool Initialize(GameObject localPlayer)
     {
-        if (localPlayer == null)
+        var controller = localPlayer != null ? localPlayer.GetComponent<PlayerController>() : null;
+        if (controller == null || controller.VisualAnimator == null) return false;
+        var model = controller.VisualAnimator;
+        if (model.transform == localPlayer.transform
+            || model.GetComponentInChildren<PlayerController>(true) != null
+            || model.GetComponentInChildren<PlayerInputSource>(true) != null)
         {
-            Debug.LogError("RemotePlayerManager: 找不到本地角色对象 PlayerRoot。");
-            return;
+            Debug.LogError("远端外观需要独立模型子物体；请将 Animator 与本地输入、控制脚本分开。");
+            return false;
         }
 
         if (instance == null)
-        {
-            var managerObject = new GameObject(nameof(RemotePlayerManager));
-            instance = managerObject.AddComponent<RemotePlayerManager>();
-        }
-
-        instance.Setup(localPlayer);
+            instance = new GameObject(nameof(RemotePlayerManager)).AddComponent<RemotePlayerManager>();
+        instance.visualTemplate = model;
+        instance.localRoot = localPlayer.transform;
+        instance.isReady = true;
+        foreach (var snapshot in pendingEntries.Values) instance.Upsert(snapshot);
+        pendingEntries.Clear();
+        return true;
     }
 
-    /// <summary>接收玩家进入场景的初始状态，必要时先缓存到场景准备完成。</summary>
+    /// <summary>断线或切换世界时清空所有模型和静态缓存。</summary>
+    public static void Reset()
+    {
+        pendingEntries.Clear();
+        pendingMoves.Clear();
+        if (instance == null) return;
+        instance.gameObject.SetActive(false);
+        Destroy(instance.gameObject);
+        instance = null;
+    }
+
+    /// <summary>进入通知负责创建模型；移动通知不能单独创建已离线的角色。</summary>
     public static void PlayerEntered(Snapshot snapshot)
     {
-        if (snapshot.RoleId == 0 || snapshot.RoleId == PlayerSelfModel.Instance.RoleId)
-        {
-            // 不创建无效角色，也不把自己当作远端角色显示。
-            return;
-        }
-
+        if (!IsRemote(snapshot.RoleId)) return;
         if (instance == null || !instance.isReady)
         {
-            // 网络通知可能早于场景角色初始化，先缓存，等 Initialize 后再创建。
-            pendingEntries[snapshot.RoleId] = snapshot;
+            CacheLatest(pendingEntries, snapshot);
             return;
         }
-
         instance.Upsert(snapshot);
     }
 
-    /// <summary>更新远端角色的目标位置和动画状态。</summary>
+    /// <summary>模型尚未准备好时只缓存最新位置。</summary>
     public static void PlayerMoved(Snapshot snapshot)
     {
-        if (snapshot.RoleId == 0 || snapshot.RoleId == PlayerSelfModel.Instance.RoleId)
+        if (!IsRemote(snapshot.RoleId)) return;
+        if (instance == null || !instance.isReady || !instance.views.TryGetValue(snapshot.RoleId, out var view))
         {
+            CacheLatest(pendingMoves, snapshot);
             return;
         }
-
-        if (instance == null || !instance.isReady
-            || !instance.views.TryGetValue(snapshot.RoleId, out var view))
-        {
-            // 暂无可更新的模型时只保留最新移动状态，后续创建模型后再应用。
-            pendingMoves[snapshot.RoleId] = snapshot;
-            return;
-        }
-
         view.SetSnapshot(snapshot);
     }
 
-    /// <summary>移除服务端确认离线的远端角色。</summary>
+    /// <summary>离开通知同时清除已生成模型和未消费快照。</summary>
     public static void PlayerLeft(long roleId)
     {
-        // 角色尚未生成时也要清除缓存，避免离线后又被旧缓存创建出来。
         pendingEntries.Remove(roleId);
         pendingMoves.Remove(roleId);
         if (instance != null && instance.views.TryGetValue(roleId, out var view))
@@ -100,70 +98,62 @@ public sealed class RemotePlayerManager : MonoBehaviour
         }
     }
 
-    private void Setup(GameObject localPlayer)
+    /// <summary>只管理其他玩家的外观。</summary>
+    private static bool IsRemote(long roleId) => roleId != 0 && roleId != PlayerSelfModel.Instance.RoleId;
+
+    /// <summary>加载期间同一角色只保留最新快照。</summary>
+    private static void CacheLatest(Dictionary<long, Snapshot> cache, Snapshot snapshot)
     {
-        visualTemplate = localPlayer.GetComponentInChildren<Animator>(true);
-        if (visualTemplate == null)
-        {
-            Debug.LogError("RemotePlayerManager: 本地角色上找不到 Animator，无法创建远端角色。");
-            return;
-        }
-
-        visualLocalPosition = visualTemplate.transform.localPosition;
-        visualLocalRotation = visualTemplate.transform.localRotation;
-        visualLocalScale = visualTemplate.transform.localScale;
-        avatarScale = localPlayer.transform.localScale;
-        isReady = true;
-
-        // 按收到的进入通知创建所有暂存角色。
-        foreach (var snapshot in pendingEntries.Values)
-        {
-            Upsert(snapshot);
-        }
-        pendingEntries.Clear();
+        if (!cache.TryGetValue(snapshot.RoleId, out var previous) || snapshot.IsNewerThan(previous))
+            cache[snapshot.RoleId] = snapshot;
     }
 
+    /// <summary>只克隆模型，在激活前完成位置和动画初始化。</summary>
     private void Upsert(Snapshot snapshot)
     {
         if (views.TryGetValue(snapshot.RoleId, out var view))
-        {
-            // 重复进入通知只刷新状态，不重复创建模型。
             view.SetSnapshot(snapshot);
-        }
         else
         {
-            // 根对象承载位置和朝向，子对象只复用角色外观模型。
             var avatar = new GameObject($"RemotePlayer_{snapshot.RoleId}");
+            avatar.SetActive(false);
             avatar.transform.SetParent(transform, false);
-            avatar.transform.localScale = avatarScale;
-            avatar.transform.SetPositionAndRotation(
-                snapshot.Position,
-                Quaternion.Euler(0f, snapshot.RotationY, 0f));
-
+            avatar.transform.localScale = localRoot.localScale;
             var visual = Instantiate(visualTemplate.gameObject, avatar.transform, false);
-            visual.transform.localPosition = visualLocalPosition;
-            visual.transform.localRotation = visualLocalRotation;
-            visual.transform.localScale = visualLocalScale;
-
+            visual.transform.localPosition = localRoot.InverseTransformPoint(visualTemplate.transform.position);
+            visual.transform.localRotation = Quaternion.Inverse(localRoot.rotation) * visualTemplate.transform.rotation;
+            // 相对世界缩放保留模型中间层的缩放，不依赖 Animator 必须是直接子物体。
+            var scale = localRoot.lossyScale;
+            var modelScale = visualTemplate.transform.lossyScale;
+            visual.transform.localScale = new Vector3(
+                modelScale.x / scale.x, modelScale.y / scale.y, modelScale.z / scale.z);
             view = avatar.AddComponent<RemotePlayerView>();
-            view.Initialize(snapshot, visual.GetComponentInChildren<Animator>(true));
+            view.Initialize(snapshot, visual.GetComponent<Animator>());
             views.Add(snapshot.RoleId, view);
+            avatar.SetActive(true);
         }
-
-        // 进入消息到来前暂存的移动，统一在模型创建或刷新后应用。
-        if (pendingMoves.TryGetValue(snapshot.RoleId, out var pendingMove))
+        if (pendingMoves.TryGetValue(snapshot.RoleId, out var move))
         {
-            view.SetSnapshot(pendingMove);
+            view.SetSnapshot(move);
             pendingMoves.Remove(snapshot.RoleId);
         }
     }
 
+    /// <summary>场景正常销毁时清除对应的静态引用。</summary>
     private void OnDestroy()
     {
-        if (instance == this)
-        {
-            // 场景卸载时释放静态引用，下一次进入场景可重新初始化管理器。
-            instance = null;
-        }
+        if (instance != this) return;
+        instance = null;
+        pendingEntries.Clear();
+        pendingMoves.Clear();
+    }
+
+    /// <summary>兼容编辑器关闭 Domain Reload 后重新运行。</summary>
+    [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
+    private static void ClearStatics()
+    {
+        instance = null;
+        pendingEntries.Clear();
+        pendingMoves.Clear();
     }
 }

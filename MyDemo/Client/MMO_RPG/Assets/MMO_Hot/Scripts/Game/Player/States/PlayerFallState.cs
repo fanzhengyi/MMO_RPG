@@ -10,14 +10,10 @@ public sealed class PlayerFallState : PlayerState
     /// <summary>落地后回到地面移动状态，落地瞬间可起跳。</summary>
     public override void Tick()
     {
-        //还没有落地的时候就一直报错落地状态
+        // 未落地时继续保持下落状态。
         if (!Fsm.IsGrounded)
             return;
 
-        //落地后
-        if (Fsm.Input.JumpPressed)
-            Fsm.ChangeState(Fsm.Jump);
-        else
-            TickGroundState();
+        TickGroundState();
     }
 }

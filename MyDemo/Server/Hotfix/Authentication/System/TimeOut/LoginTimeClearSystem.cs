@@ -1,19 +1,26 @@
+using Fantasy.Entitas.Interface;
+
+/// <summary>缓存提前释放时也要取消计时器。</summary>
+public sealed class LoginTimeClearDestroySystem : DestroySystem<LoginTimeClear>
+{
+    protected override void Destroy(LoginTimeClear self)
+    {
+        if (self.TimerClearId != 0) self.Scene.TimerComponent.Net.Remove(ref self.TimerClearId);
+    }
+}
+
 public static class LoginTimeClearSystem
 {
+    /// <summary>到期后移除缓存；父实体的销毁负责释放组件。</summary>
     public static void TimeOut(this LoginTimeClear self, string key, int timeOut)
     {
-        // 保存父级 LoginCacheEntity 的运行时 ID，防止对象池复用后误删新缓存。
         var scene = self.Scene;
-        var runId = self.Parent.RuntimeId;
+        var runtimeId = self.Parent.RuntimeId;
         self.TimerClearId = scene.TimerComponent.Net.OnceTimer(timeOut, () =>
         {
-            if (runId != self.Parent.RuntimeId)
-            {
-                return;
-            }
-            // 到期后移除字典记录并销毁缓存实体。
-            AuthenticationHelper.RemoveLoginCache(scene, key, true);
-            self.Dispose();
+            if (self.IsDisposed || self.Parent.RuntimeId != runtimeId) return;
+            self.TimerClearId = 0;
+            scene.GetComponent<AuthenticationComponent>().RemoveLoginCache(key);
         });
     }
 }

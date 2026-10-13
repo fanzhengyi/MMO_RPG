@@ -8,20 +8,8 @@ public sealed class Game2G_PlayerEnteredHandler : Address<Scene, Game2G_PlayerEn
 {
     protected override async FTask Run(Scene scene, Game2G_PlayerEntered message)
     {
-        // Session 已销毁或消息带有无效 ID 时，这条定向通知已经没有接收者。
-        if (message.GateSessionRuntimeId == 0
-            || !scene.TryGetEntity<Session>(message.GateSessionRuntimeId, out var session)
-            || session.IsDisposed)
-        {
+        if (!GateSessionHelper.TryGetSession(scene, message.GateSessionRuntimeId, out var session))
             return;
-        }
-
-        var sessionInfo = session.GetComponent<SessionDisponse>();
-        // Session 可能仍存在但已经退出登录；这种情况下不再发送游戏内通知。
-        if (sessionInfo == null || string.IsNullOrEmpty(sessionInfo.userName))
-        {
-            return;
-        }
 
         session.Send(new G2C_PlayerEntered
         {

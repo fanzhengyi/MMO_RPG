@@ -1,20 +1,7 @@
-using System;
-using DG.Tweening;
-using UnityEngine;
-
-/// <summary>
-/// 轻量飘字提示：向上缓慢移动 + 渐隐，结束后自动关闭面板。
-/// 用法：TipManager.Instance.ShowTip("登录成功", Color.green);
-/// </summary>
-public class TipManager : Singleton<TipManager>
+/// <summary>提示面板的业务入口；动画生命周期由面板自己负责。</summary>
+public sealed class TipManager : Singleton<TipManager>
 {
-    public void ShowTip(string text )
-    {
-        UIManager.Instance.ShowPanel<TipPanel>(tipPanel =>
-        {
-            // 正在播上一条时先停掉旧动画，避免位移和透明度叠加
-            tipPanel.transform.DOKill();
-            tipPanel.PlayTip(text);
-        });
-    }
+    /// <summary>打开提示面板并播放当前文本。</summary>
+    public void ShowTip(string text)
+        => UIManager.Instance.ShowPanel<TipPanel>(panel => panel.PlayTip(text));
 }

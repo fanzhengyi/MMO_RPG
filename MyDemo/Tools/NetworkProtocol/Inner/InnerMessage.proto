@@ -73,7 +73,7 @@ message G2Game_PlayerMove // IAddressMessage
     float Speed = 10;
 }
 
-///Game 将其他玩家的移动快照定向转发给目标 Gate
+///Game 转发移动快照；RoleId 等于接收者角色时表示位置回正
 message Game2G_PlayerMove // IAddressMessage
 {
     int64 GateSessionRuntimeId = 1;
@@ -103,7 +103,7 @@ message Game2G_PlayerEntered // IAddressMessage
     uint32 Sequence = 11;
 }
 
-///Gate 在玩家连接离线宽限期结束后通知 Game 清除在线会话
+///Gate 在玩家连接断开或被替换时通知 Game 保存角色并清除在线会话
 message G2Game_PlayerLeft // IAddressMessage
 {
     string UserName = 1;

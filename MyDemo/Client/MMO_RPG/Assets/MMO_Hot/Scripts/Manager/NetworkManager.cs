@@ -2,66 +2,92 @@ using System;
 using Fantasy;
 using Fantasy.Async;
 using Fantasy.Network;
-using UnityEngine;
 
-public class NetworkManager : Singleton<NetworkManager>
+/// <summary>只管理连接、心跳和断线事件，不处理角色或界面数据。</summary>
+public sealed class NetworkManager : Singleton<NetworkManager>
 {
     public Session GateSession { get; private set; }
+    // 换电脑后把这里设为 KCP；登录、同步协议和 Handler 无需改动。
+    public NetworkProtocolType Protocol { get; set; } = NetworkProtocolType.TCP;
+    public event Action GateDisconnected;
+    private bool connecting;
 
+    /// <summary>跨 await 校验连接时同时比较运行时 ID，避免 Session 对象池复用。</summary>
+    public bool IsCurrentGate(Session session, long runtimeId)
+        => session != null && !session.IsDisposed && GateSession == session && session.RuntimeId == runtimeId;
 
-    /// <summary>
-    /// 建立一条外网连接。当前 Fantasy Scene 同一时间只能持有一条外网连接。
-    /// </summary>
+    /// <summary>创建外网连接；当前 Fantasy Scene 同时只建立一条连接。</summary>
     public async FTask<Session> ConnectAsync(string address)
     {
         if (GlobalManager.Instance.Scene == null)
             throw new InvalidOperationException("Fantasy 尚未初始化完成。");
+        if (connecting || (GateSession != null && !GateSession.IsDisposed))
+            throw new InvalidOperationException("已有连接或连接请求正在进行。");
 
-        FTask<Session> connectTask = FTask<Session>.Create(false);
-        Session newSession = null;
-
-        newSession = GlobalManager.Instance.Scene.Connect(
-            address,
-            NetworkProtocolType.TCP,
-            () => ConnectSuccess(connectTask,newSession),
-            () => connectTask.SetException(new Exception($"连接失败：{address}")),
-            () => OnConnectDisconnected(newSession, address),
-            false,
-            5000);
-
-        return await connectTask;
+        connecting = true;
+        var task = FTask<Session>.Create(false);
+        Session session = null;
+        var completed = false;
+        try
+        {
+            session = GlobalManager.Instance.Scene.Connect(address, Protocol,
+                () =>
+                {
+                    if (completed) return;
+                    completed = true;
+                    task.SetResult(session);
+                },
+                () =>
+                {
+                    if (completed) return;
+                    completed = true;
+                    task.SetException(new InvalidOperationException($"连接失败：{address}"));
+                },
+                () =>
+                {
+                    if (!completed)
+                    {
+                        completed = true;
+                        task.SetException(new InvalidOperationException($"连接建立前断开：{address}"));
+                    }
+                    OnDisconnected(session);
+                },
+                false, 5000);
+            return await task;
+        }
+        catch
+        {
+            if (session != null && !session.IsDisposed) session.Dispose();
+            throw;
+        }
+        finally { connecting = false; }
     }
 
-    public void ConnectSuccess(FTask<Session> connectTask,Session session)
-    {
-        Log.Info($"连接成功");
-         connectTask.SetResult(session);
-    } 
-
-
-    /// <summary>
-    /// 将已通过 Gate 登录验证的连接设为长期游戏连接。
-    /// </summary>
+    /// <summary>只有通过 Gate 验证的长期连接才启动心跳。</summary>
     public void SetGateSession(Session session)
     {
+        if (session == null || session.IsDisposed) throw new ArgumentException("Gate 连接已失效。", nameof(session));
         GateSession = session;
-        // 只有长期 Gate 连接需要心跳；登录服和注册连接不需要。
-        if (GateSession.GetComponent<SessionHeartbeatComponent>() == null)
-            GateSession.AddComponent<SessionHeartbeatComponent>().Start(2000);
+        if (session.GetComponent<SessionHeartbeatComponent>() == null)
+            session.AddComponent<SessionHeartbeatComponent>().Start(2000);
     }
 
+    /// <summary>主动断开也触发相同的生命周期事件，业务层据此清理状态。</summary>
     public void DisconnectGate()
     {
-        if (GateSession != null && !GateSession.IsDisposed)
-            GateSession.Dispose();
+        var session = GateSession;
+        if (session == null) return;
         GateSession = null;
+        if (!session.IsDisposed) session.Dispose();
+        GateDisconnected?.Invoke();
     }
 
-    //连接断开
-    private void OnConnectDisconnected(Session session, string address)
+    /// <summary>只报告 Gate 长连接断开，鉴权短连接的关闭不触发业务事件。</summary>
+    private void OnDisconnected(Session session)
     {
-        Log.Error($"与服务器断开连接：{address}");
-        if (GateSession == session)
-            GateSession = null;
+        // Authentication 的正常短连接关闭不应触发游戏下线。
+        if (session == null || GateSession != session) return;
+        GateSession = null;
+        GateDisconnected?.Invoke();
     }
 }
