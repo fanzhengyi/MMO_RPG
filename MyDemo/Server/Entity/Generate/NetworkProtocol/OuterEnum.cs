@@ -4,58 +4,36 @@
 namespace Fantasy
 {
 	/// <summary>
-	/// 账号模板错误码
+	/// 业务结果；默认值不是成功，Fantasy 的 ErrorCode 只表示框架错误
 	/// </summary>
-	public enum AccountErrorCode
+	public enum ResultCode
 	{
-		/// <summary>
-		/// 服务器内部错误
-		/// </summary>
-		ServerError = 0,
-		/// <summary>
-		/// 账号或者密码为空
-		/// </summary>
-		AccountPaawordEmpty = 1,
-		/// <summary>
-		/// 注册时账号存在
-		/// </summary>
-		RegisterAccountExist = 2,
-		/// <summary>
-		/// 注册成功
-		/// </summary>
-		RegisterSuccess = 3,
-		/// <summary>
-		/// 注册时这个账号不应该在这个鉴权服务器
-		/// </summary>
-		AuthenticationError = 4,
-		/// <summary>
-		/// 没有注册账号或者密码错误
-		/// </summary>
-		AccountNotExistOrPasswordError = 5,
-		/// <summary>
-		/// 登录成功
-		/// </summary>
-		LoginSuccess = 6,
-		/// <summary>
-		/// 有角色
-		/// </summary>
-		HaveRole = 7,
-		/// <summary>
-		/// 无角色
-		/// </summary>
-		NoRole = 8,
-		/// <summary>
-		/// 未登录
-		/// </summary>
-		NoLogin = 9,
-		/// <summary>
-		/// 玩家昵称不能为空
-		/// </summary>
-		NickNameNull = 10,
-		/// <summary>
-		/// 创建角色成功（新角色）
-		/// </summary>
-		CreateRoleSuccess = 11
+		Unknown = 0,
+		Success = 1,
+		InvalidCredentials = 2,
+		AccountExists = 3,
+		WrongAuthenticationServer = 4,
+		IncorrectCredentials = 5,
+		InvalidToken = 6,
+		NotAuthenticated = 7,
+		RoleNotFound = 8,
+		RoleAlreadyExists = 9,
+		InvalidNickname = 10,
+		ServerError = 11,
+		Busy = 12,
+		RateLimited = 13
+	}
+
+	/// <summary>
+	/// 网络移动状态，不使用 Animator 的参数编号
+	/// </summary>
+	public enum PlayerMotionState
+	{
+		Idle = 0,
+		Walk = 1,
+		Jump = 2,
+		Run = 3,
+		Fall = 4
 	}
 
 

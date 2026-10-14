@@ -11,6 +11,10 @@ public sealed class NetworkManager : Singleton<NetworkManager>
     public NetworkProtocolType Protocol { get; set; } = NetworkProtocolType.TCP;
     public event Action GateDisconnected;
     private bool connecting;
+    private uint movementSequence;
+
+    /// <summary>上行序号属于 Gate 连接，切场景或停用同步脚本不能重置。</summary>
+    public uint NextMovementSequence() => movementSequence = unchecked(movementSequence + 1);
 
     /// <summary>跨 await 校验连接时同时比较运行时 ID，避免 Session 对象池复用。</summary>
     public bool IsCurrentGate(Session session, long runtimeId)
@@ -68,6 +72,7 @@ public sealed class NetworkManager : Singleton<NetworkManager>
     {
         if (session == null || session.IsDisposed) throw new ArgumentException("Gate 连接已失效。", nameof(session));
         GateSession = session;
+        movementSequence = 0;
         if (session.GetComponent<SessionHeartbeatComponent>() == null)
             session.AddComponent<SessionHeartbeatComponent>().Start(2000);
     }

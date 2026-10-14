@@ -1,13 +1,11 @@
 using DG.Tweening;
 using TMPro;
 using UnityEngine;
-using UnityEngine.UI;
 
 /// <summary>单条提示动画；连续提示先停止旧动画，隐藏和销毁时释放 Tween。</summary>
 public sealed class TipPanel : BasePanel
 {
     public TMP_Text textTip;
-    public Image bkImage;
     private RectTransform rectTransform;
 
     /// <summary>缓存文字和动画使用的 RectTransform。</summary>

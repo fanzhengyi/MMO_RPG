@@ -10,7 +10,7 @@ public sealed class G2Game_EnterGameHandler : AddressRPC<Scene, G2Game_EnterGame
     protected override async FTask Run(Scene scene, G2Game_EnterGameRequest request,
         Game2G_EnterGameResponse response, Action reply)
     {
-        response.AccountErrorCode = (int)AccountErrorCode.ServerError;
+        response.Result = ResultCode.ServerError;
         if (string.IsNullOrEmpty(request.UserName) || request.GateSessionRuntimeId == 0
             || request.GateSceneAddress == 0) return;
 
@@ -19,15 +19,15 @@ public sealed class G2Game_EnterGameHandler : AddressRPC<Scene, G2Game_EnterGame
             var player = await OnlinePlayerSystem.LoadAsync(scene, request.UserName);
             if (player == null)
             {
-                response.AccountErrorCode = (int)AccountErrorCode.NoRole;
+                response.Result = ResultCode.RoleNotFound;
                 return;
             }
             var isNewConnection = player.GateSessionRuntimeId != request.GateSessionRuntimeId
                 || player.GateSceneAddress != request.GateSceneAddress;
             player.BindGateSession(request.GateSessionRuntimeId, request.GateSceneAddress);
             OnlinePlayerSystem.SendPresence(scene, player, isNewConnection);
-            response.AccountErrorCode = (int)AccountErrorCode.HaveRole;
-            response.Data = PlayerMessageMapper.ToRoleData(player);
+            response.Result = ResultCode.Success;
+            response.Info = PlayerMessageMapper.ToPlayerInfo(player);
         }
     }
 }

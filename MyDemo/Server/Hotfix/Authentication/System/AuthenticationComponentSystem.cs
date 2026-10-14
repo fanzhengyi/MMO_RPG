@@ -31,17 +31,17 @@ public static class AuthenticationComponentSystem
     }
 
     /// <summary>校验密码，短时缓存结果；正确的旧密码在登录时升级为哈希。</summary>
-    public static async FTask<AccountErrorCode> Login(this AuthenticationComponent self, string username, string password)
+    public static async FTask<ResultCode> Login(this AuthenticationComponent self, string username, string password)
     {
         var error = Validate(self, username, password);
-        if (error != AccountErrorCode.LoginSuccess) return error;
+        if (error != ResultCode.Success) return error;
         var scene = self.Scene;
         using (await scene.CoroutineLockComponent.Wait((int)LockType.Account, username.GetHashCode()))
         {
             var key = GetCacheKey(username, password);
             if (self.LoginCacheDic.TryGetValue(key, out var cached)) return cached.Result;
-            var account = await scene.World.Database.First<Account>(d => d.Username == username);
-            var result = AccountErrorCode.AccountNotExistOrPasswordError;
+            using var account = await scene.World.Database.First<Account>(d => d.Username == username);
+            var result = ResultCode.IncorrectCredentials;
             if (account != null)
             {
                 // 密码计算放到工作线程，避免阻塞同一场景的其他网络消息。
@@ -52,7 +52,7 @@ public static class AuthenticationComponentSystem
                         account.Password = await PasswordHasher.HashAsync(password);
                     account.LoginTime = TimeHelper.Now;
                     await scene.World.Database.Save(account);
-                    result = AccountErrorCode.LoginSuccess;
+                    result = ResultCode.Success;
                 }
             }
             var entry = Entity.Create<LoginCacheEntity>(scene, true, true);
@@ -64,16 +64,16 @@ public static class AuthenticationComponentSystem
     }
 
     /// <summary>在同一账号锁内检查存在性并创建账号。</summary>
-    public static async FTask<AccountErrorCode> Register(this AuthenticationComponent self, string username, string password)
+    public static async FTask<ResultCode> Register(this AuthenticationComponent self, string username, string password)
     {
         var error = Validate(self, username, password);
-        if (error != AccountErrorCode.LoginSuccess) return error;
+        if (error != ResultCode.Success) return error;
         var scene = self.Scene;
         using (await scene.CoroutineLockComponent.Wait((int)LockType.Account, username.GetHashCode()))
         {
             if (self.RegisterCacheDic.ContainsKey(username)
                 || await scene.World.Database.First<Account>(d => d.Username == username) != null)
-                return AccountErrorCode.RegisterAccountExist;
+                return ResultCode.AccountExists;
 
             var account = Entity.Create<Account>(scene, true, true);
             account.Username = username;
@@ -91,20 +91,20 @@ public static class AuthenticationComponentSystem
                 throw;
             }
             self.RemoveLoginCache(GetCacheKey(username, password));
-            return AccountErrorCode.RegisterSuccess;
+            return ResultCode.Success;
         }
     }
 
     /// <summary>限制输入长度，并确认账号所属的鉴权场景。</summary>
-    private static AccountErrorCode Validate(AuthenticationComponent self, string username, string password)
+    private static ResultCode Validate(AuthenticationComponent self, string username, string password)
     {
         if (string.IsNullOrWhiteSpace(username) || username.Length > 64
             || string.IsNullOrEmpty(password) || password.Length > 128)
-            return AccountErrorCode.AccountPaawordEmpty;
+            return ResultCode.InvalidCredentials;
         if (self.AuthernServerCount == 0
             || self.LocalServerConfigIndex != HashCodeHelper.MurmurHash3(username) % self.AuthernServerCount)
-            return AccountErrorCode.AuthenticationError;
-        return AccountErrorCode.LoginSuccess;
+            return ResultCode.WrongAuthenticationServer;
+        return ResultCode.Success;
     }
 
     /// <summary>长度前缀防止拼接碰撞；缓存键不保存明文凭证。</summary>

@@ -19,13 +19,8 @@ public sealed class C2G_PlayerMoveHandler : Message<C2G_PlayerMove>
             UserName = info.UserName,
             GateSessionRuntimeId = session.RuntimeId,
             GateSceneAddress = info.GateSceneAddress,
-            X = request.X,
-            Y = request.Y,
-            Z = request.Z,
-            RotationY = request.RotationY,
             Sequence = request.Sequence,
-            State = request.State,
-            Speed = request.Speed,
+            Movement = request.Movement,
         });
         await FTask.CompletedTask;
     }

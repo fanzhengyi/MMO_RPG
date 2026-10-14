@@ -227,4 +227,3 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::TipPanel
   textTip: {fileID: 6408316030782243380}
-  bkImage: {fileID: 7817073475123029988}

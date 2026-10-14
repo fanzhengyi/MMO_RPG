@@ -29,10 +29,6 @@ public sealed class ResManager : Singleton<ResManager>
         return GetCachedAsset<T>(location, handle);
     }
 
-    /// <summary>回调入口与 await 入口共用加载逻辑。</summary>
-    public void LoadAsync<T>(string location, Action<T> onComplete) where T : UnityEngine.Object
-        => LoadAsync<T>(location).ContinueWith(onComplete).Forget(UnityEngine.Debug.LogException);
-
     /// <summary>加载场景并报告进度，失败向调用方抛出错误。</summary>
     public async UniTask<SceneHandle> LoadSceneAsync(string location,
         Action<float> onProgress = null, LoadSceneMode mode = LoadSceneMode.Single)

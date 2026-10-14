@@ -8,7 +8,7 @@ public sealed class RemotePlayerView : MonoBehaviour
     private Vector3 targetPosition;
     private Quaternion targetRotation;
     private Animator animator;
-    private uint sequence;
+    private uint version;
     private bool moving;
 
     /// <summary>初次生成直接定位，避免从原点滑入。</summary>
@@ -16,7 +16,7 @@ public sealed class RemotePlayerView : MonoBehaviour
     {
         animator = characterAnimator;
         if (animator != null) animator.applyRootMotion = false;
-        sequence = snapshot.Sequence;
+        version = snapshot.Version;
         targetPosition = snapshot.Position;
         targetRotation = Quaternion.Euler(0f, snapshot.RotationY, 0f);
         transform.SetPositionAndRotation(targetPosition, targetRotation);
@@ -26,8 +26,8 @@ public sealed class RemotePlayerView : MonoBehaviour
     /// <summary>只应用新版本；过远的位置变化直接定位，用于传送或长时间延迟。</summary>
     public void SetSnapshot(RemotePlayerManager.Snapshot snapshot)
     {
-        if (unchecked((int)(snapshot.Sequence - sequence)) <= 0) return;
-        sequence = snapshot.Sequence;
+        if (unchecked((int)(snapshot.Version - version)) <= 0) return;
+        version = snapshot.Version;
         targetPosition = snapshot.Position;
         targetRotation = Quaternion.Euler(0f, snapshot.RotationY, 0f);
         if ((targetPosition - transform.position).sqrMagnitude > TeleportDistance * TeleportDistance)
@@ -56,7 +56,7 @@ public sealed class RemotePlayerView : MonoBehaviour
     private void ApplyAnimation(RemotePlayerManager.Snapshot snapshot)
     {
         if (animator == null || animator.runtimeAnimatorController == null) return;
-        animator.SetInteger("State", snapshot.State);
+        animator.SetInteger("State", (int)snapshot.State);
         animator.SetFloat("Speed", snapshot.Speed);
     }
 }

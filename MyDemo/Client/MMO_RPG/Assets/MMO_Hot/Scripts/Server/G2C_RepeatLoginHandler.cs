@@ -4,9 +4,10 @@ using Fantasy.Network;
 using Fantasy.Network.Interface;
 
 /// <summary>顶号时主动关闭旧连接，业务断线事件会清理角色和远端模型。</summary>
-public sealed class G2C_RepeatLoginHandler : Message<G_2C_RepeaLogin>
+public sealed class G2C_RepeatLoginHandler : Message<G2C_RepeatLogin>
 {
-    protected override async FTask Run(Session session, G_2C_RepeaLogin message)
+    /// <summary>关闭被替换的连接，断线流程统一清理游戏状态。</summary>
+    protected override async FTask Run(Session session, G2C_RepeatLogin message)
     {
         if (NetworkManager.Instance.GateSession != session) return;
         NetworkManager.Instance.DisconnectGate();

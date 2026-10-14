@@ -35,14 +35,20 @@ public sealed class GateJwtDestroySystem : DestroySystem<GateJwtComponent>
 
 public static class GateJwtComponentSystem
 {
-    /// <summary>同时验证签名、有效期和账号，防止拿别人的 Token 登录。</summary>
-    public static bool ValidateJwtTokens(this GateJwtComponent self, string token, string userName)
+    /// <summary>验签后提取账号，并确认凭证属于当前 Gate。</summary>
+    public static bool TryValidateToken(this GateJwtComponent self, string token, long gateSceneId, out string userName)
     {
+        userName = "";
         if (string.IsNullOrWhiteSpace(token) || token.Length > 8192) return false;
         try
         {
             var principal = new JwtSecurityTokenHandler().ValidateToken(token, self.TokenValidationParameters, out _);
-            return principal.FindFirst("UserName")?.Value == userName;
+            var account = principal.FindFirst("UserName")?.Value;
+            if (string.IsNullOrWhiteSpace(account) || account.Length > 64
+                || !long.TryParse(principal.FindFirst("GateSceneId")?.Value, out var targetId)
+                || targetId != gateSceneId) return false;
+            userName = account;
+            return true;
         }
         catch (SecurityTokenException) { return false; }
         catch (ArgumentException) { return false; }

@@ -3,10 +3,11 @@ using Fantasy;
 using Fantasy.Async;
 using Fantasy.Event;
 using Fantasy.MongdbModel;
-using System.Threading.Tasks;
 
-public class OnSceneCreat_Init : AsyncEventSystem<OnCreateScene>
+/// <summary>按场景职责添加 Fantasy 业务组件。</summary>
+public sealed class OnSceneCreat_Init : AsyncEventSystem<OnCreateScene>
 {
+    /// <summary>鉴权、Gate、Game 各自初始化，不互相持有数据库组件。</summary>
     protected override async FTask Handler(OnCreateScene self)
     {
         var scene = self.Scene;

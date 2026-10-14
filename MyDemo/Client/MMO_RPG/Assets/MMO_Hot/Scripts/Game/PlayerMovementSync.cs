@@ -20,9 +20,8 @@ public sealed class PlayerMovementSync : MonoBehaviour
     private Vector3 lastPosition;
     private float lastRotationY;
     private float lastSpeed;
-    private int lastState;
+    private PlayerFsmCore.StateType lastState;
     private float nextSendTime;
-    private uint sequence;
     private bool hasSent;
 
     /// <summary>初始控制权由进入世界流程开启，避免场景加载首帧上报错误位置。</summary>
@@ -63,12 +62,11 @@ public sealed class PlayerMovementSync : MonoBehaviour
         {
             trackedSession = session;
             trackedSessionRuntimeId = session.RuntimeId;
-            sequence = 0;
             hasSent = false;
         }
         var position = transform.position;
         var rotationY = transform.eulerAngles.y;
-        var state = (int)playerController.State;
+        var state = playerController.State;
         var speed = playerController.HorizontalSpeed;
         var stateChanged = !hasSent || state != lastState;
         if (!stateChanged && Time.unscaledTime < nextSendTime) return;
@@ -83,12 +81,18 @@ public sealed class PlayerMovementSync : MonoBehaviour
             || Mathf.Abs(speed - lastSpeed) >= speedThreshold;
 
     /// <summary>上行序号只属于当前连接；成功提交后保存本次采样值。</summary>
-    private void SendSnapshot(Session session, Vector3 position, float rotationY, int state, float speed)
+    private void SendSnapshot(Session session, Vector3 position, float rotationY, PlayerFsmCore.StateType state, float speed)
     {
-        sequence = unchecked(sequence + 1);
+        var sequence = NetworkManager.Instance.NextMovementSequence();
         try
         {
-            session.C2G_PlayerMove(position.x, position.y, position.z, rotationY, sequence, state, speed);
+            session.C2G_PlayerMove(sequence, new MovementSnapshot
+            {
+                X = position.x, Y = position.y, Z = position.z,
+                RotationY = rotationY,
+                State = PlayerStateMapping.ToNetwork(state),
+                Speed = speed,
+            });
             lastPosition = position;
             lastRotationY = rotationY;
             lastState = state;

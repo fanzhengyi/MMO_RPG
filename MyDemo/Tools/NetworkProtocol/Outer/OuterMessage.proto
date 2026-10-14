@@ -1,183 +1,167 @@
 syntax = "proto3";
 package Fantasy.Network.Message;
-// 协议分为:
-// ProtoBuf:可以在Outer和Inner文件里使用。
-// MemoryPack:可以在Outer和Inner文件里使用。
-// Bson:仅支持在Inner文件里使用。
-// 使用方式:
-// 在message协议上方添加// Protocol+空格+协议名字
-// 例如:// Protocol ProtoBuf 或 // Protocol MemoryPack
 
-///账号模板错误码
-enum AccountErrorCode
+///业务结果；默认值不是成功，Fantasy 的 ErrorCode 只表示框架错误
+enum ResultCode
 {
-	///服务器内部错误
-	ServerError=0,
-	///账号或者密码为空
-	AccountPaawordEmpty=1,
-	///注册时账号存在
-	RegisterAccountExist=2,
-	///注册成功
-	RegisterSuccess=3,
-	///注册时这个账号不应该在这个鉴权服务器
-	AuthenticationError=4,
-	///没有注册账号或者密码错误
-	AccountNotExistOrPasswordError=5,
-	///登录成功
-	LoginSuccess=6,
-	///有角色
-	HaveRole=7,
-	///无角色
-	NoRole=8,
-	///未登录
-	NoLogin=9,
-	///玩家昵称不能为空
-	NickNameNull=10,
-	///创建角色成功（新角色）
-	CreateRoleSuccess = 11,
+    Unknown = 0,
+    Success = 1,
+    InvalidCredentials = 2,
+    AccountExists = 3,
+    WrongAuthenticationServer = 4,
+    IncorrectCredentials = 5,
+    InvalidToken = 6,
+    NotAuthenticated = 7,
+    RoleNotFound = 8,
+    RoleAlreadyExists = 9,
+    InvalidNickname = 10,
+    ServerError = 11,
+    Busy = 12,
+    RateLimited = 13,
 }
 
-// ==================== 注册/登录（客户端 ↔ Authentication） ====================
-
-///注册请求
-message C2A_RegisterRequest // IRequest,A2C_RegisterResponse
+///网络移动状态，不使用 Animator 的参数编号
+enum PlayerMotionState
 {
-	string Username = 1;
-	string Password = 2;
+    Idle = 0,
+    Walk = 1,
+    Jump = 2,
+    Run = 3,
+    Fall = 4,
 }
 
-///注册响应
-message A2C_RegisterResponse // IResponse
+///位置为世界坐标；RotationY 为角度，Speed 为实际水平速度（米/秒）
+message MovementSnapshot
 {
-	AccountErrorCode LoginError = 1;
+    float X = 1;
+    float Y = 2;
+    float Z = 3;
+    float RotationY = 4;
+    PlayerMotionState State = 5;
+    float Speed = 6;
 }
 
-///登录请求（Authentication验证，成功返回Token）
-message C2A_LoginRequest // IRequest,A2C_LoginResponse
-{
-	string Username = 1;
-	string Password = 2;
-}
-
-///登录响应
-message A2C_LoginResponse // IResponse
-{
-	string Token = 1;
-	AccountErrorCode LoginError = 2;
-}
-
-// ==================== 登录Gate（客户端 ↔ Gate） ====================
-
-///客户端登录到Gate服务器（带Token验证）
-message C2G_LoginRequest // IRequest,G2C_LoginResponse
-{
-	string Token = 1;
-	string UserName = 2;
-}
-
-///Gate登录响应
-message G2C_LoginResponse // IResponse
-{
-	AccountErrorCode LoginError = 1;
-}
-
-///有人顶号的时候发送
-message G_2C_RepeaLogin // IMessage
-{
-}
-
-// ==================== 公共结构 ====================
-
-///玩家信息（进游戏/创角返回，客户端刷新UI用）
+///只发给角色本人的数据，不包含登录账号
 message PlayerInfo
 {
-	int64 RoleId = 1;
-	string UserName = 2;
-	int64 Hp = 3;
-	int64 MaxHp = 4;
-	int64 Mp = 5;
-	int64 MaxMp = 6;
-	int64 Gold = 7;
-	float X = 8;
-	float Y = 9;
-	float Z = 10;
-	float RotationY = 11;
-	string NickName = 12;
+    int64 RoleId = 1;
+    string NickName = 2;
+    int64 Hp = 3;
+    int64 MaxHp = 4;
+    int64 Mp = 5;
+    int64 MaxMp = 6;
+    int64 Gold = 7;
+    MovementSnapshot Movement = 8;
 }
 
-// ==================== 进入游戏 ====================
+///其他玩家可见的初始数据；Version 为服务端移动版本
+message PlayerPresence
+{
+    int64 RoleId = 1;
+    string NickName = 2;
+    MovementSnapshot Movement = 3;
+    uint32 Version = 4;
+}
 
-///登录成功后请求进入游戏（服务端判断是否有角色）
+///注册账号
+message C2A_RegisterRequest // IRequest,A2C_RegisterResponse
+{
+    string Username = 1;
+    string Password = 2;
+}
+
+///注册结果
+message A2C_RegisterResponse // IResponse
+{
+    ResultCode Result = 1;
+}
+
+///鉴权登录
+message C2A_LoginRequest // IRequest,A2C_LoginResponse
+{
+    string Username = 1;
+    string Password = 2;
+}
+
+///凭证和 Gate 地址分别返回，客户端不用解析 Token
+message A2C_LoginResponse // IResponse
+{
+    string Token = 1;
+    ResultCode Result = 2;
+    string GateAddress = 3;
+}
+
+///账号身份和目标 Gate 均从签名 Token 获取
+message C2G_LoginRequest // IRequest,G2C_LoginResponse
+{
+    string Token = 1;
+}
+
+///Gate 登录结果
+message G2C_LoginResponse // IResponse
+{
+    ResultCode Result = 1;
+}
+
+///账号在另一条连接登录
+message G2C_RepeatLogin // IMessage
+{
+}
+
+///请求进入当前公共世界
 message C2G_EnterGameRequest // IRequest,G2C_EnterGameResponse
 {
 }
 
-///进入游戏响应：错误码 + 玩家信息
+///Success 时必须携带 Info；RoleNotFound 时进入创建角色界面
 message G2C_EnterGameResponse // IResponse
 {
-	int32 AccountErrorCode = 1;     // HaveRole=有角色 NoRole=无角色 NoLogin=未登录
-	PlayerInfo Info = 2;            // 有角色时有值
+    ResultCode Result = 1;
+    PlayerInfo Info = 2;
 }
 
-// ==================== 创建角色 ====================
-
-///客户端请求创建角色（当前只有默认职业，只传昵称）
+///创建当前账号的唯一角色
 message C2G_CreateRoleRequest // IRequest,G2C_CreateRoleResponse
 {
-	string NickName = 1;
+    string NickName = 1;
 }
 
-///创建角色响应
+///只返回创建结果，角色初始数据统一由 EnterGame 获取
 message G2C_CreateRoleResponse // IResponse
 {
-	int32 AccountErrorCode = 1;     // CreateRoleSuccess=创建成功 HaveRole=已有角色 NickNameNull=昵称不合法；成功后仍需请求 EnterGame
-	PlayerInfo Info = 2;            // 成功后返回角色信息
+    ResultCode Result = 1;
 }
 
-// ==================== 玩家移动 ====================
-
-///客户端按变化频率上报自己的移动快照
+///客户端移动采样；Sequence 属于当前连接，单调递增并允许 uint 回绕
 message C2G_PlayerMove // IMessage
 {
-	float X = 1;
-	float Y = 2;
-	float Z = 3;
-	float RotationY = 4;
-	uint32 Sequence = 5;
-	int32 State = 6;
-	float Speed = 7;
+    uint32 Sequence = 1;
+    MovementSnapshot Movement = 2;
 }
 
-///服务端移动快照；RoleId 等于自己的角色时表示位置回正
+///只用于其他玩家的移动；Version 由 Game 递增生成
 message G2C_PlayerMove // IMessage
 {
-	int64 RoleId = 1;
-	float X = 2;
-	float Y = 3;
-	float Z = 4;
-	float RotationY = 5;
-	uint32 Sequence = 6;
-	int32 State = 7;
-	float Speed = 8;
+    int64 RoleId = 1;
+    uint32 Version = 2;
+    MovementSnapshot Movement = 3;
 }
 
-///玩家进入场景时，通知其他客户端创建或更新远端角色
+///只发给本人；AckSequence 是本次被拒绝的上行序号，不是下行版本
+message G2C_PlayerPositionCorrection // IMessage
+{
+    uint32 AckSequence = 1;
+    MovementSnapshot Movement = 2;
+}
+
+///创建或更新远端角色外观
 message G2C_PlayerEntered // IMessage
 {
-	int64 RoleId = 1;
-	string UserName = 2;
-	string NickName = 3;
-	float X = 4;
-	float Y = 5;
-	float Z = 6;
-	float RotationY = 7;
-	int32 State = 8;
-	float Speed = 9;
-	uint32 Sequence = 10;
+    PlayerPresence Player = 1;
 }
 
-///玩家离开场景时通知客户端销毁远端角色
+///删除远端角色
 message G2C_PlayerLeft // IMessage
 {
-	int64 RoleId = 1;
+    int64 RoleId = 1;
 }

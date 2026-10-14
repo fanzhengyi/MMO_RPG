@@ -1,109 +1,70 @@
 syntax = "proto3";
-
 package Fantasy.Network.Message;
+import "Outer/OuterMessage.proto";
 
-// ==================== 公共结构 ====================
-
-// 角色完整数据（进游戏/创角返回复用）
-message RoleData
-{
-    int64 RoleId = 1;
-    string UserName = 2;
-    int64 Hp = 3;
-    int64 MaxHp = 4;
-    int64 Mp = 5;
-    int64 MaxMp = 6;
-    int64 Gold = 7;
-    float X = 8;
-    float Y = 9;
-    float Z = 10;
-    float RotationY = 11;
-    string NickName = 12;
-}
-
-// ==================== 进入游戏 ====================
-
-// Gate → Game：进入游戏（查库验证）
+///Gate 提供可信账号和连接路由，客户端不能指定这些字段
 message G2Game_EnterGameRequest // IAddressRequest,Game2G_EnterGameResponse
 {
     string UserName = 1;
-    int64 GateSessionRuntimeId = 2;  // 玩家挂在哪个Gate Session上
-    int64 GateSceneAddress = 3;      // Gate场景的地址
+    int64 GateSessionRuntimeId = 2;
+    int64 GateSceneAddress = 3;
 }
 
-// Game → Gate：查库结果
+///直接复用外网 DTO；不传数据库实体
 message Game2G_EnterGameResponse // IAddressResponse
 {
-    int32 AccountErrorCode = 1;
-    RoleData Data = 2;    // 有角色时填充
+    ResultCode Result = 1;
+    PlayerInfo Info = 2;
 }
 
-// ==================== 创建角色 ====================
-
-// Gate → Game：创建角色
+///创建数据不绑定在线连接，绑定统一由 EnterGame 完成
 message G2Game_CreateRoleRequest // IAddressRequest,Game2G_CreateRoleResponse
 {
     string UserName = 1;
     string NickName = 2;
-    int64 GateSessionRuntimeId = 3;
-    int64 GateSceneAddress = 4;      // Gate场景的地址
 }
 
-// Game → Gate：创建结果
+///创建结果，不重复返回角色数据
 message Game2G_CreateRoleResponse // IAddressResponse
 {
-    int32 AccountErrorCode = 1;
-    RoleData Data = 2;    // 创建成功时填充
+    ResultCode Result = 1;
 }
 
-// ==================== 玩家移动 ====================
-
-///Gate 已验证身份的玩家移动快照，单向转发给 Game
+///经过 Gate 限频和身份校验的移动采样
 message G2Game_PlayerMove // IAddressMessage
 {
     string UserName = 1;
     int64 GateSessionRuntimeId = 2;
     int64 GateSceneAddress = 3;
-    float X = 4;
-    float Y = 5;
-    float Z = 6;
-    float RotationY = 7;
-    uint32 Sequence = 8;
-    int32 State = 9;
-    float Speed = 10;
+    uint32 Sequence = 4;
+    MovementSnapshot Movement = 5;
 }
 
-///Game 转发移动快照；RoleId 等于接收者角色时表示位置回正
+///定向转发其他玩家的移动版本
 message Game2G_PlayerMove // IAddressMessage
 {
     int64 GateSessionRuntimeId = 1;
     int64 RoleId = 2;
-    float X = 3;
-    float Y = 4;
-    float Z = 5;
-    float RotationY = 6;
-    uint32 Sequence = 7;
-    int32 State = 8;
-    float Speed = 9;
+    uint32 Version = 3;
+    MovementSnapshot Movement = 4;
 }
 
-///Game 将玩家进入场景事件定向转发给目标 Gate
+///定向回正被拒绝的移动
+message Game2G_PlayerPositionCorrection // IAddressMessage
+{
+    int64 GateSessionRuntimeId = 1;
+    uint32 AckSequence = 2;
+    MovementSnapshot Movement = 3;
+}
+
+///定向发送公开角色数据
 message Game2G_PlayerEntered // IAddressMessage
 {
     int64 GateSessionRuntimeId = 1;
-    int64 RoleId = 2;
-    string UserName = 3;
-    string NickName = 4;
-    float X = 5;
-    float Y = 6;
-    float Z = 7;
-    float RotationY = 8;
-    int32 State = 9;
-    float Speed = 10;
-    uint32 Sequence = 11;
+    PlayerPresence Player = 2;
 }
 
-///Gate 在玩家连接断开或被替换时通知 Game 保存角色并清除在线会话
+///旧连接下线必须与原路由匹配，不能清除新连接
 message G2Game_PlayerLeft // IAddressMessage
 {
     string UserName = 1;
@@ -111,7 +72,7 @@ message G2Game_PlayerLeft // IAddressMessage
     int64 GateSceneAddress = 3;
 }
 
-///Game 将玩家离开场景事件定向转发给目标 Gate
+///定向发送离开通知
 message Game2G_PlayerLeft // IAddressMessage
 {
     int64 GateSessionRuntimeId = 1;

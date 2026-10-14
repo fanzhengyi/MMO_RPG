@@ -10,13 +10,24 @@ public sealed class RemotePlayerManager : MonoBehaviour
         public long RoleId;
         public Vector3 Position;
         public float RotationY;
-        public int State;
+        public PlayerFsmCore.StateType State;
         public float Speed;
-        public uint Sequence;
+        public uint Version;
+
+        /// <summary>复制协议快照，只保留远端表现需要的值。</summary>
+        public static Snapshot From(long roleId, uint version, Fantasy.MovementSnapshot movement) => new Snapshot
+        {
+            RoleId = roleId,
+            Version = version,
+            Position = new Vector3(movement.X, movement.Y, movement.Z),
+            RotationY = movement.RotationY,
+            State = PlayerStateMapping.FromNetwork(movement.State),
+            Speed = movement.Speed,
+        };
 
         /// <summary>用序号判断新旧，同时兼容 uint 序号回绕。</summary>
         public bool IsNewerThan(Snapshot other)
-            => unchecked((int)(Sequence - other.Sequence)) > 0;
+            => unchecked((int)(Version - other.Version)) > 0;
     }
 
     private static RemotePlayerManager instance;
@@ -108,7 +119,7 @@ public sealed class RemotePlayerManager : MonoBehaviour
             cache[snapshot.RoleId] = snapshot;
     }
 
-    /// <summary>只克隆模型，在激活前完成位置和动画初始化。</summary>
+    /// <summary>只克隆外观，同一帧完成激活和快照初始化。</summary>
     private void Upsert(Snapshot snapshot)
     {
         if (views.TryGetValue(snapshot.RoleId, out var view))
@@ -128,9 +139,10 @@ public sealed class RemotePlayerManager : MonoBehaviour
             visual.transform.localScale = new Vector3(
                 modelScale.x / scale.x, modelScale.y / scale.y, modelScale.z / scale.z);
             view = avatar.AddComponent<RemotePlayerView>();
-            view.Initialize(snapshot, visual.GetComponent<Animator>());
             views.Add(snapshot.RoleId, view);
+            // Animator 激活时会初始化参数，快照必须在激活后写入。
             avatar.SetActive(true);
+            view.Initialize(snapshot, visual.GetComponent<Animator>());
         }
         if (pendingMoves.TryGetValue(snapshot.RoleId, out var move))
         {

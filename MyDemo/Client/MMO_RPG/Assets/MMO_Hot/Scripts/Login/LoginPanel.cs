@@ -48,13 +48,13 @@ public sealed class LoginPanel : BasePanel
         try
         {
             var result = await LoginController.Instance.LoginAsync(inputLoginAccount.text, inputLoginPassword.text);
-            ShowTip(result);
-            if (result != AccountErrorCode.LoginSuccess) return;
+            ShowTip(result, "登录成功");
+            if (result != ResultCode.Success) return;
 
-            result = await CreatRoleController.Instance.EnterGameAsync();
-            if (result == AccountErrorCode.HaveRole)
+            result = await RoleController.Instance.EnterGameAsync();
+            if (result == ResultCode.Success)
                 Hide();
-            else if (result == AccountErrorCode.NoRole)
+            else if (result == ResultCode.RoleNotFound)
             {
                 await UIManager.Instance.ShowAsync<ChooseRolePanel>();
                 Hide();
@@ -83,8 +83,8 @@ public sealed class LoginPanel : BasePanel
         {
             var result = await LoginController.Instance.RegisterAsync(
                 inputRegisterAccount.text, inputRegisterPassWord.text);
-            ShowTip(result);
-            if (result == AccountErrorCode.RegisterSuccess) registerView.SetActive(false);
+            ShowTip(result, "注册成功");
+            if (result == ResultCode.Success) registerView.SetActive(false);
         }
         finally { SetRequesting(false); }
     }
@@ -98,17 +98,19 @@ public sealed class LoginPanel : BasePanel
     }
 
     /// <summary>将账号错误码转换成界面提示。</summary>
-    public void ShowTip(AccountErrorCode code)
+    private void ShowTip(ResultCode code, string successText = "操作成功")
     {
         var text = code switch
         {
-            AccountErrorCode.LoginSuccess => "登录成功",
-            AccountErrorCode.RegisterSuccess => "注册成功",
-            AccountErrorCode.AccountNotExistOrPasswordError => "账号不存在或密码错误",
-            AccountErrorCode.RegisterAccountExist => "注册账号已存在",
-            AccountErrorCode.AuthenticationError => "认证错误",
-            AccountErrorCode.AccountPaawordEmpty => "账号或密码为空或超过长度限制",
-            AccountErrorCode.NoLogin => "登录已失效，请重新登录",
+            ResultCode.Success => successText,
+            ResultCode.IncorrectCredentials => "账号不存在或密码错误",
+            ResultCode.AccountExists => "注册账号已存在",
+            ResultCode.WrongAuthenticationServer => "认证错误",
+            ResultCode.InvalidCredentials => "账号或密码为空或超过长度限制",
+            ResultCode.NotAuthenticated => "登录已失效，请重新登录",
+            ResultCode.InvalidToken => "登录凭证已失效，请重新登录",
+            ResultCode.Busy => "正在处理请求，请稍候",
+            ResultCode.RateLimited => "操作过于频繁，请稍后重试",
             _ => "服务器错误，请稍后重试",
         };
         TipManager.Instance.ShowTip(text);

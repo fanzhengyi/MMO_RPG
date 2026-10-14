@@ -1,40 +1,35 @@
 using Fantasy;
 using Fantasy.MongdbModel;
 
-/// <summary>角色数据与网络 DTO 的转换集中在一处，Handler 只负责流程。</summary>
+/// <summary>只把数据库实体复制成协议快照，不暴露账号或实体引用。</summary>
 public static class PlayerMessageMapper
 {
-    /// <summary>复制 Game 的角色数据到内部响应。</summary>
-    public static RoleData ToRoleData(OnlineInfo player) => new()
+    /// <summary>提取当前确认的移动数据。</summary>
+    public static MovementSnapshot ToMovement(OnlineInfo player) => new()
     {
-        RoleId = player.Id,
-        UserName = player.UserName,
-        NickName = player.NickName,
-        Hp = player.Hp,
-        MaxHp = player.MaxHp,
-        Mp = player.Mp,
-        MaxMp = player.MaxMp,
-        Gold = player.Gold,
-        X = player.X,
-        Y = player.Y,
-        Z = player.Z,
+        X = player.X, Y = player.Y, Z = player.Z,
         RotationY = player.RotationY,
+        State = player.MovementState,
+        Speed = player.MovementSpeed,
     };
 
-    /// <summary>Gate 只复制 DTO，不访问 Game 的数据库实体。</summary>
-    public static PlayerInfo ToPlayerInfo(RoleData data) => new()
+    /// <summary>生成只发给本人的完整角色资料。</summary>
+    public static PlayerInfo ToPlayerInfo(OnlineInfo player) => new()
     {
-        RoleId = data.RoleId,
-        UserName = data.UserName,
-        NickName = data.NickName,
-        Hp = data.Hp,
-        MaxHp = data.MaxHp,
-        Mp = data.Mp,
-        MaxMp = data.MaxMp,
-        Gold = data.Gold,
-        X = data.X,
-        Y = data.Y,
-        Z = data.Z,
-        RotationY = data.RotationY,
+        RoleId = player.Id,
+        NickName = player.NickName,
+        Hp = player.Hp, MaxHp = player.MaxHp,
+        Mp = player.Mp, MaxMp = player.MaxMp,
+        Gold = player.Gold,
+        Movement = ToMovement(player),
+    };
+
+    /// <summary>生成其他玩家可见的外观和移动资料。</summary>
+    public static PlayerPresence ToPresence(OnlineInfo player) => new()
+    {
+        RoleId = player.Id,
+        NickName = player.NickName,
+        Movement = ToMovement(player),
+        Version = player.MovementVersion,
     };
 }

@@ -141,8 +141,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 6859a1aea68dc4246b6b3aae0f97b0d7, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ChooseRolePanel
-  btnCreatRole: {fileID: 1967918165666318879}
-  userName: {fileID: 4190486011113735898}
+  createRoleButton: {fileID: 1967918165666318879}
+  nicknameInput: {fileID: 4190486011113735898}
 --- !u!1 &3167077624447252425
 GameObject:
   m_ObjectHideFlags: 0

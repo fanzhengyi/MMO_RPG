@@ -15,5 +15,6 @@ namespace Fantasy
         public const uint Game2G_PlayerEntered = 939534103;
         public const uint Game2G_PlayerLeft = 939534105;
         public const uint Game2G_PlayerMove = 939534102;
+        public const uint Game2G_PlayerPositionCorrection = 939534106;
     }
 }

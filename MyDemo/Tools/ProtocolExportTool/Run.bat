@@ -15,9 +15,10 @@ echo.
 
 set "SCRIPT_DIR=%~dp0"
 
-dotnet "%SCRIPT_DIR%Fantasy.ProtocolExportTool.dll" export --silent
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%SCRIPT_DIR%Export.ps1"
+set "EXPORT_RESULT=%ERRORLEVEL%"
 
 echo.
 echo 按任意键退出...
 pause >nul
-exit /b 1
+exit /b %EXPORT_RESULT%

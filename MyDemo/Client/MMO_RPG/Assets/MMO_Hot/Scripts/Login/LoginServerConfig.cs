@@ -10,6 +10,7 @@ public static class LoginServerConfig
         "127.0.0.1:20003",
     };
 
+    /// <summary>根据账号选择与服务端配置对应的鉴权地址。</summary>
     public static string GetAddress(string account)
         => Addresses[(int)(HashCodeHelper.MurmurHash3(account) % Addresses.Length)];
 }

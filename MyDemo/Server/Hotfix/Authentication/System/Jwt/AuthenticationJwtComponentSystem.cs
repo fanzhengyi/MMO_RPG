@@ -29,10 +29,11 @@ public sealed class AuthenticationJwtDestroySystem : DestroySystem<Authenticatio
 public static class AuthenticationJwtComponentSystem
 {
     /// <summary>Token 只用于登录 Gate，五分钟后失效。</summary>
-    public static string GenerateJwtTokens(this AuthenticationJwtComponent self, string userName, string address)
+    public static string GenerateJwtTokens(this AuthenticationJwtComponent self, string userName, long gateSceneId)
     {
         var token = new JwtSecurityToken(issuer: "Fzy", audience: "Fzy",
-            claims: new[] { new Claim("UserName", userName), new Claim("Address", address) },
+            claims: new[] { new Claim("UserName", userName),
+                new Claim("GateSceneId", gateSceneId.ToString(System.Globalization.CultureInfo.InvariantCulture)) },
             notBefore: DateTime.UtcNow, expires: DateTime.UtcNow.AddMinutes(5),
             signingCredentials: self.SigningCredentials);
         return new JwtSecurityTokenHandler().WriteToken(token);

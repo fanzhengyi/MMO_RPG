@@ -1,8 +1,9 @@
-/// <summary>复制本地角色数据，避免持有会被回收的网络消息对象。</summary>
+using Fantasy;
+
+/// <summary>复制本人的角色数据，不持有被回收的网络消息。</summary>
 public sealed class PlayerSelfModel : Singleton<PlayerSelfModel>
 {
     public long RoleId;
-    public string UserName;
     public string NickName;
     public long Hp;
     public long MaxHp;
@@ -16,47 +17,43 @@ public sealed class PlayerSelfModel : Singleton<PlayerSelfModel>
     public bool HasRole => RoleId != 0;
     public bool IsInWorld { get; set; }
     public event System.Action<float, float, float, float> PositionCorrected;
-    private uint correctionSequence;
+    private uint lastCorrectionAck;
     private bool hasCorrection;
 
-    /// <summary>保存进入游戏响应中的角色初始数据。</summary>
-    public void SetInfo(Fantasy.PlayerInfo info)
+    /// <summary>复制进入响应，并清除上一次世界的回正序号。</summary>
+    public void SetInfo(PlayerInfo info)
     {
         RoleId = info.RoleId;
-        UserName = info.UserName;
         NickName = info.NickName;
-        Hp = info.Hp;
-        MaxHp = info.MaxHp;
-        Mp = info.Mp;
-        MaxMp = info.MaxMp;
+        Hp = info.Hp; MaxHp = info.MaxHp;
+        Mp = info.Mp; MaxMp = info.MaxMp;
         Gold = info.Gold;
-        X = info.X;
-        Y = info.Y;
-        Z = info.Z;
-        RotationY = info.RotationY;
+        X = info.Movement.X; Y = info.Movement.Y; Z = info.Movement.Z;
+        RotationY = info.Movement.RotationY;
+        hasCorrection = false;
+        lastCorrectionAck = 0;
     }
 
-    /// <summary>断线或重新登录时清空全部数据，防止 UI 读到旧账号数值。</summary>
+    /// <summary>断线时清空角色和本次连接的回正记录。</summary>
     public void Clear()
     {
         RoleId = Hp = MaxHp = Mp = MaxMp = Gold = 0;
-        UserName = NickName = null;
+        NickName = null;
         X = Y = Z = RotationY = 0f;
         IsInWorld = false;
         hasCorrection = false;
-        correctionSequence = 0;
+        lastCorrectionAck = 0;
     }
 
-    /// <summary>保存最新回正并通知同步组件，数据模型不直接操作场景物体。</summary>
-    public void CorrectPosition(uint sequence, float x, float y, float z, float rotationY)
+    /// <summary>只接受更新的回正确认，通知控制器重新定位。</summary>
+    public void CorrectPosition(uint ackSequence, MovementSnapshot movement)
     {
-        if (!IsInWorld || (hasCorrection && unchecked((int)(sequence - correctionSequence)) <= 0)) return;
-        correctionSequence = sequence;
+        if (!IsInWorld || movement == null
+            || (hasCorrection && unchecked((int)(ackSequence - lastCorrectionAck)) <= 0)) return;
+        lastCorrectionAck = ackSequence;
         hasCorrection = true;
-        X = x;
-        Y = y;
-        Z = z;
-        RotationY = rotationY;
-        PositionCorrected?.Invoke(x, y, z, rotationY);
+        X = movement.X; Y = movement.Y; Z = movement.Z;
+        RotationY = movement.RotationY;
+        PositionCorrected?.Invoke(X, Y, Z, RotationY);
     }
 }

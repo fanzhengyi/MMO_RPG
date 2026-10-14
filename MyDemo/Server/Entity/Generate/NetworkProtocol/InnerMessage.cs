@@ -24,79 +24,9 @@ using Fantasy.Serialize;
 #pragma warning disable CS8618
 namespace Fantasy
 {
-    [Serializable]
-    [ProtoContract]
-    public partial class RoleData : AMessage, IDisposable
-    {
-        public static RoleData Create(bool autoReturn = true)
-        {
-            var roleData = MessageObjectPool<RoleData>.Rent();
-            roleData.AutoReturn = autoReturn;
-            
-            if (!autoReturn)
-            {
-                roleData.SetIsPool(false);
-            }
-            
-            return roleData;
-        }
-        
-        public void Return()
-        {
-            if (!AutoReturn)
-            {
-                SetIsPool(true);
-                AutoReturn = true;
-            }
-            else if (!IsPool())
-            {
-                return;
-            }
-            Dispose();
-        }
-
-        public void Dispose()
-        {
-            if (!IsPool()) return; 
-            RoleId = default;
-            UserName = default;
-            Hp = default;
-            MaxHp = default;
-            Mp = default;
-            MaxMp = default;
-            Gold = default;
-            X = default;
-            Y = default;
-            Z = default;
-            RotationY = default;
-            NickName = default;
-            MessageObjectPool<RoleData>.Return(this);
-        }
-        [ProtoMember(1)]
-        public long RoleId { get; set; }
-        [ProtoMember(2)]
-        public string UserName { get; set; }
-        [ProtoMember(3)]
-        public long Hp { get; set; }
-        [ProtoMember(4)]
-        public long MaxHp { get; set; }
-        [ProtoMember(5)]
-        public long Mp { get; set; }
-        [ProtoMember(6)]
-        public long MaxMp { get; set; }
-        [ProtoMember(7)]
-        public long Gold { get; set; }
-        [ProtoMember(8)]
-        public float X { get; set; }
-        [ProtoMember(9)]
-        public float Y { get; set; }
-        [ProtoMember(10)]
-        public float Z { get; set; }
-        [ProtoMember(11)]
-        public float RotationY { get; set; }
-        [ProtoMember(12)]
-        public string NickName { get; set; }
-    }
+    /// <summary>
+    /// Gate 提供可信账号和连接路由，客户端不能指定这些字段
+    /// </summary>
     [Serializable]
     [ProtoContract]
     public partial class G2Game_EnterGameRequest : AMessage, IAddressRequest
@@ -105,15 +35,15 @@ namespace Fantasy
         {
             var g2Game_EnterGameRequest = MessageObjectPool<G2Game_EnterGameRequest>.Rent();
             g2Game_EnterGameRequest.AutoReturn = autoReturn;
-            
+
             if (!autoReturn)
             {
                 g2Game_EnterGameRequest.SetIsPool(false);
             }
-            
+
             return g2Game_EnterGameRequest;
         }
-        
+
         public void Return()
         {
             if (!AutoReturn)
@@ -130,13 +60,13 @@ namespace Fantasy
 
         public void Dispose()
         {
-            if (!IsPool()) return; 
+            if (!IsPool()) return;
             UserName = default;
             GateSessionRuntimeId = default;
             GateSceneAddress = default;
             MessageObjectPool<G2Game_EnterGameRequest>.Return(this);
         }
-        public uint OpCode() { return InnerOpcode.G2Game_EnterGameRequest; } 
+        public uint OpCode() { return InnerOpcode.G2Game_EnterGameRequest; }
         [ProtoIgnore]
         public Game2G_EnterGameResponse ResponseType { get; set; }
         [ProtoMember(1)]
@@ -146,6 +76,9 @@ namespace Fantasy
         [ProtoMember(3)]
         public long GateSceneAddress { get; set; }
     }
+    /// <summary>
+    /// 直接复用外网 DTO；不传数据库实体
+    /// </summary>
     [Serializable]
     [ProtoContract]
     public partial class Game2G_EnterGameResponse : AMessage, IAddressResponse
@@ -154,15 +87,15 @@ namespace Fantasy
         {
             var game2G_EnterGameResponse = MessageObjectPool<Game2G_EnterGameResponse>.Rent();
             game2G_EnterGameResponse.AutoReturn = autoReturn;
-            
+
             if (!autoReturn)
             {
                 game2G_EnterGameResponse.SetIsPool(false);
             }
-            
+
             return game2G_EnterGameResponse;
         }
-        
+
         public void Return()
         {
             if (!AutoReturn)
@@ -179,24 +112,23 @@ namespace Fantasy
 
         public void Dispose()
         {
-            if (!IsPool()) return; 
+            if (!IsPool()) return;
             ErrorCode = 0;
-            AccountErrorCode = default;
-            if (Data != null)
-            {
-                Data.Dispose();
-                Data = null;
-            }
+            Result = default;
+            Info = default;
             MessageObjectPool<Game2G_EnterGameResponse>.Return(this);
         }
-        public uint OpCode() { return InnerOpcode.Game2G_EnterGameResponse; } 
+        public uint OpCode() { return InnerOpcode.Game2G_EnterGameResponse; }
         [ProtoMember(3)]
         public uint ErrorCode { get; set; }
         [ProtoMember(1)]
-        public int AccountErrorCode { get; set; }
+        public ResultCode Result { get; set; }
         [ProtoMember(2)]
-        public RoleData Data { get; set; }
+        public PlayerInfo Info { get; set; }
     }
+    /// <summary>
+    /// 创建数据不绑定在线连接，绑定统一由 EnterGame 完成
+    /// </summary>
     [Serializable]
     [ProtoContract]
     public partial class G2Game_CreateRoleRequest : AMessage, IAddressRequest
@@ -205,15 +137,15 @@ namespace Fantasy
         {
             var g2Game_CreateRoleRequest = MessageObjectPool<G2Game_CreateRoleRequest>.Rent();
             g2Game_CreateRoleRequest.AutoReturn = autoReturn;
-            
+
             if (!autoReturn)
             {
                 g2Game_CreateRoleRequest.SetIsPool(false);
             }
-            
+
             return g2Game_CreateRoleRequest;
         }
-        
+
         public void Return()
         {
             if (!AutoReturn)
@@ -230,25 +162,22 @@ namespace Fantasy
 
         public void Dispose()
         {
-            if (!IsPool()) return; 
+            if (!IsPool()) return;
             UserName = default;
             NickName = default;
-            GateSessionRuntimeId = default;
-            GateSceneAddress = default;
             MessageObjectPool<G2Game_CreateRoleRequest>.Return(this);
         }
-        public uint OpCode() { return InnerOpcode.G2Game_CreateRoleRequest; } 
+        public uint OpCode() { return InnerOpcode.G2Game_CreateRoleRequest; }
         [ProtoIgnore]
         public Game2G_CreateRoleResponse ResponseType { get; set; }
         [ProtoMember(1)]
         public string UserName { get; set; }
         [ProtoMember(2)]
         public string NickName { get; set; }
-        [ProtoMember(3)]
-        public long GateSessionRuntimeId { get; set; }
-        [ProtoMember(4)]
-        public long GateSceneAddress { get; set; }
     }
+    /// <summary>
+    /// 创建结果，不重复返回角色数据
+    /// </summary>
     [Serializable]
     [ProtoContract]
     public partial class Game2G_CreateRoleResponse : AMessage, IAddressResponse
@@ -257,15 +186,15 @@ namespace Fantasy
         {
             var game2G_CreateRoleResponse = MessageObjectPool<Game2G_CreateRoleResponse>.Rent();
             game2G_CreateRoleResponse.AutoReturn = autoReturn;
-            
+
             if (!autoReturn)
             {
                 game2G_CreateRoleResponse.SetIsPool(false);
             }
-            
+
             return game2G_CreateRoleResponse;
         }
-        
+
         public void Return()
         {
             if (!AutoReturn)
@@ -282,26 +211,19 @@ namespace Fantasy
 
         public void Dispose()
         {
-            if (!IsPool()) return; 
+            if (!IsPool()) return;
             ErrorCode = 0;
-            AccountErrorCode = default;
-            if (Data != null)
-            {
-                Data.Dispose();
-                Data = null;
-            }
+            Result = default;
             MessageObjectPool<Game2G_CreateRoleResponse>.Return(this);
         }
-        public uint OpCode() { return InnerOpcode.Game2G_CreateRoleResponse; } 
-        [ProtoMember(3)]
+        public uint OpCode() { return InnerOpcode.Game2G_CreateRoleResponse; }
+        [ProtoMember(2)]
         public uint ErrorCode { get; set; }
         [ProtoMember(1)]
-        public int AccountErrorCode { get; set; }
-        [ProtoMember(2)]
-        public RoleData Data { get; set; }
+        public ResultCode Result { get; set; }
     }
     /// <summary>
-    /// Gate 已验证身份的玩家移动快照，单向转发给 Game
+    /// 经过 Gate 限频和身份校验的移动采样
     /// </summary>
     [Serializable]
     [ProtoContract]
@@ -311,15 +233,15 @@ namespace Fantasy
         {
             var g2Game_PlayerMove = MessageObjectPool<G2Game_PlayerMove>.Rent();
             g2Game_PlayerMove.AutoReturn = autoReturn;
-            
+
             if (!autoReturn)
             {
                 g2Game_PlayerMove.SetIsPool(false);
             }
-            
+
             return g2Game_PlayerMove;
         }
-        
+
         public void Return()
         {
             if (!AutoReturn)
@@ -336,20 +258,15 @@ namespace Fantasy
 
         public void Dispose()
         {
-            if (!IsPool()) return; 
+            if (!IsPool()) return;
             UserName = default;
             GateSessionRuntimeId = default;
             GateSceneAddress = default;
-            X = default;
-            Y = default;
-            Z = default;
-            RotationY = default;
             Sequence = default;
-            State = default;
-            Speed = default;
+            Movement = default;
             MessageObjectPool<G2Game_PlayerMove>.Return(this);
         }
-        public uint OpCode() { return InnerOpcode.G2Game_PlayerMove; } 
+        public uint OpCode() { return InnerOpcode.G2Game_PlayerMove; }
         [ProtoMember(1)]
         public string UserName { get; set; }
         [ProtoMember(2)]
@@ -357,22 +274,12 @@ namespace Fantasy
         [ProtoMember(3)]
         public long GateSceneAddress { get; set; }
         [ProtoMember(4)]
-        public float X { get; set; }
-        [ProtoMember(5)]
-        public float Y { get; set; }
-        [ProtoMember(6)]
-        public float Z { get; set; }
-        [ProtoMember(7)]
-        public float RotationY { get; set; }
-        [ProtoMember(8)]
         public uint Sequence { get; set; }
-        [ProtoMember(9)]
-        public int State { get; set; }
-        [ProtoMember(10)]
-        public float Speed { get; set; }
+        [ProtoMember(5)]
+        public MovementSnapshot Movement { get; set; }
     }
     /// <summary>
-    /// Game 将其他玩家的移动快照定向转发给目标 Gate
+    /// 定向转发其他玩家的移动版本
     /// </summary>
     [Serializable]
     [ProtoContract]
@@ -382,15 +289,15 @@ namespace Fantasy
         {
             var game2G_PlayerMove = MessageObjectPool<Game2G_PlayerMove>.Rent();
             game2G_PlayerMove.AutoReturn = autoReturn;
-            
+
             if (!autoReturn)
             {
                 game2G_PlayerMove.SetIsPool(false);
             }
-            
+
             return game2G_PlayerMove;
         }
-        
+
         public void Return()
         {
             if (!AutoReturn)
@@ -407,40 +314,75 @@ namespace Fantasy
 
         public void Dispose()
         {
-            if (!IsPool()) return; 
+            if (!IsPool()) return;
             GateSessionRuntimeId = default;
             RoleId = default;
-            X = default;
-            Y = default;
-            Z = default;
-            RotationY = default;
-            Sequence = default;
-            State = default;
-            Speed = default;
+            Version = default;
+            Movement = default;
             MessageObjectPool<Game2G_PlayerMove>.Return(this);
         }
-        public uint OpCode() { return InnerOpcode.Game2G_PlayerMove; } 
+        public uint OpCode() { return InnerOpcode.Game2G_PlayerMove; }
         [ProtoMember(1)]
         public long GateSessionRuntimeId { get; set; }
         [ProtoMember(2)]
         public long RoleId { get; set; }
         [ProtoMember(3)]
-        public float X { get; set; }
+        public uint Version { get; set; }
         [ProtoMember(4)]
-        public float Y { get; set; }
-        [ProtoMember(5)]
-        public float Z { get; set; }
-        [ProtoMember(6)]
-        public float RotationY { get; set; }
-        [ProtoMember(7)]
-        public uint Sequence { get; set; }
-        [ProtoMember(8)]
-        public int State { get; set; }
-        [ProtoMember(9)]
-        public float Speed { get; set; }
+        public MovementSnapshot Movement { get; set; }
     }
     /// <summary>
-    /// Game 将玩家进入场景事件定向转发给目标 Gate
+    /// 定向回正被拒绝的移动
+    /// </summary>
+    [Serializable]
+    [ProtoContract]
+    public partial class Game2G_PlayerPositionCorrection : AMessage, IAddressMessage
+    {
+        public static Game2G_PlayerPositionCorrection Create(bool autoReturn = true)
+        {
+            var game2G_PlayerPositionCorrection = MessageObjectPool<Game2G_PlayerPositionCorrection>.Rent();
+            game2G_PlayerPositionCorrection.AutoReturn = autoReturn;
+
+            if (!autoReturn)
+            {
+                game2G_PlayerPositionCorrection.SetIsPool(false);
+            }
+
+            return game2G_PlayerPositionCorrection;
+        }
+
+        public void Return()
+        {
+            if (!AutoReturn)
+            {
+                SetIsPool(true);
+                AutoReturn = true;
+            }
+            else if (!IsPool())
+            {
+                return;
+            }
+            Dispose();
+        }
+
+        public void Dispose()
+        {
+            if (!IsPool()) return;
+            GateSessionRuntimeId = default;
+            AckSequence = default;
+            Movement = default;
+            MessageObjectPool<Game2G_PlayerPositionCorrection>.Return(this);
+        }
+        public uint OpCode() { return InnerOpcode.Game2G_PlayerPositionCorrection; }
+        [ProtoMember(1)]
+        public long GateSessionRuntimeId { get; set; }
+        [ProtoMember(2)]
+        public uint AckSequence { get; set; }
+        [ProtoMember(3)]
+        public MovementSnapshot Movement { get; set; }
+    }
+    /// <summary>
+    /// 定向发送公开角色数据
     /// </summary>
     [Serializable]
     [ProtoContract]
@@ -477,44 +419,17 @@ namespace Fantasy
         {
             if (!IsPool()) return;
             GateSessionRuntimeId = default;
-            RoleId = default;
-            UserName = default;
-            NickName = default;
-            X = default;
-            Y = default;
-            Z = default;
-            RotationY = default;
-            State = default;
-            Speed = default;
-            Sequence = default;
+            Player = default;
             MessageObjectPool<Game2G_PlayerEntered>.Return(this);
         }
         public uint OpCode() { return InnerOpcode.Game2G_PlayerEntered; }
         [ProtoMember(1)]
         public long GateSessionRuntimeId { get; set; }
         [ProtoMember(2)]
-        public long RoleId { get; set; }
-        [ProtoMember(3)]
-        public string UserName { get; set; }
-        [ProtoMember(4)]
-        public string NickName { get; set; }
-        [ProtoMember(5)]
-        public float X { get; set; }
-        [ProtoMember(6)]
-        public float Y { get; set; }
-        [ProtoMember(7)]
-        public float Z { get; set; }
-        [ProtoMember(8)]
-        public float RotationY { get; set; }
-        [ProtoMember(9)]
-        public int State { get; set; }
-        [ProtoMember(10)]
-        public float Speed { get; set; }
-        [ProtoMember(11)]
-        public uint Sequence { get; set; }
+        public PlayerPresence Player { get; set; }
     }
     /// <summary>
-    /// Gate 在玩家连接离线宽限期结束后通知 Game 清除在线会话
+    /// 旧连接下线必须与原路由匹配，不能清除新连接
     /// </summary>
     [Serializable]
     [ProtoContract]
@@ -564,7 +479,7 @@ namespace Fantasy
         public long GateSceneAddress { get; set; }
     }
     /// <summary>
-    /// Game 将玩家离开场景事件定向转发给目标 Gate
+    /// 定向发送离开通知
     /// </summary>
     [Serializable]
     [ProtoContract]

@@ -101,27 +101,14 @@ public sealed class PlayerController : MonoBehaviour
 
     /// <summary>停用角色时清除残留速度。</summary>
     private void OnDisable()
-    {
-        horizontalVelocity = Vector3.zero;
-        verticalVelocity = 0f;
-        HorizontalSpeed = 0f;
-        if (characterController != null)
-            characterController.stepOffset = groundedStepOffset;
-    }
+        => ResetMovement();
 
     /// <summary>业务层控制是否接受输入，控制器自身不依赖网络或账号数据。</summary>
     public void SetControlEnabled(bool value)
     {
         if (controlEnabled == value) return;
         controlEnabled = value;
-        if (!value)
-        {
-            horizontalVelocity = Vector3.zero;
-            verticalVelocity = 0f;
-            HorizontalSpeed = 0f;
-            if (fsm != null) fsm.ChangeState(fsm.Idle);
-            if (fsm != null) UpdateAnimation();
-        }
+        if (!value) ResetMovement();
     }
 
     /// <summary>出生或传送时暂时关闭胶囊，设置位置并清除旧速度。</summary>
@@ -131,9 +118,17 @@ public sealed class PlayerController : MonoBehaviour
         characterController.enabled = false;
         transform.SetPositionAndRotation(position, Quaternion.Euler(0f, rotationY, 0f));
         characterController.enabled = wasEnabled;
+        ResetMovement();
+    }
+
+    /// <summary>停用、暂停控制和传送共用同一份速度与状态清理。</summary>
+    private void ResetMovement()
+    {
         horizontalVelocity = Vector3.zero;
         verticalVelocity = 0f;
         HorizontalSpeed = 0f;
+        if (characterController != null) characterController.stepOffset = groundedStepOffset;
+        if (fsm == null) return;
         fsm.ChangeState(fsm.Idle);
         UpdateAnimation();
     }

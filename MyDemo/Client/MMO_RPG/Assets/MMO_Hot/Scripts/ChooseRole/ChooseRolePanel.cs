@@ -6,14 +6,14 @@ using UnityEngine.UI;
 /// <summary>昵称输入与角色创建结果展示。</summary>
 public sealed class ChooseRolePanel : BasePanel
 {
-    public Button btnCreatRole;
-    public TMP_InputField userName;
+    public Button createRoleButton;
+    public TMP_InputField nicknameInput;
     private bool requesting;
 
     /// <summary>绑定创建按钮。</summary>
     protected override void OnInit()
     {
-        btnCreatRole.onClick.AddListener(() => CreateRoleAsync().Coroutine());
+        createRoleButton.onClick.AddListener(() => CreateRoleAsync().Coroutine());
     }
 
     /// <summary>创建期间禁用按钮；成功才隐藏面板，异常不会让按钮永久失效。</summary>
@@ -21,20 +21,20 @@ public sealed class ChooseRolePanel : BasePanel
     {
         if (requesting) return;
         requesting = true;
-        btnCreatRole.interactable = false;
+        createRoleButton.interactable = false;
         try
         {
-            var result = await CreatRoleController.Instance.CreatRoleAsync(userName.text);
+            var result = await RoleController.Instance.CreateRoleAsync(nicknameInput.text);
             switch (result)
             {
-                case AccountErrorCode.CreateRoleSuccess:
+                case ResultCode.Success:
                     TipManager.Instance.ShowTip("角色创建成功");
                     Hide();
                     break;
-                case AccountErrorCode.NickNameNull:
+                case ResultCode.InvalidNickname:
                     TipManager.Instance.ShowTip("昵称不能为空，且不能超过24个字符");
                     break;
-                case AccountErrorCode.NoLogin:
+                case ResultCode.NotAuthenticated:
                     Hide();
                     UIManager.Instance.ShowPanel<LoginPanel>();
                     TipManager.Instance.ShowTip("登录已失效，请重新登录");
@@ -47,7 +47,7 @@ public sealed class ChooseRolePanel : BasePanel
         finally
         {
             requesting = false;
-            if (btnCreatRole != null) btnCreatRole.interactable = true;
+            if (createRoleButton != null) createRoleButton.interactable = true;
         }
     }
 }

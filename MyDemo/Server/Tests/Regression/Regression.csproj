@@ -6,6 +6,7 @@
     <ProjectReference Include="../../Hotfix/Hotfix.csproj" />
     <Compile Include="../../../Client/MMO_RPG/Assets/MMO_Hot/Scripts/Tool/Singleton.cs" Link="Client/Singleton.cs" />
     <Compile Include="../../../Client/MMO_RPG/Assets/MMO_Hot/Scripts/Game/PlayerSelfModel.cs" Link="Client/PlayerSelfModel.cs" />
+    <Compile Include="../../../Client/MMO_RPG/Assets/MMO_Hot/Proto/NetworkProtocolHelper.cs" Link="Client/NetworkProtocolHelper.cs" />
     <None Include="../../Entity/Fantasy.config" Link="Fantasy.config" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 </Project>

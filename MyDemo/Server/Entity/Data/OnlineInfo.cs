@@ -24,7 +24,7 @@ public sealed class OnlineInfo : Entity
     [BsonIgnore] public bool HasLastMoveSequence;
     [BsonIgnore] public long LastMoveReceivedAt;
     [BsonIgnore] public uint MovementVersion;
-    [BsonIgnore] public int MovementState;
+    [BsonIgnore] public PlayerMotionState MovementState;
     [BsonIgnore] public float MovementSpeed;
     [BsonIgnore] public bool IsDirty;
     [BsonIgnore] public float HorizontalAllowance = 1f;
@@ -32,7 +32,7 @@ public sealed class OnlineInfo : Entity
 
     [BsonIgnore] public bool IsConnected => GateSessionRuntimeId != 0 && GateSceneAddress != 0;
 
-    /// <summary>换连接只重置上行序号；下行版本在本角色的在线生命周期内递增。</summary>
+    /// <summary>换连接重置上行采样，并发布新版本的待机状态。</summary>
     public void BindGateSession(long runtimeId, long sceneAddress)
     {
         if (GateSessionRuntimeId != runtimeId || GateSceneAddress != sceneAddress)
@@ -42,8 +42,9 @@ public sealed class OnlineInfo : Entity
             LastMoveReceivedAt = Environment.TickCount64;
             HorizontalAllowance = 1f;
             VerticalAllowance = 2f;
-            MovementState = 0;
+            MovementState = PlayerMotionState.Idle;
             MovementSpeed = 0f;
+            MovementVersion = unchecked(MovementVersion + 1);
         }
         GateSessionRuntimeId = runtimeId;
         GateSceneAddress = sceneAddress;

@@ -51,10 +51,8 @@ public static class OnlinePlayerSystem
     {
         scene.Send(receiver.GateSceneAddress, new Game2G_PlayerEntered
         {
-            GateSessionRuntimeId = receiver.GateSessionRuntimeId, RoleId = player.Id,
-            UserName = player.UserName, NickName = player.NickName,
-            X = player.X, Y = player.Y, Z = player.Z, RotationY = player.RotationY,
-            State = player.MovementState, Speed = player.MovementSpeed, Sequence = player.MovementVersion,
+            GateSessionRuntimeId = receiver.GateSessionRuntimeId,
+            Player = PlayerMessageMapper.ToPresence(player),
         });
     }
 
