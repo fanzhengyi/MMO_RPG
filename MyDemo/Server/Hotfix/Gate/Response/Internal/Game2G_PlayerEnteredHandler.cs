@@ -9,12 +9,13 @@ public sealed class Game2G_PlayerEnteredHandler : Address<Scene, Game2G_PlayerEn
     /// <summary>核对接收连接并转发公开资料。</summary>
     protected override async FTask Run(Scene scene, Game2G_PlayerEntered message)
     {
-        if (!GateSessionHelper.TryGetSession(scene, message.GateSessionRuntimeId, out var session))
+        if (!GateSessionHelper.TryGetWorldSession(scene, message.GateSessionRuntimeId, message.WorldSessionId, out var session))
             return;
 
         session.Send(new G2C_PlayerEntered
         {
             Player = message.Player,
+            WorldSessionId = message.WorldSessionId,
         });
 
         await FTask.CompletedTask;

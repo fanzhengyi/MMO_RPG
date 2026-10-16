@@ -2,6 +2,8 @@
 
 当前实现一个公共世界、每个账号一个角色，支持移动、奔跑、跳跃、远端角色显示和断线保存。
 
+2026-10-15 的初审及 2026-10-16 的补充审查、架构边界、实际验证结果与商业化待办见 [状态同步审查](Docs/MovementSyncReview.md)。当前是经过服务端校验的客户端位移同步，尚未实现服务端碰撞权威模拟和 AOI。
+
 ## 客户端职责
 
 - `PlayerInputSource`：读取 Input Actions，返回一帧输入，不处理移动或网络。
@@ -9,7 +11,10 @@
 - `PlayerController`：执行 CharacterController 位移、转向和重力，更新 Animator。
 - `PlayerMovementSync`：进入世界后发送移动快照，收到服务端回正时重新定位。
 - `PlayerStateMapping`：网络状态与本地 FSM 的转换，放在网络集成层，不给 Player.Runtime 添加网络依赖。
-- `RemotePlayerManager` / `RemotePlayerView`：管理其他玩家的模型、最新快照和位置平滑。
+- `RemotePlayerManager` / `RemotePlayerView`：按上线实例管理其他玩家的模型，在服务端时间线上插值。
+- `SnapshotTimeline<T>`：有界快照缓冲，不依赖 Unity 或网络协议；默认延迟 150ms，断流后停在最后确认位置。
+- `RemoteSpawnTracker`：按服务端上线顺序隔离远端实例；不依赖 Unity、网络协议或模型创建。
+- `GameWorldView`：映射 WorldId 到 GameScene，加载场景、定位角色；不发送网络请求、不处理 UI。
 - `NetworkManager`：连接、心跳和断线事件；登录、角色加载、UI 分别由对应 Controller 和 Manager 处理。
 
 人物根节点挂 `CharacterController`、`PlayerInputSource`、`PlayerController`、`PlayerMovementSync`。
@@ -26,11 +31,11 @@ Speed 是实际水平速度，角色和远端外观都关闭 Root Motion。
 | `Assets/Main/Init.unity` 的 `YooAssestIniit` | `MyYooAsset`，初始化资源后加载 Login |
 | Init 的 `Canvas/LoadUi` | `LoadUi`，引用 LoadBar、txtContent 和启动入口；关闭时解除事件订阅 |
 | Login 的 `GlobalManager` | `GlobalManager`，初始化 Fantasy 后创建登录 UI |
-| Scene Night 的 `PlayerRoot` | CharacterController、PlayerInputSource、PlayerController、PlayerMovementSync |
+| GameScene 的 `PlayerRoot` | CharacterController、PlayerInputSource、PlayerController、PlayerMovementSync |
 | PlayerRoot 的 PlayerInputSource | 引用 Player/Move、Player/Run、Player/Jump |
 | PlayerRoot 的 PlayerController | 引用本物体的输入、模型子物体的 Animator、实际 Main Camera 的 Transform |
-| Scene Night 的 `Main Camera` | Camera、AudioListener、CinemachineBrain |
-| Scene Night 的 `CinemachineCamera` | OrbitalFollow、RotationComposer、Deoccluder、ThirdPersonCameraInput；跟踪 Tracking Target，输入引用 Camera/Look 和 Camera/Zoom |
+| GameScene 的 `Main Camera` | Camera、AudioListener、CinemachineBrain |
+| GameScene 的 `CinemachineCamera` | OrbitalFollow、RotationComposer、Deoccluder、ThirdPersonCameraInput；跟踪 Tracking Target，输入引用 Camera/Look 和 Camera/Zoom |
 | UI 预制体根节点 | LoginPanel、ChooseRolePanel、TipPanel 分别挂对应面板脚本，控件引用已配置 |
 
 从 `Assets/Main/Init.unity` 启动完整流程，直接运行 Login 会缺少 YooAsset 初始化。
@@ -40,7 +45,7 @@ RemotePlayerManager、RemotePlayerView 由进入世界流程动态创建；普�
 ### 未引用代码处理
 
 检查范围为自有客户端和服务端代码，并核对场景、预制体、Timeline、动画事件及框架入口。
-NetworkProtocolHelper 已删除 14 个未使用的重载和服务端发送入口，仅保留客户端调用的六个方法。
+NetworkProtocolHelper 仅保留客户端调用的七个发送方法，包含场景就绪握手；不生成未使用的重载和服务端发送入口。
 ResManager 删除未使用的回调式 LoadAsync，资源异步加载统一使用 await 版本；TipPanel 删除未使用的背景图片字段。
 删除客户端 JwtHelper，鉴权响应直接返回 GateAddress，客户端不再依赖 Token 的内部结构。
 删除内网 RoleData 和重复映射，Game 与 Gate 直接复用 PlayerInfo；创建角色不再返回未被使用的完整资料。
@@ -72,7 +77,7 @@ OpCode.Cache 中废弃协议的编号继续保留，防止未来导出时被新�
 - 所有 RPC 使用 `ResultCode Result` 表示业务结果，只有 Success 是成功；默认 Unknown 不会误判为成功。
 - Fantasy 自带的 ErrorCode 表示框架错误，非零时先按失败处理，不与业务结果混用。
 - Authentication 返回 Token 和 GateAddress；Gate 从验签后的 Token 提取账号，并校验签名中的 GateSceneId。
-- EnterGame 成功必须有 Info；RoleNotFound 表示需要创建角色，不再用 HaveRole 充当成功码。
+- EnterGame 成功必须有 Info、WorldId、WorldSessionId；RoleNotFound 表示需要创建角色。Enter 只预备角色，WorldReady 成功后才参与世界同步。
 - CreateRole 只返回 Success、RoleAlreadyExists 或失败原因，初始资料统一通过 EnterGame 获取。
 - PlayerInfo 只给本人；PlayerPresence 给其他玩家，两者都不含登录账号。
 - MovementSnapshot 是共用的世界位置、朝向、移动状态和实际水平速度数据，不包含连接身份。
@@ -80,17 +85,19 @@ OpCode.Cache 中废弃协议的编号继续保留，防止未来导出时被新�
 
 | 移动消息 | 职责 | 序号 |
 | --- | --- | --- |
-| C2G_PlayerMove | 本地采样上报 | Sequence：当前 Gate 连接的上行序号 |
+| C2G_PlayerMove | 本地采样上报 | Sequence：当前连接上行序号；MovementEpoch：服务端回正代次 |
 | G2C_PlayerMove | 其他玩家移动 | Version：Game 生成的移动版本 |
-| G2C_PlayerPositionCorrection | 回正本人 | AckSequence：本次被拒绝的上行序号 |
+| G2C_PlayerPositionCorrection | 回正本人 | AckSequence：触发回正的上行序号；MovementEpoch：回正后的代次 |
 | G2C_PlayerEntered | 远端初始资料 | Player.Version：与远端移动版本一致 |
 
 内网消息额外携带可信账号或目标 GateSessionRuntimeId，不重复定义另一套移动与角色数据。
 移动和回正不走 RPC，协议不依赖 TCP 或 KCP 的具体实现。
 
-进入流程：鉴权登录 -> Gate 登录 -> EnterGame -> 加载场景 -> 放置角色 -> 开启移动同步。
+进入流程：鉴权登录 -> Gate 登录（校验 ProtocolRevision）-> EnterGame -> 加载 GameScene -> 放置角色与准备远端管理器 -> WorldReady（取得角色基线）-> 开启移动同步。
 CreateRole 只创建数据，成功后仍然调用 EnterGame。
 连接失效时清空角色数据、远端模型，关闭创建界面并显示登录界面。
+所有世界消息携带接收方 WorldSessionId；远端对象额外以 SpawnId 区分不同上线实例，旧离开、旧移动不会误操作重登后的实例。
+公开角色、远端移动和离开还携带 SpawnRevision，由同一个 Game 世界递增分配。它负责跨上线实例排序；随机 SpawnId 只表示身份。客户端保留当前世界内每个已见角色的最新顺序和离开状态，旧基线、旧上线和旧离开不能复活已退场实例。
 
 ## 服务端职责
 
@@ -98,7 +105,8 @@ CreateRole 只创建数据，成功后仍然调用 EnterGame。
 - Gate：验证 Token 和当前 Session，给请求附加可信账号身份，转发消息。
 - Game：加载角色、维护在线角色、验证移动、广播快照和保存数据。
 - `PlayerMessageMapper`：实体与协议数据的转换，Gate 不访问 Game 的数据库实体。
-- `OnlinePlayerSystem`：统一处理角色加载、上线通知和定时保存。
+- `OnlinePlayerSystem`：只处理角色加载和定时保存。
+- `WorldReplication`：集中处理可见范围、上线/离开和移动复制；每 50ms 合并广播本周期最后的确认状态。
 - `PlayerMovementRules`：只校验和更新内存，不访问网络或数据库。
 
 创建、进入、离开和保存共用账号对应的角色锁，防止并发加载两个实例。
@@ -108,15 +116,15 @@ CreateRole 只创建数据，成功后仍然调用 EnterGame。
 
 ## 同步规则
 
-客户端默认每 0.1 秒发送有变化的快照，状态变化立即发送；Gate 每条连接最多转发 50 次/秒。
+客户端默认每 0.1 秒发送有变化的快照，状态变化立即发送；静止时每 0.5 秒补发，保证最后位置最终送达。Gate 使用容量 5、每秒恢复 50 次的令牌桶，允许少量状态切换突发。Game 最多每 50ms 广播一轮。
 上行 Sequence 由 NetworkManager 管理，用来丢弃重复或旧包；切场景、重新入场或停用组件不会重置。
 下行 Version 由 Game 生成，序号比较支持 uint 回绕；换连接重置上行记录，并增加待机状态的下行版本。
-场景加载期间只缓存每个远端角色的最新快照，避免持有会被回收的协议对象。
+客户端仅接受当前世界会话的消息；远端快照复制成值数据，不持有会被回收的协议对象。相同角色的新 SpawnId 会重建时间线，不比较跨上线实例的 Version。
 
 服务端检查有限数值、状态、速度和可累计的位移预算。
 水平上限 9 米/秒，垂直上限 45 米/秒，报告速度上限 8 米/秒；修改客户端速度时同步调整规则常量。
 站立时间最多累计一秒的移动预算；高频消息不会反复获得额外宽限。
-拒绝位移后，把确认位置发给本人回正；收到旧包则直接丢弃。
+拒绝位移后递增 MovementEpoch，把确认位置发给本人回正。客户端只接受更新的回正并在后续移动中带回该代次；回正前在途的位置包不能改变已确认位置。旧代次消息触发重发同一回正，解决回正丢失后的恢复；同代次旧序号直接丢弃。
 本人回正只走 G2C_PlayerPositionCorrection，不再根据 RoleId 猜测一条消息的含义。
 
 当前由客户端计算位移，服务端不计算场景碰撞；广播范围是整个 Game 场景。
@@ -153,9 +161,10 @@ dotnet run --project Server/Tests/Regression/Regression.csproj --no-restore
 ```
 
 回归检查覆盖角色 DTO、持久化字段、正常移动、位移预算、非法快照、序号回绕、重连、密码、Token 和客户端回正。
+新增回正代次、旧代次在途包和多次重登乱序检查；当前规则回归为 24 项。真实 TCP 联调也覆盖旧代次拒绝、回正重发、恢复移动及上线顺序。
 额外检查协议职责、真实 ProtoBuf 嵌套序列化，以及 RPC 等待期间请求被对象池复用的生命周期。
 检查不启动服务端、不连接数据库，Token 检查使用独立临时密钥。
-客户端 helper 检查固定当前六个发送入口；新增业务发送方法时同步更新该检查。
+客户端 helper 检查固定当前七个发送入口；新增业务发送方法时同步更新该检查。
 首次运行测试项目时先执行 `dotnet restore Server/Tests/Regression/Regression.csproj`。
 Unity 的生成项目文件会在导入时刷新，新增脚本无需手工维护 Assembly-CSharp.csproj。
 
@@ -165,4 +174,6 @@ Unity 的生成项目文件会在导入时刷新，新增脚本无需手工维�
 本次 Unity MCP 检查确认角色、相机、启动与登录场景、UI 预制体挂载完整，没有缺失脚本。
 运行检测覆盖 Init -> Login、五状态切换、实际奔跑速度、本人回正、远端动画映射和旧版本丢弃。
 远端 Animator 的参数在外观激活后写入，避免初始化时被重置。
-Scene Night 的旧 LightingData 有版本不兼容和源文件缺失警告，需要在 Unity 重新烘焙光照；本次没有重烘焙资源。
+GameScene 的旧 LightingData 有版本不兼容和源文件缺失警告，需要在 Unity 重新烘焙光照；本次没有重烘焙资源。
+
+隔离真实网络集成测试：`powershell -NoProfile -ExecutionPolicy Bypass -File Server/Tests/Integration/Run.ps1`。需要本机 MongoDB；测试会启动临时服务端，使用独立数据库，结束后停止进程并删除测试数据库。运行前关闭占用项目端口的开发服务器。

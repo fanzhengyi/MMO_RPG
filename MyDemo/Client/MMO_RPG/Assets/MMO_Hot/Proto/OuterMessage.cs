@@ -150,7 +150,7 @@ namespace Fantasy
         public MovementSnapshot Movement { get; set; }
     }
     /// <summary>
-    /// 其他玩家可见的初始数据；Version 为服务端移动版本
+    /// 其他玩家可见的初始数据；Version 为移动版本，SpawnRevision 为当前 Game 世界内的上线顺序
     /// </summary>
     [Serializable]
     [ProtoContract]
@@ -194,6 +194,9 @@ namespace Fantasy
                 Movement = null;
             }
             Version = default;
+            SpawnId = default;
+            ServerTimeMs = default;
+            SpawnRevision = default;
             MessageObjectPool<PlayerPresence>.Return(this);
         }
         [ProtoMember(1)]
@@ -204,6 +207,12 @@ namespace Fantasy
         public MovementSnapshot Movement { get; set; }
         [ProtoMember(4)]
         public uint Version { get; set; }
+        [ProtoMember(5)]
+        public long SpawnId { get; set; }
+        [ProtoMember(6)]
+        public long ServerTimeMs { get; set; }
+        [ProtoMember(7)]
+        public ulong SpawnRevision { get; set; }
     }
     /// <summary>
     /// 注册账号
@@ -441,6 +450,7 @@ namespace Fantasy
         {
             if (!IsPool()) return;
             Token = default;
+            ProtocolVersion = default;
             MessageObjectPool<C2G_LoginRequest>.Return(this);
         }
         public uint OpCode() { return OuterOpcode.C2G_LoginRequest; }
@@ -448,6 +458,8 @@ namespace Fantasy
         public G2C_LoginResponse ResponseType { get; set; }
         [ProtoMember(1)]
         public string Token { get; set; }
+        [ProtoMember(2)]
+        public uint ProtocolVersion { get; set; }
     }
     /// <summary>
     /// Gate 登录结果
@@ -538,7 +550,7 @@ namespace Fantasy
         public uint OpCode() { return OuterOpcode.G2C_RepeatLogin; }
     }
     /// <summary>
-    /// 请求进入当前公共世界
+    /// 预备进入公共世界；场景完成后还需 WorldReady，不立即发布上线
     /// </summary>
     [Serializable]
     [ProtoContract]
@@ -624,15 +636,118 @@ namespace Fantasy
                 Info.Dispose();
                 Info = null;
             }
+            WorldSessionId = default;
+            WorldId = default;
             MessageObjectPool<G2C_EnterGameResponse>.Return(this);
         }
         public uint OpCode() { return OuterOpcode.G2C_EnterGameResponse; }
-        [ProtoMember(3)]
+        [ProtoMember(5)]
         public uint ErrorCode { get; set; }
         [ProtoMember(1)]
         public ResultCode Result { get; set; }
         [ProtoMember(2)]
         public PlayerInfo Info { get; set; }
+        [ProtoMember(3)]
+        public long WorldSessionId { get; set; }
+        [ProtoMember(4)]
+        public int WorldId { get; set; }
+    }
+    /// <summary>
+    /// 场景加载、角色放置完成后提交；进入与就绪分开，未就绪角色不参与同步
+    /// </summary>
+    [Serializable]
+    [ProtoContract]
+    public partial class C2G_WorldReadyRequest : AMessage, IRequest
+    {
+        public static C2G_WorldReadyRequest Create(bool autoReturn = true)
+        {
+            var c2G_WorldReadyRequest = MessageObjectPool<C2G_WorldReadyRequest>.Rent();
+            c2G_WorldReadyRequest.AutoReturn = autoReturn;
+
+            if (!autoReturn)
+            {
+                c2G_WorldReadyRequest.SetIsPool(false);
+            }
+
+            return c2G_WorldReadyRequest;
+        }
+
+        public void Return()
+        {
+            if (!AutoReturn)
+            {
+                SetIsPool(true);
+                AutoReturn = true;
+            }
+            else if (!IsPool())
+            {
+                return;
+            }
+            Dispose();
+        }
+
+        public void Dispose()
+        {
+            if (!IsPool()) return;
+            WorldSessionId = default;
+            MessageObjectPool<C2G_WorldReadyRequest>.Return(this);
+        }
+        public uint OpCode() { return OuterOpcode.C2G_WorldReadyRequest; }
+        [ProtoIgnore]
+        public G2C_WorldReadyResponse ResponseType { get; set; }
+        [ProtoMember(1)]
+        public long WorldSessionId { get; set; }
+    }
+    /// <summary>
+    /// 就绪成功返回当前可见角色的完整基线
+    /// </summary>
+    [Serializable]
+    [ProtoContract]
+    public partial class G2C_WorldReadyResponse : AMessage, IResponse
+    {
+        public static G2C_WorldReadyResponse Create(bool autoReturn = true)
+        {
+            var g2C_WorldReadyResponse = MessageObjectPool<G2C_WorldReadyResponse>.Rent();
+            g2C_WorldReadyResponse.AutoReturn = autoReturn;
+
+            if (!autoReturn)
+            {
+                g2C_WorldReadyResponse.SetIsPool(false);
+            }
+
+            return g2C_WorldReadyResponse;
+        }
+
+        public void Return()
+        {
+            if (!AutoReturn)
+            {
+                SetIsPool(true);
+                AutoReturn = true;
+            }
+            else if (!IsPool())
+            {
+                return;
+            }
+            Dispose();
+        }
+
+        public void Dispose()
+        {
+            if (!IsPool()) return;
+            ErrorCode = 0;
+            Result = default;
+            foreach (var __t in Players) __t.Dispose();
+            Players.Clear();
+            MessageObjectPool<G2C_WorldReadyResponse>.Return(this);
+        }
+        public uint OpCode() { return OuterOpcode.G2C_WorldReadyResponse; }
+        [ProtoMember(3)]
+        public uint ErrorCode { get; set; }
+        [ProtoMember(1)]
+        public ResultCode Result { get; set; }
+        [ProtoMember(2)]
+        public List<PlayerPresence> Players { get; set; } = new List<PlayerPresence>();
     }
     /// <summary>
     /// 创建当前账号的唯一角色
@@ -728,7 +843,7 @@ namespace Fantasy
         public ResultCode Result { get; set; }
     }
     /// <summary>
-    /// 客户端移动采样；Sequence 属于当前连接，单调递增并允许 uint 回绕
+    /// 客户端移动采样；Sequence 属于当前连接；MovementEpoch 只能回传服务端最近一次回正的代次
     /// </summary>
     [Serializable]
     [ProtoContract]
@@ -770,6 +885,8 @@ namespace Fantasy
                 Movement.Dispose();
                 Movement = null;
             }
+            WorldSessionId = default;
+            MovementEpoch = default;
             MessageObjectPool<C2G_PlayerMove>.Return(this);
         }
         public uint OpCode() { return OuterOpcode.C2G_PlayerMove; }
@@ -777,6 +894,10 @@ namespace Fantasy
         public uint Sequence { get; set; }
         [ProtoMember(2)]
         public MovementSnapshot Movement { get; set; }
+        [ProtoMember(3)]
+        public long WorldSessionId { get; set; }
+        [ProtoMember(4)]
+        public uint MovementEpoch { get; set; }
     }
     /// <summary>
     /// 只用于其他玩家的移动；Version 由 Game 递增生成
@@ -822,6 +943,10 @@ namespace Fantasy
                 Movement.Dispose();
                 Movement = null;
             }
+            WorldSessionId = default;
+            SpawnId = default;
+            ServerTimeMs = default;
+            SpawnRevision = default;
             MessageObjectPool<G2C_PlayerMove>.Return(this);
         }
         public uint OpCode() { return OuterOpcode.G2C_PlayerMove; }
@@ -831,9 +956,17 @@ namespace Fantasy
         public uint Version { get; set; }
         [ProtoMember(3)]
         public MovementSnapshot Movement { get; set; }
+        [ProtoMember(4)]
+        public long WorldSessionId { get; set; }
+        [ProtoMember(5)]
+        public long SpawnId { get; set; }
+        [ProtoMember(6)]
+        public long ServerTimeMs { get; set; }
+        [ProtoMember(7)]
+        public ulong SpawnRevision { get; set; }
     }
     /// <summary>
-    /// 只发给本人；AckSequence 是本次被拒绝的上行序号，不是下行版本
+    /// 只发给本人；AckSequence 是触发回正的序号；重复发送同一代次以恢复丢失的回正
     /// </summary>
     [Serializable]
     [ProtoContract]
@@ -875,6 +1008,8 @@ namespace Fantasy
                 Movement.Dispose();
                 Movement = null;
             }
+            WorldSessionId = default;
+            MovementEpoch = default;
             MessageObjectPool<G2C_PlayerPositionCorrection>.Return(this);
         }
         public uint OpCode() { return OuterOpcode.G2C_PlayerPositionCorrection; }
@@ -882,6 +1017,10 @@ namespace Fantasy
         public uint AckSequence { get; set; }
         [ProtoMember(2)]
         public MovementSnapshot Movement { get; set; }
+        [ProtoMember(3)]
+        public long WorldSessionId { get; set; }
+        [ProtoMember(4)]
+        public uint MovementEpoch { get; set; }
     }
     /// <summary>
     /// 创建或更新远端角色外观
@@ -925,11 +1064,14 @@ namespace Fantasy
                 Player.Dispose();
                 Player = null;
             }
+            WorldSessionId = default;
             MessageObjectPool<G2C_PlayerEntered>.Return(this);
         }
         public uint OpCode() { return OuterOpcode.G2C_PlayerEntered; }
         [ProtoMember(1)]
         public PlayerPresence Player { get; set; }
+        [ProtoMember(2)]
+        public long WorldSessionId { get; set; }
     }
     /// <summary>
     /// 删除远端角色
@@ -969,10 +1111,19 @@ namespace Fantasy
         {
             if (!IsPool()) return;
             RoleId = default;
+            WorldSessionId = default;
+            SpawnId = default;
+            SpawnRevision = default;
             MessageObjectPool<G2C_PlayerLeft>.Return(this);
         }
         public uint OpCode() { return OuterOpcode.G2C_PlayerLeft; }
         [ProtoMember(1)]
         public long RoleId { get; set; }
+        [ProtoMember(2)]
+        public long WorldSessionId { get; set; }
+        [ProtoMember(3)]
+        public long SpawnId { get; set; }
+        [ProtoMember(4)]
+        public ulong SpawnRevision { get; set; }
     }
 }

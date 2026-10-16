@@ -6,7 +6,11 @@ using Fantasy.MongdbModel;
 public sealed class OnlineComponentAwakeSystem : AwakeSystem<OnlineComponent>
 {
     /// <summary>启动角色定时保存。</summary>
-    protected override void Awake(OnlineComponent self) => OnlinePlayerSystem.ScheduleSave(self);
+    protected override void Awake(OnlineComponent self)
+    {
+        OnlinePlayerSystem.ScheduleSave(self);
+        WorldReplication.Start(self);
+    }
 }
 
 public sealed class OnlineComponentDestroySystem : DestroySystem<OnlineComponent>
@@ -15,12 +19,13 @@ public sealed class OnlineComponentDestroySystem : DestroySystem<OnlineComponent
     protected override void Destroy(OnlineComponent self)
     {
         if (self.SaveTimerId != 0) self.Scene.TimerComponent.Net.Remove(ref self.SaveTimerId);
+        if (self.ReplicationTimerId != 0) self.Scene.TimerComponent.Net.Remove(ref self.ReplicationTimerId);
         foreach (var player in self.PlayersByName.Values) player.Dispose();
         self.PlayersByName.Clear();
     }
 }
 
-/// <summary>角色加载、上线通知和持久化；调用方持有 PlayerData 锁。</summary>
+/// <summary>角色加载和持久化；调用方持有 PlayerData 锁，不负责世界广播。</summary>
 public static class OnlinePlayerSystem
 {
     /// <summary>优先复用内存角色，数据库实体加载后只激活一次。</summary>
@@ -33,27 +38,6 @@ public static class OnlinePlayerSystem
         player.Deserialize(scene);
         online.PlayersByName[userName] = player;
         return player;
-    }
-
-    /// <summary>新客户端获取在线列表；只有换连接时才通知其他玩家。</summary>
-    public static void SendPresence(Scene scene, OnlineInfo player, bool isNewConnection)
-    {
-        foreach (var other in scene.GetComponent<OnlineComponent>().PlayersByName.Values)
-        {
-            if (other.Id == player.Id || !other.IsConnected) continue;
-            SendEntered(scene, player, other);
-            if (isNewConnection) SendEntered(scene, other, player);
-        }
-    }
-
-    /// <summary>向指定客户端发送另一个角色的初始快照。</summary>
-    private static void SendEntered(Scene scene, OnlineInfo receiver, OnlineInfo player)
-    {
-        scene.Send(receiver.GateSceneAddress, new Game2G_PlayerEntered
-        {
-            GateSessionRuntimeId = receiver.GateSessionRuntimeId,
-            Player = PlayerMessageMapper.ToPresence(player),
-        });
     }
 
     /// <summary>每五秒保存脏角色；上一轮结束后再安排下一轮，避免任务重叠。</summary>

@@ -30,6 +30,7 @@ namespace Fantasy
         {
             var request = Fantasy.C2G_LoginRequest.Create();
             request.Token = token;
+            request.ProtocolVersion = (uint)ProtocolRevision.Current;
             return (G2C_LoginResponse)await session.Call(request);
         }
 
@@ -48,11 +49,21 @@ namespace Fantasy
             return (G2C_CreateRoleResponse)await session.Call(request);
         }
 
+        /// <summary>场景和角色准备完成后，正式加入世界并获取可见角色基线。</summary>
+        public static async FTask<G2C_WorldReadyResponse> C2G_WorldReadyRequest(this Session session, long worldSessionId)
+        {
+            var request = Fantasy.C2G_WorldReadyRequest.Create();
+            request.WorldSessionId = worldSessionId;
+            return (G2C_WorldReadyResponse)await session.Call(request);
+        }
+
         /// <summary>上报位置、朝向和移动状态，不等待 RPC 响应。</summary>
-        public static void C2G_PlayerMove(this Session session, uint sequence, MovementSnapshot movement)
+        public static void C2G_PlayerMove(this Session session, long worldSessionId, uint sequence, uint movementEpoch, MovementSnapshot movement)
         {
             var message = Fantasy.C2G_PlayerMove.Create();
             message.Sequence = sequence;
+            message.MovementEpoch = movementEpoch;
+            message.WorldSessionId = worldSessionId;
             message.Movement = movement;
             session.Send(message);
         }

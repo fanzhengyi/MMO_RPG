@@ -1,6 +1,13 @@
 syntax = "proto3";
 package Fantasy.Network.Message;
 
+///两端必须同步发布；缺少版本号的旧客户端在 Gate 被明确拒绝
+enum ProtocolRevision
+{
+    Unspecified = 0,
+    Current = 3,
+}
+
 ///业务结果；默认值不是成功，Fantasy 的 ErrorCode 只表示框架错误
 enum ResultCode
 {
@@ -18,6 +25,8 @@ enum ResultCode
     ServerError = 11,
     Busy = 12,
     RateLimited = 13,
+    UnsupportedProtocol = 14,
+    InvalidWorldSession = 15,
 }
 
 ///网络移动状态，不使用 Animator 的参数编号
@@ -54,13 +63,16 @@ message PlayerInfo
     MovementSnapshot Movement = 8;
 }
 
-///其他玩家可见的初始数据；Version 为服务端移动版本
+///其他玩家可见的初始数据；Version 为移动版本，SpawnRevision 为当前 Game 世界内的上线顺序
 message PlayerPresence
 {
     int64 RoleId = 1;
     string NickName = 2;
     MovementSnapshot Movement = 3;
     uint32 Version = 4;
+    int64 SpawnId = 5;
+    int64 ServerTimeMs = 6;
+    uint64 SpawnRevision = 7;
 }
 
 ///注册账号
@@ -95,6 +107,7 @@ message A2C_LoginResponse // IResponse
 message C2G_LoginRequest // IRequest,G2C_LoginResponse
 {
     string Token = 1;
+    uint32 ProtocolVersion = 2;
 }
 
 ///Gate 登录结果
@@ -108,7 +121,7 @@ message G2C_RepeatLogin // IMessage
 {
 }
 
-///请求进入当前公共世界
+///预备进入公共世界；场景完成后还需 WorldReady，不立即发布上线
 message C2G_EnterGameRequest // IRequest,G2C_EnterGameResponse
 {
 }
@@ -118,6 +131,21 @@ message G2C_EnterGameResponse // IResponse
 {
     ResultCode Result = 1;
     PlayerInfo Info = 2;
+    int64 WorldSessionId = 3;
+    int32 WorldId = 4;
+}
+
+///场景加载、角色放置完成后提交；进入与就绪分开，未就绪角色不参与同步
+message C2G_WorldReadyRequest // IRequest,G2C_WorldReadyResponse
+{
+    int64 WorldSessionId = 1;
+}
+
+///就绪成功返回当前可见角色的完整基线
+message G2C_WorldReadyResponse // IResponse
+{
+    ResultCode Result = 1;
+    repeated PlayerPresence Players = 2;
 }
 
 ///创建当前账号的唯一角色
@@ -132,11 +160,13 @@ message G2C_CreateRoleResponse // IResponse
     ResultCode Result = 1;
 }
 
-///客户端移动采样；Sequence 属于当前连接，单调递增并允许 uint 回绕
+///客户端移动采样；Sequence 属于当前连接；MovementEpoch 只能回传服务端最近一次回正的代次
 message C2G_PlayerMove // IMessage
 {
     uint32 Sequence = 1;
     MovementSnapshot Movement = 2;
+    int64 WorldSessionId = 3;
+    uint32 MovementEpoch = 4;
 }
 
 ///只用于其他玩家的移动；Version 由 Game 递增生成
@@ -145,23 +175,33 @@ message G2C_PlayerMove // IMessage
     int64 RoleId = 1;
     uint32 Version = 2;
     MovementSnapshot Movement = 3;
+    int64 WorldSessionId = 4;
+    int64 SpawnId = 5;
+    int64 ServerTimeMs = 6;
+    uint64 SpawnRevision = 7;
 }
 
-///只发给本人；AckSequence 是本次被拒绝的上行序号，不是下行版本
+///只发给本人；AckSequence 是触发回正的序号；重复发送同一代次以恢复丢失的回正
 message G2C_PlayerPositionCorrection // IMessage
 {
     uint32 AckSequence = 1;
     MovementSnapshot Movement = 2;
+    int64 WorldSessionId = 3;
+    uint32 MovementEpoch = 4;
 }
 
 ///创建或更新远端角色外观
 message G2C_PlayerEntered // IMessage
 {
     PlayerPresence Player = 1;
+    int64 WorldSessionId = 2;
 }
 
 ///删除远端角色
 message G2C_PlayerLeft // IMessage
 {
     int64 RoleId = 1;
+    int64 WorldSessionId = 2;
+    int64 SpawnId = 3;
+    uint64 SpawnRevision = 4;
 }

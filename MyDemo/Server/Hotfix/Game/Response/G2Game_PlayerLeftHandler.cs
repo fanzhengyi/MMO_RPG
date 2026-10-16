@@ -15,19 +15,13 @@ public sealed class G2Game_PlayerLeftHandler : Address<Scene, G2Game_PlayerLeft>
             var online = scene.GetComponent<OnlineComponent>();
             if (!online.PlayersByName.TryGetValue(request.UserName, out var player)
                 || player.GateSessionRuntimeId != request.GateSessionRuntimeId
-                || player.GateSceneAddress != request.GateSceneAddress) return;
+                || player.GateSceneAddress != request.GateSceneAddress
+                || (request.WorldSessionId != 0 && player.WorldSessionId != request.WorldSessionId)) return;
 
+            WorldReplication.PublishLeft(scene, player);
             player.GateSessionRuntimeId = 0;
             player.GateSceneAddress = 0;
-            foreach (var receiver in online.PlayersByName.Values)
-            {
-                if (receiver.Id != player.Id && receiver.IsConnected)
-                    scene.Send(receiver.GateSceneAddress, new Game2G_PlayerLeft
-                    {
-                        GateSessionRuntimeId = receiver.GateSessionRuntimeId,
-                        RoleId = player.Id,
-                    });
-            }
+            player.IsWorldReady = false;
             // 保存失败则暂存离线角色，由定时任务重试，避免丢失最终位置。
             if (await OnlinePlayerSystem.SaveAsync(scene, player))
                 OnlinePlayerSystem.Remove(online, player);

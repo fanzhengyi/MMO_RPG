@@ -11,6 +11,8 @@ public sealed class C2G_LoginRequestHandler : MessageRPC<C2G_LoginRequest, G2C_L
     protected override async FTask Run(Session session, C2G_LoginRequest request,
         G2C_LoginResponse response, Action reply)
     {
+        response.Result = ResultCode.UnsupportedProtocol;
+        if (request.ProtocolVersion != (uint)ProtocolRevision.Current) return;
         response.Result = ResultCode.InvalidToken;
         if (!session.Scene.GetComponent<GateJwtComponent>()
             .TryValidateToken(request.Token, session.Scene.SceneConfigId, out var userName)) return;
@@ -33,6 +35,7 @@ public sealed class C2G_LoginRequestHandler : MessageRPC<C2G_LoginRequest, G2C_L
             oldSession.SetTimeout(3000);
         }
         var info = session.AddComponent<PlayerSessionComponent>();
+        info.ResetWorldState();
         info.UserName = userName;
         // 当前是单个公共世界，同场景玩家不能按账号分到不同 Game。
         info.GameSceneAddress = gameScenes[0].Address;

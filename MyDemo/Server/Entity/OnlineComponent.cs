@@ -6,4 +6,6 @@ public sealed class OnlineComponent : Entity
 {
     public readonly Dictionary<string, OnlineInfo> PlayersByName = new(StringComparer.Ordinal);
     public long SaveTimerId;
+    public long ReplicationTimerId;
+    public ulong LastSpawnRevision;
 }

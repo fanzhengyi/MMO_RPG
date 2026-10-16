@@ -23,6 +23,10 @@ public static class GateSessionHelper
         return scene.TryGetEntity(runtimeId, out session) && TryGetPlayer(session, out _);
     }
 
+    public static bool TryGetWorldSession(Scene scene, long runtimeId, long worldSessionId, out Session session)
+        => TryGetSession(scene, runtimeId, out session) && worldSessionId != 0
+            && session.GetComponent<PlayerSessionComponent>().WorldSessionId == worldSessionId;
+
     /// <summary>清除当前连接映射，并且只发送一次离开通知。</summary>
     public static void Detach(PlayerSessionComponent? info)
     {
@@ -34,9 +38,11 @@ public static class GateSessionHelper
         var sessionRuntimeId = info.SessionRuntimeId;
         var gameAddress = info.GameSceneAddress;
         var gateAddress = info.GateSceneAddress;
+        var worldSessionId = info.WorldSessionId;
         // 先清理全部身份字段，重复释放和对象池复用都不会再次通知下线。
         info.UserName = "";
         info.SessionRuntimeId = info.GameSceneAddress = info.GateSceneAddress = 0;
+        info.ResetWorldState();
         if (scene == null || scene.IsDisposed) return;
         var cache = scene.GetComponent<GateLoginCache>();
         if (cache != null && cache.Sessions.TryGetValue(userName, out var runtimeId)
@@ -49,6 +55,7 @@ public static class GateSessionHelper
             UserName = userName,
             GateSessionRuntimeId = sessionRuntimeId,
             GateSceneAddress = gateAddress,
+            WorldSessionId = worldSessionId,
         });
     }
 }

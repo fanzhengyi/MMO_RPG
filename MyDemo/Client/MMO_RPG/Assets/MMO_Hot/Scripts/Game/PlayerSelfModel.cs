@@ -16,13 +16,22 @@ public sealed class PlayerSelfModel : Singleton<PlayerSelfModel>
     public float RotationY;
     public bool HasRole => RoleId != 0;
     public bool IsInWorld { get; set; }
+    public long WorldSessionId { get; private set; }
+    public int WorldId { get; private set; }
+    public uint MovementEpoch { get; private set; }
+    public bool AcceptsWorld(long worldSessionId) => worldSessionId != 0 && WorldSessionId == worldSessionId;
     public event System.Action<float, float, float, float> PositionCorrected;
     private uint lastCorrectionAck;
     private bool hasCorrection;
 
     /// <summary>复制进入响应，并清除上一次世界的回正序号。</summary>
-    public void SetInfo(PlayerInfo info)
+    public void SetInfo(PlayerInfo info, long worldSessionId, int worldId)
     {
+        if (info?.Movement == null || info.RoleId == 0 || worldSessionId == 0)
+            throw new System.ArgumentException("进入世界响应缺少角色或世界会话。");
+        WorldSessionId = worldSessionId;
+        WorldId = worldId;
+        IsInWorld = false;
         RoleId = info.RoleId;
         NickName = info.NickName;
         Hp = info.Hp; MaxHp = info.MaxHp;
@@ -32,6 +41,7 @@ public sealed class PlayerSelfModel : Singleton<PlayerSelfModel>
         RotationY = info.Movement.RotationY;
         hasCorrection = false;
         lastCorrectionAck = 0;
+        MovementEpoch = 0;
     }
 
     /// <summary>断线时清空角色和本次连接的回正记录。</summary>
@@ -41,15 +51,20 @@ public sealed class PlayerSelfModel : Singleton<PlayerSelfModel>
         NickName = null;
         X = Y = Z = RotationY = 0f;
         IsInWorld = false;
+        WorldSessionId = 0;
+        WorldId = 0;
         hasCorrection = false;
         lastCorrectionAck = 0;
+        MovementEpoch = 0;
     }
 
     /// <summary>只接受更新的回正确认，通知控制器重新定位。</summary>
-    public void CorrectPosition(uint ackSequence, MovementSnapshot movement)
+    public void CorrectPosition(long worldSessionId, uint movementEpoch, uint ackSequence, MovementSnapshot movement)
     {
-        if (!IsInWorld || movement == null
+        if (!IsInWorld || !AcceptsWorld(worldSessionId) || movement == null
+            || unchecked((int)(movementEpoch - MovementEpoch)) <= 0
             || (hasCorrection && unchecked((int)(ackSequence - lastCorrectionAck)) <= 0)) return;
+        MovementEpoch = movementEpoch;
         lastCorrectionAck = ackSequence;
         hasCorrection = true;
         X = movement.X; Y = movement.Y; Z = movement.Z;

@@ -1,13 +1,10 @@
 using System;
 using Fantasy;
 using Fantasy.Async;
-using UnityEngine;
-using UnityEngine.SceneManagement;
 
 /// <summary>请求角色数据并加载游戏场景，场景准备完成后才开启角色同步。</summary>
 public sealed class RoleController : Singleton<RoleController>
 {
-    private const string GameSceneLocation = "Assets/MMO_Hot/Scenes/Scene Night.unity";
     private bool requesting;
 
     /// <summary>已有角色进入世界；没有角色由界面转到创建流程。</summary>
@@ -49,30 +46,50 @@ public sealed class RoleController : Singleton<RoleController>
         var session = NetworkManager.Instance.GateSession;
         if (session == null || session.IsDisposed) return ResultCode.NotAuthenticated;
         var sessionRuntimeId = session.RuntimeId;
+        if (PlayerSelfModel.Instance.WorldSessionId != 0) return ResultCode.Busy;
         PlayerSelfModel.Instance.IsInWorld = false;
         RemotePlayerManager.Reset();
-        using (var response = await session.C2G_EnterGameRequest())
+        var entered = false;
+        var prepared = false;
+        try
         {
-            var result = response.ErrorCode != 0 ? ResultCode.ServerError : response.Result;
-            if (result != ResultCode.Success) return result;
-            if (response.Info?.Movement == null || response.Info.RoleId == 0) return ResultCode.ServerError;
+            using (var response = await session.C2G_EnterGameRequest())
+            {
+                var result = response.ErrorCode != 0 ? ResultCode.ServerError : response.Result;
+                if (result != ResultCode.Success) return result;
+                prepared = true;
+                if (response.Info?.Movement == null || response.Info.RoleId == 0 || response.WorldSessionId == 0)
+                    return ResultCode.ServerError;
+                if (!NetworkManager.Instance.IsCurrentGate(session, sessionRuntimeId)) return ResultCode.NotAuthenticated;
+                PlayerSelfModel.Instance.SetInfo(response.Info, response.WorldSessionId, response.WorldId);
+            }
+
+            var player = PlayerSelfModel.Instance;
+            var worldSessionId = player.WorldSessionId;
+            var localPlayer = await GameWorldView.PrepareAsync(player);
             if (!NetworkManager.Instance.IsCurrentGate(session, sessionRuntimeId)) return ResultCode.NotAuthenticated;
-            PlayerSelfModel.Instance.SetInfo(response.Info);
+
+            if (!RemotePlayerManager.Initialize(localPlayer.gameObject))
+                return ResultCode.ServerError;
+            using (var response = await session.C2G_WorldReadyRequest(worldSessionId))
+            {
+                if (!NetworkManager.Instance.IsCurrentGate(session, sessionRuntimeId)
+                    || !player.AcceptsWorld(worldSessionId)) return ResultCode.NotAuthenticated;
+                var result = response.ErrorCode != 0 ? ResultCode.ServerError : response.Result;
+                if (result != ResultCode.Success) return result;
+                foreach (var other in response.Players)
+                    if (other?.Movement != null) RemotePlayerManager.PlayerEntered(RemotePlayerManager.Snapshot.From(other));
+            }
+            player.IsInWorld = true;
+            localPlayer.SetControlEnabled(true);
+            entered = true;
+            return ResultCode.Success;
         }
-
-        if (SceneManager.GetActiveScene().path != GameSceneLocation)
-            await ResManager.Instance.LoadSceneAsync(GameSceneLocation);
-        if (!NetworkManager.Instance.IsCurrentGate(session, sessionRuntimeId)) return ResultCode.NotAuthenticated;
-
-        // 按组件找角色，不依赖场景物体恰好叫 PlayerRoot。
-        var localPlayer = UnityEngine.Object.FindFirstObjectByType<PlayerController>();
-        if (localPlayer == null) throw new InvalidOperationException("游戏场景中找不到 PlayerController。");
-        var player = PlayerSelfModel.Instance;
-        localPlayer.Place(new Vector3(player.X, player.Y, player.Z), player.RotationY);
-        if (!RemotePlayerManager.Initialize(localPlayer.gameObject))
-            return ResultCode.ServerError;
-        player.IsInWorld = true;
-        localPlayer.SetControlEnabled(true);
-        return ResultCode.Success;
+        finally
+        {
+            // 准备成功后发生资源/就绪失败，需要撤销服务端占位，允许重新登录。
+            if (!entered && NetworkManager.Instance.IsCurrentGate(session, sessionRuntimeId)
+                && prepared) NetworkManager.Instance.DisconnectGate();
+        }
     }
 }

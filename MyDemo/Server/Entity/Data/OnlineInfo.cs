@@ -29,8 +29,29 @@ public sealed class OnlineInfo : Entity
     [BsonIgnore] public bool IsDirty;
     [BsonIgnore] public float HorizontalAllowance = 1f;
     [BsonIgnore] public float VerticalAllowance = 2f;
+    [BsonIgnore] public long WorldSessionId;
+    [BsonIgnore] public bool IsWorldReady;
+    [BsonIgnore] public bool NeedsReplication;
+    [BsonIgnore] public uint MovementEpoch;
+    [BsonIgnore] public uint LastCorrectionSequence;
+    [BsonIgnore] public ulong SpawnRevision;
 
     [BsonIgnore] public bool IsConnected => GateSessionRuntimeId != 0 && GateSceneAddress != 0;
+    [BsonIgnore] public bool IsInWorld => IsConnected && IsWorldReady;
+
+    public bool MatchesWorld(long runtimeId, long sceneAddress, long worldSessionId)
+        => IsConnected && GateSessionRuntimeId == runtimeId && GateSceneAddress == sceneAddress
+            && worldSessionId != 0 && WorldSessionId == worldSessionId;
+
+    /// <summary>就绪前不恢复移动预算，也不向其他玩家发布角色。</summary>
+    public bool MarkWorldReady(long worldSessionId, long now)
+    {
+        if (!IsConnected || worldSessionId == 0 || WorldSessionId != worldSessionId) return false;
+        if (IsWorldReady) return true;
+        IsWorldReady = true;
+        LastMoveReceivedAt = now;
+        return true;
+    }
 
     /// <summary>换连接重置上行采样，并发布新版本的待机状态。</summary>
     public void BindGateSession(long runtimeId, long sceneAddress)
@@ -45,6 +66,11 @@ public sealed class OnlineInfo : Entity
             MovementState = PlayerMotionState.Idle;
             MovementSpeed = 0f;
             MovementVersion = unchecked(MovementVersion + 1);
+            WorldSessionId = Random.Shared.NextInt64(1, long.MaxValue);
+            IsWorldReady = false;
+            NeedsReplication = false;
+            MovementEpoch = 0;
+            LastCorrectionSequence = 0;
         }
         GateSessionRuntimeId = runtimeId;
         GateSceneAddress = sceneAddress;

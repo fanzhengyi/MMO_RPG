@@ -9,10 +9,11 @@ public sealed class G2C_PlayerEnteredHandler : Message<G2C_PlayerEntered>
     /// <summary>复制公开快照，场景加载期间由管理器暂存。</summary>
     protected override async FTask Run(Session session, G2C_PlayerEntered message)
     {
-        if (NetworkManager.Instance.GateSession != session || message.Player?.Movement == null) return;
+        if (NetworkManager.Instance.GateSession != session || message.Player?.Movement == null
+            || !PlayerSelfModel.Instance.AcceptsWorld(message.WorldSessionId)) return;
         var player = message.Player;
         RemotePlayerManager.PlayerEntered(
-            RemotePlayerManager.Snapshot.From(player.RoleId, player.Version, player.Movement));
+            RemotePlayerManager.Snapshot.From(player));
         await FTask.CompletedTask;
     }
 }
@@ -23,9 +24,10 @@ public sealed class G2C_PlayerMoveHandler : Message<G2C_PlayerMove>
     /// <summary>复制网络数据后交给远端管理器，不处理本人回正。</summary>
     protected override async FTask Run(Session session, G2C_PlayerMove message)
     {
-        if (NetworkManager.Instance.GateSession != session || message.Movement == null) return;
+        if (NetworkManager.Instance.GateSession != session || message.Movement == null
+            || !PlayerSelfModel.Instance.AcceptsWorld(message.WorldSessionId)) return;
         RemotePlayerManager.PlayerMoved(
-            RemotePlayerManager.Snapshot.From(message.RoleId, message.Version, message.Movement));
+            RemotePlayerManager.Snapshot.From(message.RoleId, message.SpawnId, message.SpawnRevision, message.Version, message.ServerTimeMs, message.Movement));
         await FTask.CompletedTask;
     }
 }
@@ -37,7 +39,7 @@ public sealed class G2C_PlayerPositionCorrectionHandler : Message<G2C_PlayerPosi
     protected override async FTask Run(Session session, G2C_PlayerPositionCorrection message)
     {
         if (NetworkManager.Instance.GateSession != session) return;
-        PlayerSelfModel.Instance.CorrectPosition(message.AckSequence, message.Movement);
+        PlayerSelfModel.Instance.CorrectPosition(message.WorldSessionId, message.MovementEpoch, message.AckSequence, message.Movement);
         await FTask.CompletedTask;
     }
 }
@@ -48,8 +50,8 @@ public sealed class G2C_PlayerLeftHandler : Message<G2C_PlayerLeft>
     /// <summary>只处理当前 Gate 的离开通知。</summary>
     protected override async FTask Run(Session session, G2C_PlayerLeft message)
     {
-        if (NetworkManager.Instance.GateSession != session) return;
-        RemotePlayerManager.PlayerLeft(message.RoleId);
+        if (NetworkManager.Instance.GateSession != session || !PlayerSelfModel.Instance.AcceptsWorld(message.WorldSessionId)) return;
+        RemotePlayerManager.PlayerLeft(message.RoleId, message.SpawnId, message.SpawnRevision);
         await FTask.CompletedTask;
     }
 }

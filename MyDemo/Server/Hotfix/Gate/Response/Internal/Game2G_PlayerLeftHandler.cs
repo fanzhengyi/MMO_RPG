@@ -9,10 +9,11 @@ public sealed class Game2G_PlayerLeftHandler : Address<Scene, Game2G_PlayerLeft>
     /// <summary>核对接收连接，再通知客户端删除外观。</summary>
     protected override async FTask Run(Scene scene, Game2G_PlayerLeft message)
     {
-        if (!GateSessionHelper.TryGetSession(scene, message.GateSessionRuntimeId, out var session))
+        if (!GateSessionHelper.TryGetWorldSession(scene, message.GateSessionRuntimeId, message.WorldSessionId, out var session))
             return;
 
-        session.Send(new G2C_PlayerLeft { RoleId = message.RoleId });
+        session.Send(new G2C_PlayerLeft { RoleId = message.RoleId,
+            WorldSessionId = message.WorldSessionId, SpawnId = message.SpawnId, SpawnRevision = message.SpawnRevision });
         await FTask.CompletedTask;
     }
 }

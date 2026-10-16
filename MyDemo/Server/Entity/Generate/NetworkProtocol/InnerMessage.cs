@@ -116,15 +116,123 @@ namespace Fantasy
             ErrorCode = 0;
             Result = default;
             Info = default;
+            WorldSessionId = default;
+            WorldId = default;
             MessageObjectPool<Game2G_EnterGameResponse>.Return(this);
         }
         public uint OpCode() { return InnerOpcode.Game2G_EnterGameResponse; }
-        [ProtoMember(3)]
+        [ProtoMember(5)]
         public uint ErrorCode { get; set; }
         [ProtoMember(1)]
         public ResultCode Result { get; set; }
         [ProtoMember(2)]
         public PlayerInfo Info { get; set; }
+        [ProtoMember(3)]
+        public long WorldSessionId { get; set; }
+        [ProtoMember(4)]
+        public int WorldId { get; set; }
+    }
+    /// <summary>
+    /// 只有与 Enter 返回的世界会话匹配，才正式加入公共世界
+    /// </summary>
+    [Serializable]
+    [ProtoContract]
+    public partial class G2Game_WorldReadyRequest : AMessage, IAddressRequest
+    {
+        public static G2Game_WorldReadyRequest Create(bool autoReturn = true)
+        {
+            var g2Game_WorldReadyRequest = MessageObjectPool<G2Game_WorldReadyRequest>.Rent();
+            g2Game_WorldReadyRequest.AutoReturn = autoReturn;
+
+            if (!autoReturn)
+            {
+                g2Game_WorldReadyRequest.SetIsPool(false);
+            }
+
+            return g2Game_WorldReadyRequest;
+        }
+
+        public void Return()
+        {
+            if (!AutoReturn)
+            {
+                SetIsPool(true);
+                AutoReturn = true;
+            }
+            else if (!IsPool())
+            {
+                return;
+            }
+            Dispose();
+        }
+
+        public void Dispose()
+        {
+            if (!IsPool()) return;
+            UserName = default;
+            GateSessionRuntimeId = default;
+            GateSceneAddress = default;
+            WorldSessionId = default;
+            MessageObjectPool<G2Game_WorldReadyRequest>.Return(this);
+        }
+        public uint OpCode() { return InnerOpcode.G2Game_WorldReadyRequest; }
+        [ProtoIgnore]
+        public Game2G_WorldReadyResponse ResponseType { get; set; }
+        [ProtoMember(1)]
+        public string UserName { get; set; }
+        [ProtoMember(2)]
+        public long GateSessionRuntimeId { get; set; }
+        [ProtoMember(3)]
+        public long GateSceneAddress { get; set; }
+        [ProtoMember(4)]
+        public long WorldSessionId { get; set; }
+    }
+    [Serializable]
+    [ProtoContract]
+    public partial class Game2G_WorldReadyResponse : AMessage, IAddressResponse
+    {
+        public static Game2G_WorldReadyResponse Create(bool autoReturn = true)
+        {
+            var game2G_WorldReadyResponse = MessageObjectPool<Game2G_WorldReadyResponse>.Rent();
+            game2G_WorldReadyResponse.AutoReturn = autoReturn;
+
+            if (!autoReturn)
+            {
+                game2G_WorldReadyResponse.SetIsPool(false);
+            }
+
+            return game2G_WorldReadyResponse;
+        }
+
+        public void Return()
+        {
+            if (!AutoReturn)
+            {
+                SetIsPool(true);
+                AutoReturn = true;
+            }
+            else if (!IsPool())
+            {
+                return;
+            }
+            Dispose();
+        }
+
+        public void Dispose()
+        {
+            if (!IsPool()) return;
+            ErrorCode = 0;
+            Result = default;
+            Players.Clear();
+            MessageObjectPool<Game2G_WorldReadyResponse>.Return(this);
+        }
+        public uint OpCode() { return InnerOpcode.Game2G_WorldReadyResponse; }
+        [ProtoMember(3)]
+        public uint ErrorCode { get; set; }
+        [ProtoMember(1)]
+        public ResultCode Result { get; set; }
+        [ProtoMember(2)]
+        public List<PlayerPresence> Players { get; set; } = new List<PlayerPresence>();
     }
     /// <summary>
     /// 创建数据不绑定在线连接，绑定统一由 EnterGame 完成
@@ -264,6 +372,8 @@ namespace Fantasy
             GateSceneAddress = default;
             Sequence = default;
             Movement = default;
+            WorldSessionId = default;
+            MovementEpoch = default;
             MessageObjectPool<G2Game_PlayerMove>.Return(this);
         }
         public uint OpCode() { return InnerOpcode.G2Game_PlayerMove; }
@@ -277,6 +387,10 @@ namespace Fantasy
         public uint Sequence { get; set; }
         [ProtoMember(5)]
         public MovementSnapshot Movement { get; set; }
+        [ProtoMember(6)]
+        public long WorldSessionId { get; set; }
+        [ProtoMember(7)]
+        public uint MovementEpoch { get; set; }
     }
     /// <summary>
     /// 定向转发其他玩家的移动版本
@@ -319,6 +433,10 @@ namespace Fantasy
             RoleId = default;
             Version = default;
             Movement = default;
+            WorldSessionId = default;
+            SpawnId = default;
+            ServerTimeMs = default;
+            SpawnRevision = default;
             MessageObjectPool<Game2G_PlayerMove>.Return(this);
         }
         public uint OpCode() { return InnerOpcode.Game2G_PlayerMove; }
@@ -330,6 +448,14 @@ namespace Fantasy
         public uint Version { get; set; }
         [ProtoMember(4)]
         public MovementSnapshot Movement { get; set; }
+        [ProtoMember(5)]
+        public long WorldSessionId { get; set; }
+        [ProtoMember(6)]
+        public long SpawnId { get; set; }
+        [ProtoMember(7)]
+        public long ServerTimeMs { get; set; }
+        [ProtoMember(8)]
+        public ulong SpawnRevision { get; set; }
     }
     /// <summary>
     /// 定向回正被拒绝的移动
@@ -371,6 +497,8 @@ namespace Fantasy
             GateSessionRuntimeId = default;
             AckSequence = default;
             Movement = default;
+            WorldSessionId = default;
+            MovementEpoch = default;
             MessageObjectPool<Game2G_PlayerPositionCorrection>.Return(this);
         }
         public uint OpCode() { return InnerOpcode.Game2G_PlayerPositionCorrection; }
@@ -380,6 +508,10 @@ namespace Fantasy
         public uint AckSequence { get; set; }
         [ProtoMember(3)]
         public MovementSnapshot Movement { get; set; }
+        [ProtoMember(4)]
+        public long WorldSessionId { get; set; }
+        [ProtoMember(5)]
+        public uint MovementEpoch { get; set; }
     }
     /// <summary>
     /// 定向发送公开角色数据
@@ -420,6 +552,7 @@ namespace Fantasy
             if (!IsPool()) return;
             GateSessionRuntimeId = default;
             Player = default;
+            WorldSessionId = default;
             MessageObjectPool<Game2G_PlayerEntered>.Return(this);
         }
         public uint OpCode() { return InnerOpcode.Game2G_PlayerEntered; }
@@ -427,6 +560,8 @@ namespace Fantasy
         public long GateSessionRuntimeId { get; set; }
         [ProtoMember(2)]
         public PlayerPresence Player { get; set; }
+        [ProtoMember(3)]
+        public long WorldSessionId { get; set; }
     }
     /// <summary>
     /// 旧连接下线必须与原路由匹配，不能清除新连接
@@ -468,6 +603,7 @@ namespace Fantasy
             UserName = default;
             GateSessionRuntimeId = default;
             GateSceneAddress = default;
+            WorldSessionId = default;
             MessageObjectPool<G2Game_PlayerLeft>.Return(this);
         }
         public uint OpCode() { return InnerOpcode.G2Game_PlayerLeft; }
@@ -477,6 +613,8 @@ namespace Fantasy
         public long GateSessionRuntimeId { get; set; }
         [ProtoMember(3)]
         public long GateSceneAddress { get; set; }
+        [ProtoMember(4)]
+        public long WorldSessionId { get; set; }
     }
     /// <summary>
     /// 定向发送离开通知
@@ -517,6 +655,9 @@ namespace Fantasy
             if (!IsPool()) return;
             GateSessionRuntimeId = default;
             RoleId = default;
+            WorldSessionId = default;
+            SpawnId = default;
+            SpawnRevision = default;
             MessageObjectPool<Game2G_PlayerLeft>.Return(this);
         }
         public uint OpCode() { return InnerOpcode.Game2G_PlayerLeft; }
@@ -524,5 +665,11 @@ namespace Fantasy
         public long GateSessionRuntimeId { get; set; }
         [ProtoMember(2)]
         public long RoleId { get; set; }
+        [ProtoMember(3)]
+        public long WorldSessionId { get; set; }
+        [ProtoMember(4)]
+        public long SpawnId { get; set; }
+        [ProtoMember(5)]
+        public ulong SpawnRevision { get; set; }
     }
 }

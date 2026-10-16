@@ -13,12 +13,21 @@ public sealed class RemotePlayerManager : MonoBehaviour
         public PlayerFsmCore.StateType State;
         public float Speed;
         public uint Version;
+        public long SpawnId;
+        public ulong SpawnRevision;
+        public long ServerTimeMs;
 
         /// <summary>复制协议快照，只保留远端表现需要的值。</summary>
-        public static Snapshot From(long roleId, uint version, Fantasy.MovementSnapshot movement) => new Snapshot
+        public static Snapshot From(Fantasy.PlayerPresence player)
+            => From(player.RoleId, player.SpawnId, player.SpawnRevision, player.Version, player.ServerTimeMs, player.Movement);
+
+        public static Snapshot From(long roleId, long spawnId, ulong spawnRevision, uint version, long serverTimeMs, Fantasy.MovementSnapshot movement) => new Snapshot
         {
             RoleId = roleId,
             Version = version,
+            SpawnId = spawnId,
+            SpawnRevision = spawnRevision,
+            ServerTimeMs = serverTimeMs,
             Position = new Vector3(movement.X, movement.Y, movement.Z),
             RotationY = movement.RotationY,
             State = PlayerStateMapping.FromNetwork(movement.State),
@@ -33,6 +42,7 @@ public sealed class RemotePlayerManager : MonoBehaviour
     private static RemotePlayerManager instance;
     private static readonly Dictionary<long, Snapshot> pendingEntries = new Dictionary<long, Snapshot>();
     private static readonly Dictionary<long, Snapshot> pendingMoves = new Dictionary<long, Snapshot>();
+    private static readonly RemoteSpawnTracker spawns = new RemoteSpawnTracker();
     private readonly Dictionary<long, RemotePlayerView> views = new Dictionary<long, RemotePlayerView>();
     private Animator visualTemplate;
     private Transform localRoot;
@@ -57,7 +67,8 @@ public sealed class RemotePlayerManager : MonoBehaviour
         instance.visualTemplate = model;
         instance.localRoot = localPlayer.transform;
         instance.isReady = true;
-        foreach (var snapshot in pendingEntries.Values) instance.Upsert(snapshot);
+        foreach (var snapshot in pendingEntries.Values)
+            if (spawns.Observe(snapshot.RoleId, snapshot.SpawnId, snapshot.SpawnRevision)) instance.Upsert(snapshot);
         pendingEntries.Clear();
         return true;
     }
@@ -67,6 +78,7 @@ public sealed class RemotePlayerManager : MonoBehaviour
     {
         pendingEntries.Clear();
         pendingMoves.Clear();
+        spawns.Clear();
         if (instance == null) return;
         instance.gameObject.SetActive(false);
         Destroy(instance.gameObject);
@@ -76,7 +88,7 @@ public sealed class RemotePlayerManager : MonoBehaviour
     /// <summary>进入通知负责创建模型；移动通知不能单独创建已离线的角色。</summary>
     public static void PlayerEntered(Snapshot snapshot)
     {
-        if (!IsRemote(snapshot.RoleId)) return;
+        if (!IsRemote(snapshot.RoleId) || !spawns.Observe(snapshot.RoleId, snapshot.SpawnId, snapshot.SpawnRevision)) return;
         if (instance == null || !instance.isReady)
         {
             CacheLatest(pendingEntries, snapshot);
@@ -88,21 +100,23 @@ public sealed class RemotePlayerManager : MonoBehaviour
     /// <summary>模型尚未准备好时只缓存最新位置。</summary>
     public static void PlayerMoved(Snapshot snapshot)
     {
-        if (!IsRemote(snapshot.RoleId)) return;
+        if (!IsRemote(snapshot.RoleId) || !spawns.Observe(snapshot.RoleId, snapshot.SpawnId, snapshot.SpawnRevision)) return;
         if (instance == null || !instance.isReady || !instance.views.TryGetValue(snapshot.RoleId, out var view))
         {
             CacheLatest(pendingMoves, snapshot);
             return;
         }
-        view.SetSnapshot(snapshot);
+        if (view.SpawnId == snapshot.SpawnId) view.SetSnapshot(snapshot);
+        else CacheLatest(pendingMoves, snapshot);
     }
 
     /// <summary>离开通知同时清除已生成模型和未消费快照。</summary>
-    public static void PlayerLeft(long roleId)
+    public static void PlayerLeft(long roleId, long spawnId, ulong spawnRevision)
     {
-        pendingEntries.Remove(roleId);
-        pendingMoves.Remove(roleId);
-        if (instance != null && instance.views.TryGetValue(roleId, out var view))
+        if (!IsRemote(roleId) || !spawns.Observe(roleId, spawnId, spawnRevision, true)) return;
+        if (pendingEntries.TryGetValue(roleId, out var entry) && entry.SpawnRevision <= spawnRevision) pendingEntries.Remove(roleId);
+        if (pendingMoves.TryGetValue(roleId, out var move) && move.SpawnRevision <= spawnRevision) pendingMoves.Remove(roleId);
+        if (instance != null && instance.views.TryGetValue(roleId, out var view) && view.SpawnRevision <= spawnRevision)
         {
             instance.views.Remove(roleId);
             Destroy(view.gameObject);
@@ -115,14 +129,22 @@ public sealed class RemotePlayerManager : MonoBehaviour
     /// <summary>加载期间同一角色只保留最新快照。</summary>
     private static void CacheLatest(Dictionary<long, Snapshot> cache, Snapshot snapshot)
     {
-        if (!cache.TryGetValue(snapshot.RoleId, out var previous) || snapshot.IsNewerThan(previous))
+        if (!cache.TryGetValue(snapshot.RoleId, out var previous) || snapshot.SpawnRevision > previous.SpawnRevision
+            || (snapshot.SpawnId == previous.SpawnId && snapshot.IsNewerThan(previous)))
             cache[snapshot.RoleId] = snapshot;
     }
 
     /// <summary>只克隆外观，同一帧完成激活和快照初始化。</summary>
     private void Upsert(Snapshot snapshot)
     {
-        if (views.TryGetValue(snapshot.RoleId, out var view))
+        if (views.TryGetValue(snapshot.RoleId, out var view) && view.SpawnId != snapshot.SpawnId)
+        {
+            views.Remove(snapshot.RoleId);
+            view.gameObject.SetActive(false);
+            Destroy(view.gameObject);
+            view = null;
+        }
+        if (view != null)
             view.SetSnapshot(snapshot);
         else
         {
@@ -146,7 +168,7 @@ public sealed class RemotePlayerManager : MonoBehaviour
         }
         if (pendingMoves.TryGetValue(snapshot.RoleId, out var move))
         {
-            view.SetSnapshot(move);
+            if (view.SpawnId == move.SpawnId) view.SetSnapshot(move);
             pendingMoves.Remove(snapshot.RoleId);
         }
     }
@@ -158,6 +180,7 @@ public sealed class RemotePlayerManager : MonoBehaviour
         instance = null;
         pendingEntries.Clear();
         pendingMoves.Clear();
+        spawns.Clear();
     }
 
     /// <summary>兼容编辑器关闭 Domain Reload 后重新运行。</summary>
@@ -167,5 +190,6 @@ public sealed class RemotePlayerManager : MonoBehaviour
         instance = null;
         pendingEntries.Clear();
         pendingMoves.Clear();
+        spawns.Clear();
     }
 }

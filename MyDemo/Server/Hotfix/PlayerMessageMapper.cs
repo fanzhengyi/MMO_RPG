@@ -31,5 +31,8 @@ public static class PlayerMessageMapper
         NickName = player.NickName,
         Movement = ToMovement(player),
         Version = player.MovementVersion,
+        SpawnId = player.WorldSessionId,
+        SpawnRevision = player.SpawnRevision,
+        ServerTimeMs = Environment.TickCount64,
     };
 }

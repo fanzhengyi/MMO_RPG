@@ -10,11 +10,13 @@ namespace Fantasy
         public const uint G2Game_EnterGameRequest = 1073751825;
         public const uint G2Game_PlayerLeft = 939534104;
         public const uint G2Game_PlayerMove = 939534101;
+        public const uint G2Game_WorldReadyRequest = 1073751827;
         public const uint Game2G_CreateRoleResponse = 1207969554;
         public const uint Game2G_EnterGameResponse = 1207969553;
         public const uint Game2G_PlayerEntered = 939534103;
         public const uint Game2G_PlayerLeft = 939534105;
         public const uint Game2G_PlayerMove = 939534102;
         public const uint Game2G_PlayerPositionCorrection = 939534106;
+        public const uint Game2G_WorldReadyResponse = 1207969555;
     }
 }

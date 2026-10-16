@@ -15,6 +15,23 @@ message Game2G_EnterGameResponse // IAddressResponse
 {
     ResultCode Result = 1;
     PlayerInfo Info = 2;
+    int64 WorldSessionId = 3;
+    int32 WorldId = 4;
+}
+
+///只有与 Enter 返回的世界会话匹配，才正式加入公共世界
+message G2Game_WorldReadyRequest // IAddressRequest,Game2G_WorldReadyResponse
+{
+    string UserName = 1;
+    int64 GateSessionRuntimeId = 2;
+    int64 GateSceneAddress = 3;
+    int64 WorldSessionId = 4;
+}
+
+message Game2G_WorldReadyResponse // IAddressResponse
+{
+    ResultCode Result = 1;
+    repeated PlayerPresence Players = 2;
 }
 
 ///创建数据不绑定在线连接，绑定统一由 EnterGame 完成
@@ -38,6 +55,8 @@ message G2Game_PlayerMove // IAddressMessage
     int64 GateSceneAddress = 3;
     uint32 Sequence = 4;
     MovementSnapshot Movement = 5;
+    int64 WorldSessionId = 6;
+    uint32 MovementEpoch = 7;
 }
 
 ///定向转发其他玩家的移动版本
@@ -47,6 +66,10 @@ message Game2G_PlayerMove // IAddressMessage
     int64 RoleId = 2;
     uint32 Version = 3;
     MovementSnapshot Movement = 4;
+    int64 WorldSessionId = 5;
+    int64 SpawnId = 6;
+    int64 ServerTimeMs = 7;
+    uint64 SpawnRevision = 8;
 }
 
 ///定向回正被拒绝的移动
@@ -55,6 +78,8 @@ message Game2G_PlayerPositionCorrection // IAddressMessage
     int64 GateSessionRuntimeId = 1;
     uint32 AckSequence = 2;
     MovementSnapshot Movement = 3;
+    int64 WorldSessionId = 4;
+    uint32 MovementEpoch = 5;
 }
 
 ///定向发送公开角色数据
@@ -62,6 +87,7 @@ message Game2G_PlayerEntered // IAddressMessage
 {
     int64 GateSessionRuntimeId = 1;
     PlayerPresence Player = 2;
+    int64 WorldSessionId = 3;
 }
 
 ///旧连接下线必须与原路由匹配，不能清除新连接
@@ -70,6 +96,7 @@ message G2Game_PlayerLeft // IAddressMessage
     string UserName = 1;
     int64 GateSessionRuntimeId = 2;
     int64 GateSceneAddress = 3;
+    int64 WorldSessionId = 4;
 }
 
 ///定向发送离开通知
@@ -77,4 +104,7 @@ message Game2G_PlayerLeft // IAddressMessage
 {
     int64 GateSessionRuntimeId = 1;
     int64 RoleId = 2;
+    int64 WorldSessionId = 3;
+    int64 SpawnId = 4;
+    uint64 SpawnRevision = 5;
 }

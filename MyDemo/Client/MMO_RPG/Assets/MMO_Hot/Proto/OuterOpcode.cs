@@ -14,6 +14,7 @@ namespace Fantasy
         public const uint C2G_EnterGameRequest = 268445461;
         public const uint C2G_LoginRequest = 268445460;
         public const uint C2G_PlayerMove = 134227732;
+        public const uint C2G_WorldReadyRequest = 268445463;
         public const uint G2C_CreateRoleResponse = 402663190;
         public const uint G2C_EnterGameResponse = 402663189;
         public const uint G2C_LoginResponse = 402663188;
@@ -22,5 +23,6 @@ namespace Fantasy
         public const uint G2C_PlayerMove = 134227733;
         public const uint G2C_PlayerPositionCorrection = 134227736;
         public const uint G2C_RepeatLogin = 134227737;
+        public const uint G2C_WorldReadyResponse = 402663191;
     }
 }

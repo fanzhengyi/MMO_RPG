@@ -1,62 +1,58 @@
 using UnityEngine;
 
-/// <summary>远端角色只接受网络快照，平滑位置和朝向，不读取玩家输入。</summary>
+/// <summary>在服务端快照时间线上插值；不读取输入，也不预测远端碰撞。</summary>
 public sealed class RemotePlayerView : MonoBehaviour
 {
-    private const float FollowSharpness = 15f;
     private const float TeleportDistance = 10f;
-    private Vector3 targetPosition;
-    private Quaternion targetRotation;
+    private static readonly int StateParameter = Animator.StringToHash("State");
+    private static readonly int SpeedParameter = Animator.StringToHash("Speed");
+    private readonly SnapshotTimeline<RemotePlayerManager.Snapshot> timeline = new SnapshotTimeline<RemotePlayerManager.Snapshot>();
     private Animator animator;
     private uint version;
-    private bool moving;
+    private Vector3 latestPosition;
+    public long SpawnId { get; private set; }
+    public ulong SpawnRevision { get; private set; }
 
     /// <summary>初次生成直接定位，避免从原点滑入。</summary>
     public void Initialize(RemotePlayerManager.Snapshot snapshot, Animator characterAnimator)
     {
         animator = characterAnimator;
         if (animator != null) animator.applyRootMotion = false;
+        SpawnId = snapshot.SpawnId;
+        SpawnRevision = snapshot.SpawnRevision;
         version = snapshot.Version;
-        targetPosition = snapshot.Position;
-        targetRotation = Quaternion.Euler(0f, snapshot.RotationY, 0f);
-        transform.SetPositionAndRotation(targetPosition, targetRotation);
-        ApplyAnimation(snapshot);
+        latestPosition = snapshot.Position;
+        timeline.Clear();
+        timeline.Add(snapshot.ServerTimeMs, Time.unscaledTimeAsDouble, snapshot);
+        Apply(snapshot, snapshot, 1);
     }
 
     /// <summary>只应用新版本；过远的位置变化直接定位，用于传送或长时间延迟。</summary>
     public void SetSnapshot(RemotePlayerManager.Snapshot snapshot)
     {
-        if (unchecked((int)(snapshot.Version - version)) <= 0) return;
+        if (snapshot.SpawnId != SpawnId || unchecked((int)(snapshot.Version - version)) <= 0) return;
+        var teleport = (snapshot.Position - latestPosition).sqrMagnitude > TeleportDistance * TeleportDistance;
+        if (teleport) timeline.Clear();
+        if (!timeline.Add(snapshot.ServerTimeMs, Time.unscaledTimeAsDouble, snapshot)) return;
         version = snapshot.Version;
-        targetPosition = snapshot.Position;
-        targetRotation = Quaternion.Euler(0f, snapshot.RotationY, 0f);
-        if ((targetPosition - transform.position).sqrMagnitude > TeleportDistance * TeleportDistance)
-            transform.SetPositionAndRotation(targetPosition, targetRotation);
-        moving = true;
-        ApplyAnimation(snapshot);
+        latestPosition = snapshot.Position;
+        if (teleport) Apply(snapshot, snapshot, 1);
     }
 
-    /// <summary>到达目标后停止每帧写 Transform，减少静止角色的更新开销。</summary>
+    /// <summary>按播放时刻采样，无新包时停在最后确认位置。</summary>
     private void Update()
     {
-        if (!moving) return;
-        var blend = 1f - Mathf.Exp(-FollowSharpness * Time.deltaTime);
-        transform.SetPositionAndRotation(
-            Vector3.Lerp(transform.position, targetPosition, blend),
-            Quaternion.Slerp(transform.rotation, targetRotation, blend));
-        if ((targetPosition - transform.position).sqrMagnitude < 0.000001f
-            && Quaternion.Angle(transform.rotation, targetRotation) < 0.1f)
-        {
-            transform.SetPositionAndRotation(targetPosition, targetRotation);
-            moving = false;
-        }
+        if (timeline.TrySample(Time.unscaledTimeAsDouble, out var from, out var to, out var fraction))
+            Apply(from, to, fraction);
     }
 
     /// <summary>动画参数与本地角色一致，位置仍完全由快照控制。</summary>
-    private void ApplyAnimation(RemotePlayerManager.Snapshot snapshot)
+    private void Apply(RemotePlayerManager.Snapshot from, RemotePlayerManager.Snapshot to, float fraction)
     {
+        transform.SetPositionAndRotation(Vector3.Lerp(from.Position, to.Position, fraction),
+            Quaternion.Euler(0, Mathf.LerpAngle(from.RotationY, to.RotationY, fraction), 0));
         if (animator == null || animator.runtimeAnimatorController == null) return;
-        animator.SetInteger("State", (int)snapshot.State);
-        animator.SetFloat("Speed", snapshot.Speed);
+        animator.SetInteger(StateParameter, (int)(fraction < 1 ? from.State : to.State));
+        animator.SetFloat(SpeedParameter, Mathf.Lerp(from.Speed, to.Speed, fraction));
     }
 }

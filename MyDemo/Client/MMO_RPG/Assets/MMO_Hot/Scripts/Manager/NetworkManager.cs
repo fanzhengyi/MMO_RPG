@@ -12,6 +12,20 @@ public sealed class NetworkManager : Singleton<NetworkManager>
     public event Action GateDisconnected;
     private bool connecting;
     private uint movementSequence;
+    private Scene scene;
+
+    /// <summary>由启动层注入 Fantasy 场景，连接层不依赖全局 UI 管理器。</summary>
+    public void Initialize(Scene networkScene)
+    {
+        if (networkScene == null || networkScene.IsDisposed) throw new ArgumentException("网络场景已失效。", nameof(networkScene));
+        scene = networkScene;
+    }
+
+    public void Shutdown()
+    {
+        DisconnectGate();
+        scene = null;
+    }
 
     /// <summary>上行序号属于 Gate 连接，切场景或停用同步脚本不能重置。</summary>
     public uint NextMovementSequence() => movementSequence = unchecked(movementSequence + 1);
@@ -23,7 +37,7 @@ public sealed class NetworkManager : Singleton<NetworkManager>
     /// <summary>创建外网连接；当前 Fantasy Scene 同时只建立一条连接。</summary>
     public async FTask<Session> ConnectAsync(string address)
     {
-        if (GlobalManager.Instance.Scene == null)
+        if (scene == null || scene.IsDisposed)
             throw new InvalidOperationException("Fantasy 尚未初始化完成。");
         if (connecting || (GateSession != null && !GateSession.IsDisposed))
             throw new InvalidOperationException("已有连接或连接请求正在进行。");
@@ -34,7 +48,7 @@ public sealed class NetworkManager : Singleton<NetworkManager>
         var completed = false;
         try
         {
-            session = GlobalManager.Instance.Scene.Connect(address, Protocol,
+            session = scene.Connect(address, Protocol,
                 () =>
                 {
                     if (completed) return;

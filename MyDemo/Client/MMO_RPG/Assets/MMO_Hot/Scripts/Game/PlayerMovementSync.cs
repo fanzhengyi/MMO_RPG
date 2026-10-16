@@ -13,16 +13,19 @@ public sealed class PlayerMovementSync : MonoBehaviour
     [SerializeField, Min(0.001f)] private float positionThreshold = 0.05f;
     [SerializeField, Min(0.1f)] private float rotationThreshold = 1f;
     [SerializeField, Min(0.01f)] private float speedThreshold = 0.1f;
+    [SerializeField, Min(0.1f)] private float heartbeatInterval = 0.5f;
 
     private PlayerController playerController;
     private Session trackedSession;
     private long trackedSessionRuntimeId;
+    private long trackedWorldSessionId;
     private Vector3 lastPosition;
     private float lastRotationY;
     private float lastSpeed;
     private PlayerFsmCore.StateType lastState;
     private float nextSendTime;
     private bool hasSent;
+    private float lastSentTime;
 
     /// <summary>初始控制权由进入世界流程开启，避免场景加载首帧上报错误位置。</summary>
     private void Awake()
@@ -58,10 +61,12 @@ public sealed class PlayerMovementSync : MonoBehaviour
         }
 
         playerController.SetControlEnabled(true);
-        if (session != trackedSession || session.RuntimeId != trackedSessionRuntimeId)
+        if (session != trackedSession || session.RuntimeId != trackedSessionRuntimeId
+            || trackedWorldSessionId != PlayerSelfModel.Instance.WorldSessionId)
         {
             trackedSession = session;
             trackedSessionRuntimeId = session.RuntimeId;
+            trackedWorldSessionId = PlayerSelfModel.Instance.WorldSessionId;
             hasSent = false;
         }
         var position = transform.position;
@@ -70,7 +75,8 @@ public sealed class PlayerMovementSync : MonoBehaviour
         var speed = playerController.HorizontalSpeed;
         var stateChanged = !hasSent || state != lastState;
         if (!stateChanged && Time.unscaledTime < nextSendTime) return;
-        if (hasSent && !stateChanged && !HasMovementChanged(position, rotationY, speed)) return;
+        if (hasSent && !stateChanged && Time.unscaledTime - lastSentTime < heartbeatInterval
+            && !HasMovementChanged(position, rotationY, speed)) return;
         SendSnapshot(session, position, rotationY, state, speed);
     }
 
@@ -86,7 +92,7 @@ public sealed class PlayerMovementSync : MonoBehaviour
         var sequence = NetworkManager.Instance.NextMovementSequence();
         try
         {
-            session.C2G_PlayerMove(sequence, new MovementSnapshot
+            session.C2G_PlayerMove(trackedWorldSessionId, sequence, PlayerSelfModel.Instance.MovementEpoch, new MovementSnapshot
             {
                 X = position.x, Y = position.y, Z = position.z,
                 RotationY = rotationY,
@@ -98,6 +104,7 @@ public sealed class PlayerMovementSync : MonoBehaviour
             lastState = state;
             lastSpeed = speed;
             nextSendTime = Time.unscaledTime + sendInterval;
+            lastSentTime = Time.unscaledTime;
             hasSent = true;
         }
         catch (Exception exception) { Debug.LogException(exception, this); }

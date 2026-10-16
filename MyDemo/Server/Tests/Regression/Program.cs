@@ -19,6 +19,8 @@ using LightProto;
 // 回归检查只调用规则和数据模型，不启动服务器、不访问数据库。
 var checks = new (string Name, Action Run)[]
 {
+    ("Correction epochs reject in-flight pre-correction movement", CheckCorrectionEpoch),
+    ("Spawn ordering rejects retired instances across repeated reconnects", CheckSpawnOrdering),
     ("Role responses contain independent DTOs", CheckRoleMapping),
     ("Database snapshots exclude session and runtime movement fields", CheckPersistence),
     ("Normal movement and running remain valid", CheckNormalMovement),
@@ -32,7 +34,11 @@ var checks = new (string Name, Action Run)[]
     ("Passwords use random salt and retain legacy compatibility", CheckPasswords),
     ("Gate rejects expired, mismatched and incorrectly signed tokens", CheckTokens),
     ("Client applies only newer corrections and clears data on logout", CheckClientCorrections),
-    ("Client protocol helper contains only the six required sends", CheckClientProtocolHelper),
+    ("Client protocol helper contains only the required sends", CheckClientProtocolHelper),
+    ("World readiness and incarnation isolate loading and reconnects", CheckWorldReadiness),
+    ("Movement limiter permits state bursts but bounds sustained traffic", CheckMovementLimiter),
+    ("Stationary heartbeats do not dirty persistent role data", CheckIdlePersistence),
+    ("Snapshot playback uses server time and bounds jitter and memory", CheckSnapshotTimeline),
     ("Protocol results fail closed and public data excludes account identity", CheckProtocolContracts),
     ("Nested outer and inner messages survive real protobuf serialization", CheckProtocolSerialization),
     ("RPC helpers do not release a request reused while awaiting", CheckRequestOwnership),
@@ -90,10 +96,13 @@ static void CheckPersistence()
 {
     var player = NewPlayer();
     player.UserName = "account";
+    player.MovementEpoch = 7;
+    player.SpawnRevision = 123;
     Require(Apply(player, Move(10, 0.65f), 1100), "accepted movement");
     var copy = BsonSerializer.Deserialize<OnlineInfo>(player.ToBson());
     Require(copy.UserName == player.UserName && copy.X == player.X, "persistent data");
     Require(!copy.IsConnected && !copy.IsDirty && copy.MovementVersion == 0 && !copy.HasLastMoveSequence, "runtime data excluded");
+    Require(copy.MovementEpoch == 0 && copy.SpawnRevision == 0, "correction epoch and spawn order are world-scoped");
 }
 
 static void CheckNormalMovement()
@@ -254,25 +263,134 @@ static void CheckTokens()
 static void CheckClientCorrections()
 {
     var model = new PlayerSelfModel();
-    model.SetInfo(new PlayerInfo { RoleId = 42, NickName = "nickname", Hp = 90, Gold = 123, Movement = new MovementSnapshot() });
+    model.SetInfo(new PlayerInfo { RoleId = 42, NickName = "nickname", Hp = 90, Gold = 123, Movement = new MovementSnapshot() }, 100, 1);
     var notifications = 0;
     model.PositionCorrected += (_, _, _, _) => notifications++;
-    model.CorrectPosition(1, new MovementSnapshot { X = 10, Y = 0, Z = 0, RotationY = 0 });
+    model.CorrectPosition(100, 1, 1, new MovementSnapshot { X = 10, Y = 0, Z = 0, RotationY = 0 });
     Require(notifications == 0, "correction before world readiness");
     model.IsInWorld = true;
-    model.CorrectPosition(uint.MaxValue, new MovementSnapshot { X = 1, Y = 2, Z = 3, RotationY = 90 });
-    model.CorrectPosition(0, new MovementSnapshot { X = 4, Y = 5, Z = 6, RotationY = 180 });
-    model.CorrectPosition(uint.MaxValue, new MovementSnapshot { X = 1, Y = 2, Z = 3, RotationY = 90 });
-    model.CorrectPosition(0, new MovementSnapshot { X = 99, Y = 99, Z = 99, RotationY = 0 });
+    model.CorrectPosition(100, 1, uint.MaxValue, new MovementSnapshot { X = 1, Y = 2, Z = 3, RotationY = 90 });
+    model.CorrectPosition(100, 2, 0, new MovementSnapshot { X = 4, Y = 5, Z = 6, RotationY = 180 });
+    model.CorrectPosition(100, 1, uint.MaxValue, new MovementSnapshot { X = 1, Y = 2, Z = 3, RotationY = 90 });
+    model.CorrectPosition(100, 2, 0, new MovementSnapshot { X = 99, Y = 99, Z = 99, RotationY = 0 });
+    model.CorrectPosition(99, 3, 1, new MovementSnapshot { X = 99 });
     Require(notifications == 2 && model.X == 4 && model.RotationY == 180, "only newer correction");
     model.Clear();
     Require(!model.HasRole && !model.IsInWorld && model.Hp == 0 && model.Gold == 0 && model.NickName == null, "logout reset");
+    Require(model.WorldSessionId == 0 && !model.AcceptsWorld(100), "logout invalidates world identity");
+    model.SetInfo(new PlayerInfo { RoleId = 42, Movement = new MovementSnapshot() }, 200, 1);
     model.IsInWorld = true;
-    model.CorrectPosition(0, new MovementSnapshot { X = 1, Y = 0, Z = 0, RotationY = 0 });
+    model.CorrectPosition(200, 1, 0, new MovementSnapshot { X = 1, Y = 0, Z = 0, RotationY = 0 });
     Require(notifications == 3 && model.X == 1, "correction version resets for a new login");
-    model.SetInfo(new PlayerInfo { RoleId = 43, Movement = new MovementSnapshot() });
-    model.CorrectPosition(0, new MovementSnapshot { X = 8 });
+    model.SetInfo(new PlayerInfo { RoleId = 43, Movement = new MovementSnapshot() }, 300, 1);
+    model.IsInWorld = true;
+    model.CorrectPosition(200, 2, 2, new MovementSnapshot { X = 99 });
+    model.CorrectPosition(300, 1, 0, new MovementSnapshot { X = 8 });
     Require(notifications == 4 && model.X == 8, "re-entering the world resets correction acknowledgement");
+}
+
+static void CheckCorrectionEpoch()
+{
+    var player = NewPlayer();
+    Require(PlayerMovementRules.Process(player, 1, 0, Move(1, 1000).Movement, 1100)
+        == PlayerMovementRules.Decision.Correction && player.MovementEpoch == 1, "rejection advances epoch");
+    Require(PlayerMovementRules.Process(player, 2, 0, Move(2, 0.5f).Movement, 1200)
+        == PlayerMovementRules.Decision.Correction && player.X == 0 && player.LastMoveSequence == 1
+        && player.MovementEpoch == 1, "in-flight old epoch resends stable correction without moving");
+    Require(PlayerMovementRules.Process(player, 3, 99, Move(3, 0.5f).Movement, 1200)
+        == PlayerMovementRules.Decision.Correction && player.MovementEpoch == 1, "client cannot select a future epoch");
+    Require(PlayerMovementRules.Process(player, 4, 1, Move(4, 0.5f).Movement, 1200)
+        == PlayerMovementRules.Decision.Accepted && player.X == 0.5f, "acknowledged correction resumes movement");
+    Require(PlayerMovementRules.Process(player, 3, 1, Move(3, 0).Movement, 1300)
+        == PlayerMovementRules.Decision.Ignored, "same-epoch old sequence stays ignored");
+    Require(PlayerMovementRules.Process(player, 2, 0, Move(2, 0).Movement, 1300)
+        == PlayerMovementRules.Decision.Correction && player.LastCorrectionSequence == 1,
+        "resending correction retains its triggering sequence after movement resumes");
+    player.MovementEpoch = uint.MaxValue;
+    Require(PlayerMovementRules.Process(player, 5, uint.MaxValue, Move(5, 1000).Movement, 1400)
+        == PlayerMovementRules.Decision.Correction && player.MovementEpoch == 0, "epoch wraps");
+    player.BindGateSession(2, 100);
+    Require(player.MovementEpoch == 0, "new world resets correction epoch");
+}
+
+static void CheckSpawnOrdering()
+{
+    var tracker = new RemoteSpawnTracker();
+    Require(tracker.Observe(42, 900, 1), "initial entry");
+    Require(tracker.Observe(42, 900, 1, true), "initial departure");
+    Require(tracker.Observe(42, 100, 2), "random spawn identity does not determine order");
+    Require(!tracker.Observe(42, 900, 1, true) && !tracker.Observe(42, 900, 1), "old leave and baseline rejected");
+    Require(tracker.Observe(42, 100, 2, true), "second departure");
+    Require(!tracker.Observe(42, 900, 1) && !tracker.Observe(42, 100, 2), "two retired instances cannot resurrect");
+    Require(tracker.Observe(42, 800, 3), "move may observe new spawn before entry");
+    Require(!tracker.Observe(42, 100, 2) && tracker.Observe(42, 800, 3), "delayed baseline cannot replace newer move");
+    Require(!tracker.Observe(42, 999, 3) && !tracker.Observe(0, 800, 3)
+        && !tracker.Observe(42, 0, 4) && !tracker.Observe(42, 1, 0), "invalid identity rejected");
+    tracker.Clear();
+    Require(tracker.Observe(42, 900, 1), "new world has its own ordering scope");
+}
+
+static void CheckWorldReadiness()
+{
+    var player = NewPlayer();
+    var firstWorld = player.WorldSessionId;
+    Require(firstWorld != 0 && player.IsConnected && !player.IsInWorld, "enter only prepares a player");
+    Require(!player.MarkWorldReady(0, 2000) && !player.MarkWorldReady(firstWorld + 1, 2000), "forged ready");
+    Require(player.MarkWorldReady(firstWorld, 2000) && player.IsInWorld && player.LastMoveReceivedAt == 2000, "ready commits visibility");
+    Require(player.MarkWorldReady(firstWorld, 3000) && player.LastMoveReceivedAt == 2000, "ready retry cannot refill allowance");
+    player.BindGateSession(2, 100);
+    Require(!player.IsInWorld && player.WorldSessionId != firstWorld, "reconnect creates a new incarnation");
+    Require(!player.MatchesWorld(1, 100, firstWorld) && !player.MarkWorldReady(firstWorld, 4000), "old connection cannot act on new world");
+    Require(player.MatchesWorld(2, 100, player.WorldSessionId), "new identity matches exactly");
+    var copy = BsonSerializer.Deserialize<OnlineInfo>(player.ToBson());
+    Require(copy.WorldSessionId == 0 && !copy.IsWorldReady, "world leases never persist to database");
+}
+
+static void CheckMovementLimiter()
+{
+    var gate = new PlayerSessionComponent();
+    for (var i = 0; i < 5; i++) Require(gate.TryAcceptMovement(1000), "small burst");
+    Require(!gate.TryAcceptMovement(1000) && !gate.TryAcceptMovement(1019), "same-time flood");
+    Require(gate.TryAcceptMovement(1020), "tokens refill using elapsed time");
+    var accepted = 0;
+    for (var time = 1021; time <= 2020; time++) if (gate.TryAcceptMovement(time)) accepted++;
+    Require(accepted == 50, "sustained rate is fifty per second");
+    gate.WorldSessionId = 42;
+    gate.IsWorldReady = true;
+    gate.ResetWorldState();
+    Require(gate.WorldSessionId == 0 && !gate.IsWorldReady && gate.TryAcceptMovement(3000), "pooled session reset");
+}
+
+static void CheckIdlePersistence()
+{
+    var player = NewPlayer();
+    Require(PlayerMovementRules.TryApply(player, 1, new MovementSnapshot(), 1100), "idle heartbeat accepted");
+    Require(!player.IsDirty && player.HasLastMoveSequence, "runtime-only heartbeat is not a database write");
+    Require(PlayerMovementRules.TryApply(player, 2, new MovementSnapshot { RotationY = 45 }, 1200) && player.IsDirty, "rotation persists");
+}
+
+static void CheckSnapshotTimeline()
+{
+    var timeline = new SnapshotTimeline<float>(0.15, 4);
+    Require(!timeline.TrySample(0, out _, out _, out _), "empty timeline");
+    const long origin = 9000000000000;
+    timeline.Add(origin, 10, 0);
+    timeline.Add(origin + 100, 10.1, 1);
+    timeline.Add(origin + 200, 10.25, 2);
+    Require(timeline.TrySample(10.3, out var from, out var to, out var fraction)
+        && from == 1 && to == 2 && Math.Abs(fraction - 0.5f) < 0.001, "server-time interpolation survives arrival jitter");
+    Require(!timeline.Add(origin + 150, 10.4, 99), "old server sample rejected");
+    timeline.TrySample(10.2, out _, out _, out var backwards);
+    Require(backwards >= fraction, "local clock cannot rewind playback");
+    timeline.Add(origin + 200, 10.4, 3);
+    timeline.TrySample(20, out _, out to, out fraction);
+    Require(to == 3 && fraction == 1, "same timestamp replaces newest and missing packets freeze");
+    for (var i = 3; i < 1000; i++) timeline.Add(origin + i * 100, 10 + i * 0.1, i);
+    Require(timeline.Count == 4, "bounded memory even before rendering");
+    timeline.Clear();
+    timeline.Add(1, 100, 7);
+    timeline.TrySample(100, out from, out to, out _);
+    Require(from == 7 && to == 7 && timeline.Count == 1, "new spawn resets its clock and samples");
 }
 
 // 检查结构职责，避免重新引入账号广播和重复角色 DTO。
@@ -295,19 +413,25 @@ static void CheckProtocolSerialization()
 {
     var movement = new MovementSnapshot { X = 1, Y = 2, Z = 3, RotationY = 90,
         State = PlayerMotionState.Run, Speed = 6.5f };
-    var request = Serializer.DeepClone(new C2G_PlayerMove { Sequence = uint.MaxValue, Movement = movement });
-    Require(request.Sequence == uint.MaxValue && request.Movement.State == PlayerMotionState.Run
-        && request.Movement.X == 1, "movement round trip");
-    var entered = Serializer.DeepClone(new Game2G_PlayerEntered { GateSessionRuntimeId = 123,
-        Player = new PlayerPresence { RoleId = 42, NickName = "nickname", Version = 8, Movement = movement } });
+    var request = Serializer.DeepClone(new C2G_PlayerMove { WorldSessionId = long.MaxValue - 7, Sequence = uint.MaxValue, MovementEpoch = 7, Movement = movement });
+    Require(request.Sequence == uint.MaxValue && request.MovementEpoch == 7 && request.Movement.State == PlayerMotionState.Run
+        && request.Movement.X == 1 && request.WorldSessionId == long.MaxValue - 7, "movement round trip");
+    var entered = Serializer.DeepClone(new Game2G_PlayerEntered { GateSessionRuntimeId = 123, WorldSessionId = 99,
+        Player = new PlayerPresence { RoleId = 42, NickName = "nickname", Version = 8, SpawnId = long.MaxValue - 19,
+            ServerTimeMs = 123456789, SpawnRevision = ulong.MaxValue, Movement = movement } });
     Require(entered.Player.Version == 8 && entered.Player.Movement.Speed == 6.5f
-        && entered.GateSessionRuntimeId == 123, "inner shared DTO round trip");
+        && entered.GateSessionRuntimeId == 123 && entered.WorldSessionId == 99
+        && entered.Player.SpawnId == long.MaxValue - 19 && entered.Player.ServerTimeMs == 123456789 && entered.Player.SpawnRevision == ulong.MaxValue, "inner shared DTO round trip");
     var response = Serializer.DeepClone(new Game2G_EnterGameResponse { Result = ResultCode.Success,
         ErrorCode = 17, Info = new PlayerInfo { RoleId = 42, Gold = 100, Movement = movement } });
     Require(response.Result == ResultCode.Success && response.ErrorCode == 17
         && response.Info.Gold == 100, "business result and framework error remain independent");
-    var correction = Serializer.DeepClone(new G2C_PlayerPositionCorrection { AckSequence = 9, Movement = movement });
-    Require(correction.AckSequence == 9 && correction.Movement.RotationY == 90, "correction round trip");
+    var correction = Serializer.DeepClone(new G2C_PlayerPositionCorrection { WorldSessionId = 77, AckSequence = 9, MovementEpoch = 8, Movement = movement });
+    Require(correction.WorldSessionId == 77 && correction.MovementEpoch == 8 && correction.AckSequence == 9 && correction.Movement.RotationY == 90, "correction round trip");
+    var baseline = new G2C_WorldReadyResponse { Result = ResultCode.Success };
+    baseline.Players.Add(entered.Player);
+    var ready = Serializer.DeepClone(baseline);
+    Require(ready.Players.Count == 1 && ready.Players[0].SpawnId == entered.Player.SpawnId, "ready baseline round trip");
 }
 
 // 模拟 Fantasy 已回收请求、其他请求再次租用同一个实例的时序。
@@ -331,6 +455,7 @@ static void CheckClientProtocolHelper()
         nameof(NetworkProtocolHelper.C2G_LoginRequest),
         nameof(NetworkProtocolHelper.C2G_EnterGameRequest),
         nameof(NetworkProtocolHelper.C2G_CreateRoleRequest),
+        nameof(NetworkProtocolHelper.C2G_WorldReadyRequest),
         nameof(NetworkProtocolHelper.C2G_PlayerMove),
     };
     var methods = typeof(NetworkProtocolHelper).GetMethods(

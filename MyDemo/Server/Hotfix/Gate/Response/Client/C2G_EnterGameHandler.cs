@@ -12,22 +12,35 @@ public sealed class C2G_EnterGameHandler : MessageRPC<C2G_EnterGameRequest, G2C_
     {
         response.Result = ResultCode.NotAuthenticated;
         if (!GateSessionHelper.TryGetPlayer(session, out var info)) return;
+        if (info.IsEntering || info.WorldSessionId != 0) { response.Result = ResultCode.Busy; return; }
+        info.IsEntering = true;
         var runtimeId = session.RuntimeId;
-        using var result = (Game2G_EnterGameResponse)await session.Scene.Call(
-            info.GameSceneAddress, new G2Game_EnterGameRequest
-            {
-                UserName = info.UserName,
-                GateSessionRuntimeId = runtimeId,
-                GateSceneAddress = info.GateSceneAddress,
-            });
-        if (session.RuntimeId != runtimeId || !GateSessionHelper.TryGetPlayer(session, out _)) return;
-        if (result == null || result.ErrorCode != 0
-            || (result.Result == ResultCode.Success && result.Info?.Movement == null))
+        var componentRuntimeId = info.RuntimeId;
+        try
         {
-            response.Result = ResultCode.ServerError;
-            return;
+            using var result = (Game2G_EnterGameResponse)await session.Scene.Call(
+                info.GameSceneAddress, new G2Game_EnterGameRequest
+                {
+                    UserName = info.UserName,
+                    GateSessionRuntimeId = runtimeId,
+                    GateSceneAddress = info.GateSceneAddress,
+                });
+            if (session.RuntimeId != runtimeId || !GateSessionHelper.TryGetPlayer(session, out _)) return;
+            if (result == null || result.ErrorCode != 0
+                || (result.Result == ResultCode.Success && (result.Info?.Movement == null || result.WorldSessionId == 0)))
+            {
+                response.Result = ResultCode.ServerError;
+                return;
+            }
+            response.Result = result.Result;
+            response.Info = result.Info;
+            response.WorldSessionId = result.WorldSessionId;
+            response.WorldId = result.WorldId;
+            if (result.Result == ResultCode.Success) info.WorldSessionId = result.WorldSessionId;
         }
-        response.Result = result.Result;
-        response.Info = result.Info;
+        finally
+        {
+            if (!info.IsDisposed && info.RuntimeId == componentRuntimeId) info.IsEntering = false;
+        }
     }
 }

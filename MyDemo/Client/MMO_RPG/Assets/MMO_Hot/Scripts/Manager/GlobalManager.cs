@@ -6,7 +6,6 @@ public sealed class GlobalManager : MonoSingleton<GlobalManager>
 {
     public Scene Scene { get; private set; }
 
-    /// <summary>启动时异步初始化框架。</summary>
     private void Start() => InitializeAsync().Coroutine();
 
     /// <summary>框架准备完成后再显示登录界面，避免初始化期间点击连接。</summary>
@@ -21,6 +20,7 @@ public sealed class GlobalManager : MonoSingleton<GlobalManager>
             return;
         }
         Scene = scene;
+        NetworkManager.Instance.Initialize(scene);
         NetworkManager.Instance.GateDisconnected += OnGateDisconnected;
         UIManager.Instance.ShowPanel<LoginPanel>();
     }
@@ -28,6 +28,7 @@ public sealed class GlobalManager : MonoSingleton<GlobalManager>
     /// <summary>断线后清空数据和远端模型，再回到登录入口。</summary>
     private void OnGateDisconnected()
     {
+        GameWorldView.Suspend();
         PlayerSelfModel.Instance.Clear();
         RemotePlayerManager.Reset();
         UIManager.Instance.Hide<ChooseRolePanel>();
@@ -40,7 +41,7 @@ public sealed class GlobalManager : MonoSingleton<GlobalManager>
         if (Instance == this)
         {
             NetworkManager.Instance.GateDisconnected -= OnGateDisconnected;
-            NetworkManager.Instance.DisconnectGate();
+            NetworkManager.Instance.Shutdown();
             Scene?.Dispose();
         }
         base.OnDestroy();

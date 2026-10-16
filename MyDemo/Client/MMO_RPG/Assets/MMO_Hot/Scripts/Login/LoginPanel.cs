@@ -51,12 +51,26 @@ public sealed class LoginPanel : BasePanel
             ShowTip(result, "登录成功");
             if (result != ResultCode.Success) return;
 
+            var gate = NetworkManager.Instance.GateSession;
+            if (gate == null || gate.IsDisposed) return;
+            var gateRuntimeId = gate.RuntimeId;
             result = await RoleController.Instance.EnterGameAsync();
+            if (!NetworkManager.Instance.IsCurrentGate(gate, gateRuntimeId))
+            {
+                if (NetworkManager.Instance.GateSession == null && result != ResultCode.NotAuthenticated
+                    && result != ResultCode.Success) ShowTip(result);
+                return;
+            }
             if (result == ResultCode.Success)
                 Hide();
             else if (result == ResultCode.RoleNotFound)
             {
-                await UIManager.Instance.ShowAsync<ChooseRolePanel>();
+                var choosePanel = await UIManager.Instance.ShowAsync<ChooseRolePanel>();
+                if (!NetworkManager.Instance.IsCurrentGate(gate, gateRuntimeId))
+                {
+                    choosePanel.Hide();
+                    return;
+                }
                 Hide();
             }
             else
@@ -109,6 +123,7 @@ public sealed class LoginPanel : BasePanel
             ResultCode.InvalidCredentials => "账号或密码为空或超过长度限制",
             ResultCode.NotAuthenticated => "登录已失效，请重新登录",
             ResultCode.InvalidToken => "登录凭证已失效，请重新登录",
+            ResultCode.UnsupportedProtocol => "客户端版本与服务器不匹配，请更新客户端",
             ResultCode.Busy => "正在处理请求，请稍候",
             ResultCode.RateLimited => "操作过于频繁，请稍后重试",
             _ => "服务器错误，请稍后重试",
