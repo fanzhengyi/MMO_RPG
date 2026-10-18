@@ -8,7 +8,7 @@ public sealed class PlayerController : MonoBehaviour
 {
     [SerializeField] private PlayerInputSource inputSource;
     [SerializeField] private Animator animator;
-    [Tooltip("拖入实际渲染的主相机 Transform；为空时自动查找 MainCamera。")]
+    [Tooltip("必填：实际渲染的主相机 Transform，用于把输入转换到世界方向。")]
     [SerializeField] private Transform cameraRoot;
 
     [Header("移动")]
@@ -23,6 +23,8 @@ public sealed class PlayerController : MonoBehaviour
     public PlayerFsmCore.StateType State => fsm.State;
     public float HorizontalSpeed { get; private set; }
     public Animator VisualAnimator => animator;
+    private static readonly int StateParameter = Animator.StringToHash("State");
+    private static readonly int SpeedParameter = Animator.StringToHash("Speed");
     private bool controlEnabled = true;
 
     private CharacterController characterController;
@@ -31,15 +33,11 @@ public sealed class PlayerController : MonoBehaviour
     private float verticalVelocity;
     private float groundedStepOffset;
 
-    /// <summary>获取组件、相机，并创建状态机。</summary>
+    /// <summary>获取必备组件并创建状态机；输入、Animator 和相机由场景装配。</summary>
     private void Awake()
     {
         characterController = GetComponent<CharacterController>();
-        if (inputSource == null) inputSource = GetComponent<PlayerInputSource>();
-        if (animator == null) animator = GetComponentInChildren<Animator>();
-        if (animator != null) animator.applyRootMotion = false;
-        if (cameraRoot == null && Camera.main != null)
-            cameraRoot = Camera.main.transform;
+        animator.applyRootMotion = false;
         groundedStepOffset = characterController.stepOffset;
         fsm = new PlayerFsmCore(walkSpeed, runSpeed);
     }
@@ -93,9 +91,6 @@ public sealed class PlayerController : MonoBehaviour
     private Vector3 ToWorldDirection(Vector2 input)
     {
         var localDirection = new Vector3(input.x, 0f, input.y);
-        if (cameraRoot == null)
-            return localDirection;
-
         return Quaternion.Euler(0f, cameraRoot.eulerAngles.y, 0f) * localDirection;
     }
 
@@ -127,8 +122,7 @@ public sealed class PlayerController : MonoBehaviour
         horizontalVelocity = Vector3.zero;
         verticalVelocity = 0f;
         HorizontalSpeed = 0f;
-        if (characterController != null) characterController.stepOffset = groundedStepOffset;
-        if (fsm == null) return;
+        characterController.stepOffset = groundedStepOffset;
         fsm.ChangeState(fsm.Idle);
         UpdateAnimation();
     }
@@ -136,10 +130,7 @@ public sealed class PlayerController : MonoBehaviour
     /// <summary>把 FSM 状态和实际水平速度写入 Animator。</summary>
     private void UpdateAnimation()
     {
-        if (animator == null || animator.runtimeAnimatorController == null)
-            return;
-
-        animator.SetInteger("State", (int)fsm.State);
-        animator.SetFloat("Speed", HorizontalSpeed);
+        animator.SetInteger(StateParameter, (int)fsm.State);
+        animator.SetFloat(SpeedParameter, HorizontalSpeed);
     }
 }

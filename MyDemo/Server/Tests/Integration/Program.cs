@@ -23,14 +23,52 @@ try
         await ReadyAsync(peer, entered.WorldSessionId);
         Console.WriteLine($"PEER_READY {args[1]} role={entered.Info.RoleId}");
         var duration = args.Length > 2 ? int.Parse(args[2]) : 60;
+        var receivedMoves = new List<G2C_PlayerMove>();
+        uint epoch = 0;
+        using var observation = new CancellationTokenSource();
+        var receiver = ObserveAsync();
         for (uint sequence = 1; sequence <= duration * 10; sequence++)
         {
             var angle = sequence * 0.06f;
             await MoveAsync(peer, entered.WorldSessionId, sequence, entered.Info.Movement.X + MathF.Sin(angle) * 2,
-                entered.Info.Movement.Y, entered.Info.Movement.Z + MathF.Cos(angle) * 2 - 2);
+                entered.Info.Movement.Y, entered.Info.Movement.Z + MathF.Cos(angle) * 2 - 2,
+                movementEpoch: epoch, rotationY: 90 + angle * 180 / MathF.PI);
             await Task.Delay(100);
         }
+        observation.Cancel();
+        await receiver;
+        foreach (var group in receivedMoves.GroupBy(m => m.RoleId))
+        {
+            var firstMove = group.First().Movement;
+            var lastMove = group.Last().Movement;
+            Console.WriteLine(System.Text.Json.JsonSerializer.Serialize(new
+            {
+                roleId = group.Key,
+                snapshots = group.Count(),
+                states = group.Select(m => m.Movement.State.ToString()).Distinct(),
+                maxSpeed = group.Max(m => m.Movement.Speed),
+                start = new[] { firstMove.X, firstMove.Y, firstMove.Z },
+                end = new[] { lastMove.X, lastMove.Y, lastMove.Z },
+                lastVersion = group.Last().Version,
+            }));
+        }
         return 0;
+
+        async Task ObserveAsync()
+        {
+            while (!observation.IsCancellationRequested)
+            {
+                var frame = await peer.WaitAsync(_ => true, 250);
+                if (frame?.Opcode == OuterOpcode.G2C_PlayerMove)
+                {
+                    var movement = frame.Value.Read<G2C_PlayerMove>();
+                    Require(movement.WorldSessionId == entered.WorldSessionId, "peer received its own world lease");
+                    receivedMoves.Add(movement);
+                }
+                else if (frame?.Opcode == OuterOpcode.G2C_PlayerPositionCorrection)
+                    epoch = frame.Value.Read<G2C_PlayerPositionCorrection>().MovementEpoch;
+            }
+        }
     }
 
     using var first = await LoginAsync(firstAccount);
@@ -157,7 +195,8 @@ static async Task<G2C_WorldReadyResponse> ReadyAsync(TcpTestClient gate, long wo
     return result;
 }
 
-static Task MoveAsync(TcpTestClient gate, long worldSessionId, uint sequence, float x, float y = 0, float z = 0, uint movementEpoch = 0)
+static Task MoveAsync(TcpTestClient gate, long worldSessionId, uint sequence, float x, float y = 0, float z = 0,
+    uint movementEpoch = 0, float rotationY = 0)
     => gate.SendAsync(new C2G_PlayerMove { WorldSessionId = worldSessionId, Sequence = sequence,
         MovementEpoch = movementEpoch,
-        Movement = new MovementSnapshot { X = x, Y = y, Z = z, State = PlayerMotionState.Run, Speed = 6.5f } });
+        Movement = new MovementSnapshot { X = x, Y = y, Z = z, RotationY = rotationY, State = PlayerMotionState.Run, Speed = 6.5f } });

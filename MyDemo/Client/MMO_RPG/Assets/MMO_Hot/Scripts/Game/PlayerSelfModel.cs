@@ -24,11 +24,9 @@ public sealed class PlayerSelfModel : Singleton<PlayerSelfModel>
     private uint lastCorrectionAck;
     private bool hasCorrection;
 
-    /// <summary>复制进入响应，并清除上一次世界的回正序号。</summary>
+    /// <summary>复制 RoleController 已验证的进入响应，并清除上一次世界的回正序号。</summary>
     public void SetInfo(PlayerInfo info, long worldSessionId, int worldId)
     {
-        if (info?.Movement == null || info.RoleId == 0 || worldSessionId == 0)
-            throw new System.ArgumentException("进入世界响应缺少角色或世界会话。");
         WorldSessionId = worldSessionId;
         WorldId = worldId;
         IsInWorld = false;

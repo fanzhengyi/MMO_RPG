@@ -46,31 +46,17 @@ public sealed class RemotePlayerManager : MonoBehaviour
     private readonly Dictionary<long, RemotePlayerView> views = new Dictionary<long, RemotePlayerView>();
     private Animator visualTemplate;
     private Transform localRoot;
-    private bool isReady;
 
     /// <summary>绑定本地角色的模型子物体作为临时外观模板。</summary>
-    public static bool Initialize(GameObject localPlayer)
+    public static void Initialize(PlayerController localPlayer)
     {
-        var controller = localPlayer != null ? localPlayer.GetComponent<PlayerController>() : null;
-        if (controller == null || controller.VisualAnimator == null) return false;
-        var model = controller.VisualAnimator;
-        if (model.transform == localPlayer.transform
-            || model.GetComponentInChildren<PlayerController>(true) != null
-            || model.GetComponentInChildren<PlayerInputSource>(true) != null)
-        {
-            Debug.LogError("远端外观需要独立模型子物体；请将 Animator 与本地输入、控制脚本分开。");
-            return false;
-        }
-
-        if (instance == null)
-            instance = new GameObject(nameof(RemotePlayerManager)).AddComponent<RemotePlayerManager>();
-        instance.visualTemplate = model;
+        // EnterGame 在装配前已 Reset；场景中 Animator 位于独立模型子物体。
+        instance = new GameObject(nameof(RemotePlayerManager)).AddComponent<RemotePlayerManager>();
+        instance.visualTemplate = localPlayer.VisualAnimator;
         instance.localRoot = localPlayer.transform;
-        instance.isReady = true;
         foreach (var snapshot in pendingEntries.Values)
             if (spawns.Observe(snapshot.RoleId, snapshot.SpawnId, snapshot.SpawnRevision)) instance.Upsert(snapshot);
         pendingEntries.Clear();
-        return true;
     }
 
     /// <summary>断线或切换世界时清空所有模型和静态缓存。</summary>
@@ -89,7 +75,7 @@ public sealed class RemotePlayerManager : MonoBehaviour
     public static void PlayerEntered(Snapshot snapshot)
     {
         if (!IsRemote(snapshot.RoleId) || !spawns.Observe(snapshot.RoleId, snapshot.SpawnId, snapshot.SpawnRevision)) return;
-        if (instance == null || !instance.isReady)
+        if (instance == null)
         {
             CacheLatest(pendingEntries, snapshot);
             return;
@@ -101,7 +87,7 @@ public sealed class RemotePlayerManager : MonoBehaviour
     public static void PlayerMoved(Snapshot snapshot)
     {
         if (!IsRemote(snapshot.RoleId) || !spawns.Observe(snapshot.RoleId, snapshot.SpawnId, snapshot.SpawnRevision)) return;
-        if (instance == null || !instance.isReady || !instance.views.TryGetValue(snapshot.RoleId, out var view))
+        if (instance == null || !instance.views.TryGetValue(snapshot.RoleId, out var view))
         {
             CacheLatest(pendingMoves, snapshot);
             return;

@@ -69,8 +69,7 @@ public sealed class RoleController : Singleton<RoleController>
             var localPlayer = await GameWorldView.PrepareAsync(player);
             if (!NetworkManager.Instance.IsCurrentGate(session, sessionRuntimeId)) return ResultCode.NotAuthenticated;
 
-            if (!RemotePlayerManager.Initialize(localPlayer.gameObject))
-                return ResultCode.ServerError;
+            RemotePlayerManager.Initialize(localPlayer);
             using (var response = await session.C2G_WorldReadyRequest(worldSessionId))
             {
                 if (!NetworkManager.Instance.IsCurrentGate(session, sessionRuntimeId)

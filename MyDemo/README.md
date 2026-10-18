@@ -39,6 +39,7 @@ Speed 是实际水平速度，角色和远端外观都关闭 Root Motion。
 | UI 预制体根节点 | LoginPanel、ChooseRolePanel、TipPanel 分别挂对应面板脚本，控件引用已配置 |
 
 从 `Assets/Main/Init.unity` 启动完整流程，直接运行 Login 会缺少 YooAsset 初始化。
+构建场景仅包含 Init；Login 与 GameScene 继续由 YooAsset 加载。已移除未引用的 BeginScen、Test、三个恢复副本和旧测试按钮脚本；创建角色使用 ChooseRolePanel 预制体。
 `MainRole.prefab`、`NPC.prefab` 是外观资源，不挂本地输入和移动同步。
 RemotePlayerManager、RemotePlayerView 由进入世界流程动态创建；普通 C# 管理器、FSM 状态和 Fantasy Handler 不挂场景物体。
 
@@ -58,7 +59,6 @@ NLog 按当前 ILog 的真实签名保留框架入口，删除未使用的 Fatal
 - ClearStatics 通过 RuntimeInitializeOnLoadMethod 执行；Unity 回调和 Fantasy Handler/System 同样属于框架入口。
 - UIManager.GetPanel/Close、ResManager 的卸载接口保留，供后续背包、商店、邮件等界面使用。
 - FSM 的 Enter/Exit 保留，作为后续攻击和技能状态的生命周期。
-- `Test'.cs` 仍挂在 BeginScen 的测试按钮上，不是闲置脚本，演示场景也保留。
 
 ### 协议导出
 

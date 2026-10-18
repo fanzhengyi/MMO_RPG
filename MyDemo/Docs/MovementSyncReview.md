@@ -2,6 +2,48 @@
 
 审查日期：2026-10-15。范围：协议、鉴权到进场、移动同步、重连、角色持久化，以及 Unity MCP 实际运行。
 
+## 2026-10-18 动画修复、代码简化与在线服务器联调
+
+本次使用用户已经启动的服务器，协议仍为 **3**，没有重启或替换服务端进程。移动采样、Gate 转发、Game 校验、广播和远端插值已有实现，本次核实了 Unity 与独立 TCP 客户端之间的双向链路。
+
+### 脚踝异常
+
+- `Anim_JX_Run` 和 `Anim_JX_Run_F` 的实际导入片段未开启循环，分别在约 0.8 秒和 0.6 秒后停在末帧；MCP 连续采样确认脚骨旋转随后完全不变。
+- 两段跑步各自自动生成的源 Avatar 缺少 LeftToes，左脚参考旋转也存在异常。第一次尝试让它们复用 Idle 的 Avatar，但用户随后确认腿脚仍会扭折；Idle 自身的动作姿势不能作为正确的骨架参考，这次复查已撤销该配置。
+- 最终使用项目中与动作原始骨架匹配的 `Models/Model_Avatar/Modle_Avatar01.FBX` 作为统一源。将它从 Generic 改为 Humanoid；Idle、Run、Run_F、Jump_Start、Jump_Loop 均通过 Copy From Other 引用它。MCP 确认源 Avatar 有效，左右大腿、小腿、脚及脚趾的八个映射齐全。角色模型仍使用自己的 Avatar，运行时代码没有加入强行旋转脚骨的补丁。
+- 开启两段跑步及 `Anim_JX_Jump_Loop` 的 Loop Time / Loop Pose。通过 Unity 预览渲染及骨骼采样核对修复结果，跑步跨越首个周期后仍持续变化，左脚趾也参与运动。
+- 复查使用临时 Legacy 副本直接采样 FBX 的原始骨骼动作，再与 Humanoid 重定向结果对照；使用逐帧 BakeMesh 检查实际蒙皮，避免同一编辑器帧的蒙皮缓存影响预览判断。临时副本已删除。
+- 最终在真实 GameScene 通过 Input System 驱动角色，抓取 **12 帧**，覆盖 Move、Run、Jump、Fall、Idle 及加速切换；移动约 **17.086 米**，服务端回正代次保持 0，未再观察到原先向侧面扭折的姿态。运行截图与数据保留在 `Client/MMO_RPG/Library/Verification/LegFix/`，`locomotion-phases.png` 展示普通移动（上排）和奔跑（下排）各四个步态阶段。
+
+### 删除的重复判断
+
+- PlayerController 直接使用 GameScene 已绑定的输入、Animator 和相机，删除回退查找、每帧 Animator 判空，以及 Awake 初始化后对控制器和 FSM 的重复判空。
+- PlayerInputSource 直接复制三个已绑定的 Action，删除失败后返回 null、统计数量和每次采样重新检查数量的路径。
+- RemotePlayerManager 接收已准备好的 PlayerController，删除再次查找控制器、重复检查模型结构和多余的 isReady 标记；RemotePlayerView 直接使用初始化时传入的 Animator。
+- PlayerSelfModel.SetInfo 不重复校验 RoleController 刚刚校验过的同一份进入响应。
+
+保留断线、跨 await 的连接有效性、世界会话、消息顺序、回正代次、网络字段及位移预算判断；这些分支处理实际发生的连接和网络状态变化。场景资源的必填引用已通过 MCP 核对。
+
+### 本次验证结果
+
+- 规则回归 **24/24**，真实 TCP 集成 **4/4**；集成测试工具编译为 0 错误、0 警告。
+- MCP 在 Unity 6000.3.8f1 中操作真实注册、登录、创建角色按钮，进入 GameScene。测试账号为 `mcp_move_1018083742`，角色 ID 为 `972777433903661056`。
+- 使用临时 Input System 键盘驱动实际移动，覆盖 Idle / Walk / Run / Jump / Fall，移动 **16.01585 米**，峰值速度 **6.500176 米/秒**，MovementEpoch 保持 **0**，没有误回正。
+- 独立 TCP 客户端收到该 Unity 角色 **246 条移动快照**，包含上述五种状态；最终服务器广播坐标为 `(14.212882, 0.8157749, 7.3373003)`，与 Unity 最终位置一致。
+- Unity 同时创建并插值独立客户端的外观，观察到约 **3.999 米**的位置变化；对方断线后远端外观数量回到 **0**。
+- 主动断线后本人世界状态清空；同一账号再次登录直接进入 GameScene，恢复位置与断线前相差约 **1.2 × 10⁻⁷ 米**（浮点误差）。
+- 临时输入设备已移除，InputSettings 已恢复。控制台没有脚本错误；现有 LightingData 缺失/版本不兼容及 Visual Studio 消息端口警告仍存在。
+- 临时 MCP 姿态诊断在 IK 回调之外读取 bodyRotation，产生了 Unity 的 IK 读取警告；该诊断代码未写入项目。测试结束恢复 Init 编辑场景，场景未被修改。
+
+联调工具的 `--peer` 现在同时发送位置/朝向并统计收到的其他角色快照，便于以后复核 Unity 上行，而不是仅观察假人的下行移动。已有服务器启动时可执行：
+
+```powershell
+dotnet build Server/Tests/Integration/Integration.csproj --no-restore -p:BuildProjectReferences=false
+dotnet Server/Tests/Integration/bin/Debug/net8.0/Integration.dll --peer mcp_peer_manual 60
+```
+
+运行期间在 Unity 登录另一个账号并移动，结束时输出收到的角色、状态集合、快照数、速度和首尾坐标。本次在开发数据库中生成了 `sync_a_` / `sync_b_` / `mcp_move_` / `mcp_peer_` 前缀的测试账号。
+
 ## 2026-10-16 补充审查（协议版本 3）
 
 本节记录本次新检查和修改；后文版本 2 的数据为上次验证记录。

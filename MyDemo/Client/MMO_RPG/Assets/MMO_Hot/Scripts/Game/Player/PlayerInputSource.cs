@@ -1,4 +1,3 @@
-using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.InputSystem;
 
@@ -10,7 +9,7 @@ public sealed class PlayerInputSource : MonoBehaviour
     [SerializeField] private InputActionReference runAction;
     [SerializeField] private InputActionReference jumpAction;
 
-    private readonly List<InputAction> actions = new List<InputAction>(3);
+    private InputAction[] actions;
     private InputAction move;
     private InputAction run;
     private InputAction jump;
@@ -26,14 +25,10 @@ public sealed class PlayerInputSource : MonoBehaviour
     /// <summary>复制配置的 Action，避免影响共享的 Input Actions。</summary>
     private void Awake()
     {
-        move = Clone(moveAction);
-        run = Clone(runAction);
-        jump = Clone(jumpAction);
-        if (actions.Count != 3)
-        {
-            Debug.LogError("PlayerInputSource: 请配置 Move、Run 和 Jump。", this);
-            enabled = false;
-        }
+        move = moveAction.action.Clone();
+        run = runAction.action.Clone();
+        jump = jumpAction.action.Clone();
+        actions = new[] { move, run, jump };
     }
 
     /// <summary>启用本角色持有的输入副本。</summary>
@@ -57,7 +52,7 @@ public sealed class PlayerInputSource : MonoBehaviour
     /// <summary>采集当前移动方向、奔跑按住状态和跳跃单次按下。</summary>
     public Frame Sample()
     {
-        if (!isActiveAndEnabled || actions.Count != 3)
+        if (!isActiveAndEnabled)
             return default;
 
         return new Frame
@@ -66,16 +61,5 @@ public sealed class PlayerInputSource : MonoBehaviour
             RunHeld = run.IsPressed(),
             JumpPressed = jump.WasPressedThisFrame()
         };
-    }
-
-    /// <summary>复制一个输入引用并登记它的生命周期。</summary>
-    private InputAction Clone(InputActionReference reference)
-    {
-        if (reference == null || reference.action == null)
-            return null;
-
-        var action = reference.action.Clone();
-        actions.Add(action);
-        return action;
     }
 }

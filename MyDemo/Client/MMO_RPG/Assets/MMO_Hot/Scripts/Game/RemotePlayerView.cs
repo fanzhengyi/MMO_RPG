@@ -17,7 +17,7 @@ public sealed class RemotePlayerView : MonoBehaviour
     public void Initialize(RemotePlayerManager.Snapshot snapshot, Animator characterAnimator)
     {
         animator = characterAnimator;
-        if (animator != null) animator.applyRootMotion = false;
+        animator.applyRootMotion = false;
         SpawnId = snapshot.SpawnId;
         SpawnRevision = snapshot.SpawnRevision;
         version = snapshot.Version;
@@ -51,7 +51,6 @@ public sealed class RemotePlayerView : MonoBehaviour
     {
         transform.SetPositionAndRotation(Vector3.Lerp(from.Position, to.Position, fraction),
             Quaternion.Euler(0, Mathf.LerpAngle(from.RotationY, to.RotationY, fraction), 0));
-        if (animator == null || animator.runtimeAnimatorController == null) return;
         animator.SetInteger(StateParameter, (int)(fraction < 1 ? from.State : to.State));
         animator.SetFloat(SpeedParameter, Mathf.Lerp(from.Speed, to.Speed, fraction));
     }
