@@ -21,7 +21,7 @@ public class MyYooAsset : MonoBehaviour
     public ResourcePackage package;
 
     //服务器地址
-    public string defaultHostServer = "http://127.0.0.1/CDN/PC/v1.0";
+    public string defaultHostServer = "http://127.0.0.1/CDN/StandaloneWindows64/DefaultPackage";
     //备用地址
     public string fallbackHostServer = "";
 
@@ -44,6 +44,26 @@ public class MyYooAsset : MonoBehaviour
     // 状态文字变化时触发。可用于显示“请求版本”“清理旧资源”等提示。
     public event Action<string> StatusChanged;
 
+    public bool IsRunning { get; private set; }
+    public string LastError { get; private set; }
+    public bool CanRetry => !IsRunning && !completed && LastError != null;
+    public event Action<bool> RetryAvailabilityChanged;
+
+    private bool completed;
+
+    // 编辑器可以模拟资源；安装包始终走同一套远程更新流程。
+    public EPlayMode EffectivePlayMode
+    {
+        get
+        {
+#if UNITY_EDITOR
+            return playMode;
+#else
+            return EPlayMode.HostPlayMode;
+#endif
+        }
+    }
+
     // 当前下载器。下载中可以通过它暂停、恢复或取消下载。
     public ResourceDownloaderOperation downloader;
 
@@ -54,6 +74,16 @@ public class MyYooAsset : MonoBehaviour
 
     private void Start()
     {
+        RetryStartup();
+    }
+
+    /// <summary>从失败的启动步骤重新尝试；不并发启动、不重复初始化成功的资源包。</summary>
+    public void RetryStartup()
+    {
+        if (IsRunning || completed) return;
+        IsRunning = true;
+        LastError = null;
+        RetryAvailabilityChanged?.Invoke(false);
         StartGameAsync(this.GetCancellationTokenOnDestroy()).Forget(Debug.LogException);
     }
 
@@ -72,22 +102,38 @@ public class MyYooAsset : MonoBehaviour
             if (!YooAssets.TryGetPackage(packageName, out package))
                 package = YooAssets.CreatePackage(packageName);
 
-            var currentMode = playMode;
-            await InitializePackageAsync(currentMode, cancellationToken);
+            var currentMode = EffectivePlayMode;
+            if (package.InitializeStatus != EOperationStatus.Succeeded)
+                await InitializePackageAsync(currentMode, cancellationToken);
 
             // 编辑器模拟模式没有 CDN 和热更文件，初始化后直接加载游戏场景。
             if (currentMode == EPlayMode.EditorSimulateMode)
             {
+#if UNITY_EDITOR
+                var manifestOperation = package.LoadPackageManifestAsync(new LoadPackageManifestOptions("Simulate", 60));
+                await WaitYooOperationAsync(manifestOperation, cancellationToken);
+                CheckOperation(manifestOperation, "加载编辑器资源清单");
+#endif
                 SetDownloadProgress(1f, "编辑器模拟模式：跳过热更新");
                 //加载场景
                 await LoadMainSceneAsync();
+                completed = true;
                 return;
             }
 
             // 以下操作只在实际客户端的 HostPlayMode 执行。
             await UpdateRemoteResourcesAsync(cancellationToken);
-            await ClearUnusedCacheAsync(cancellationToken);
             await LoadMainSceneAsync();
+            completed = true;
+            // 登录场景实际加载成功后才清理旧资源，清理失败不阻止进入游戏。
+            try
+            {
+                await ClearUnusedCacheAsync(cancellationToken);
+            }
+            catch (Exception exception) when (!(exception is OperationCanceledException))
+            {
+                Debug.LogWarning($"旧资源缓存暂未清理：{exception.Message}", this);
+            }
         }
         catch (OperationCanceledException)
         {
@@ -95,8 +141,14 @@ public class MyYooAsset : MonoBehaviour
         }
         catch (Exception exception)
         {
-            SetStatus($"加载失败：{exception.Message}");
+            LastError = exception.Message;
+            SetStatus("资源准备失败，请稍后重试。");
             Debug.LogException(exception);
+        }
+        finally
+        {
+            IsRunning = false;
+            RetryAvailabilityChanged?.Invoke(CanRetry);
         }
     }
 
@@ -122,11 +174,10 @@ public class MyYooAsset : MonoBehaviour
         else
 #endif
         {
-            // 客户端模式：内置资源 + CDN 下载缓存。
+            // 当前安装包只内置启动界面；资源从 CDN 下载到沙盒，不依赖内置资源目录。
             var remoteService = new RemoteServices(defaultHostServer, fallbackHostServer);
             var options = new HostPlayModeOptions
             {
-                BuiltinFileSystemParameters = FileSystemParameters.CreateDefaultBuiltinFileSystemParameters(),
                 CacheFileSystemParameters = FileSystemParameters.CreateDefaultSandboxFileSystemParameters(remoteService)
             };
             operation = package.InitializePackageAsync(options);
@@ -134,18 +185,6 @@ public class MyYooAsset : MonoBehaviour
 
         await WaitYooOperationAsync(operation, cancellationToken);
         CheckOperation(operation, "初始化资源包");
-
-#if UNITY_EDITOR
-        // 编辑器模拟模式也需要加载模拟资源清单，否则无法根据地址查找场景和资源。
-        if (currentMode == EPlayMode.EditorSimulateMode)
-        {
-            // EditorSimulateBuildInvoker 默认生成的资源版本名就是 Simulate。
-            var manifestOperation = package.LoadPackageManifestAsync(
-                new LoadPackageManifestOptions("Simulate", 60));
-            await WaitYooOperationAsync(manifestOperation, cancellationToken);
-            CheckOperation(manifestOperation, "加载编辑器资源清单");
-        }
-#endif
 
         SetStatus("资源系统初始化完成");
     }
@@ -210,6 +249,7 @@ public class MyYooAsset : MonoBehaviour
     {
         SetStatus("正在加载主场景");
         await ResManager.Instance.LoadSceneAsync(mainSceneLocation);
+        Debug.Log($"[Resources] SceneReady: {mainSceneLocation}", this);
         SetStatus("加载完成");
     }
 

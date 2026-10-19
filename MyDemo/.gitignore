@@ -1,3 +1,5 @@
 !Server/Server.sln
 !Server/**/*.csproj
 **/JwtKeys/
+/ResourceServer/
+/Client/MMO_RPG/Builds/

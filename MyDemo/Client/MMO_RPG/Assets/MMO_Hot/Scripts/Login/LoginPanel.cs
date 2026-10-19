@@ -45,6 +45,7 @@ public sealed class LoginPanel : BasePanel
     {
         if (requesting) return;
         SetRequesting(true);
+        Debug.Log($"LoginAsync: {inputLoginAccount.text} {inputLoginPassword.text}");
         try
         {
             var result = await LoginController.Instance.LoginAsync(inputLoginAccount.text, inputLoginPassword.text);
@@ -131,7 +132,7 @@ public sealed class LoginPanel : BasePanel
         TipManager.Instance.ShowTip(text);
     }
 
-    /// <summary>隐藏登录界面并释放登录场景的展示模型。</summary>
+    //关闭销毁龙
     public override void Hide()
     {
         base.Hide();

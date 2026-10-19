@@ -8,20 +8,16 @@ public sealed class LoadUi : MonoBehaviour
     [SerializeField] private Image imgProgress;
     [SerializeField] private MyYooAsset yooAsset;
     [SerializeField] private TMP_Text txtProgress;
+    [SerializeField] private Button retryButton;
 
     /// <summary>绑定加载事件，并刷新当前进度。</summary>
     private void OnEnable()
     {
-        //相关组件没有拖曳
-        if (yooAsset == null || imgProgress == null || txtProgress == null)
-        {
-            Debug.LogError("LoadUi: 请配置加载入口、进度条和状态文字。", this);
-            enabled = false;
-            return;
-        }
-
         yooAsset.DownloadProgressChanged += OnDownloadProgress;
         yooAsset.StatusChanged += OnStatusChanged;
+        yooAsset.RetryAvailabilityChanged += OnRetryAvailabilityChanged;
+        retryButton.onClick.AddListener(yooAsset.RetryStartup);
+        OnRetryAvailabilityChanged(yooAsset.CanRetry);
         OnDownloadProgress(yooAsset.DownloadProgress, yooAsset.ProgressMessage);
     }
 
@@ -35,11 +31,18 @@ public sealed class LoadUi : MonoBehaviour
     /// <summary>显示初始化、加载和失败提示。</summary>
     private void OnStatusChanged(string message) => txtProgress.text = message;
 
+    private void OnRetryAvailabilityChanged(bool available)
+    {
+        retryButton.gameObject.SetActive(available);
+        retryButton.interactable = available;
+    }
+
       /// <summary>界面关闭时解除订阅，避免启动入口持有已销毁的 UI。</summary>
     private void OnDisable()
     {
-        if (yooAsset == null) return;
         yooAsset.DownloadProgressChanged -= OnDownloadProgress;
         yooAsset.StatusChanged -= OnStatusChanged;
+        yooAsset.RetryAvailabilityChanged -= OnRetryAvailabilityChanged;
+        retryButton.onClick.RemoveListener(yooAsset.RetryStartup);
     }
 }

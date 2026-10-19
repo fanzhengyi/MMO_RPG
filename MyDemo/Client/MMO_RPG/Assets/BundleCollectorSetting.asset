@@ -73,8 +73,8 @@ MonoBehaviour:
         CollectorGUID: 9c53962885c2c4f449125a979d6ad240
         CollectorType: 0
         AddressRuleName: AddressByFileName
-        PackRuleName: PackDirectory
-        FilterRuleName: CollectAll
+        PackRuleName: PackSeparately
+        FilterRuleName: CollectScene
         AssetTags: 
         UserData: 
     - GroupName: "\u811A\u672C\u5305"
