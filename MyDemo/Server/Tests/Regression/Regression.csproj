@@ -8,6 +8,7 @@
     <Compile Include="../../../Client/MMO_RPG/Assets/MMO_Hot/Scripts/Game/PlayerSelfModel.cs" Link="Client/PlayerSelfModel.cs" />
     <Compile Include="../../../Client/MMO_RPG/Assets/MMO_Hot/Scripts/Game/SnapshotTimeline.cs" Link="Client/SnapshotTimeline.cs" />
     <Compile Include="../../../Client/MMO_RPG/Assets/MMO_Hot/Scripts/Game/RemoteSpawnTracker.cs" Link="Client/RemoteSpawnTracker.cs" />
+    <Compile Include="../../../Client/MMO_RPG/Assets/MMO_Hot/Scripts/Game/Player/Combat/AttackComboCore.cs" Link="Client/AttackComboCore.cs" />
     <Compile Include="../../../Client/MMO_RPG/Assets/MMO_Hot/Proto/NetworkProtocolHelper.cs" Link="Client/NetworkProtocolHelper.cs" />
     <None Include="../../Entity/Fantasy.config" Link="Fantasy.config" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>

@@ -1,6 +1,6 @@
 using UnityEngine;
 
-/// <summary>本地角色入口，按输入、状态、位移、表现的顺序组织一帧。</summary>
+/// <summary>本地角色入口，按输入、攻击、移动和表现的顺序组织一帧。</summary>
 [DisallowMultipleComponent]
 [RequireComponent(typeof(CharacterController), typeof(PlayerInputSource))]
 [DefaultExecutionOrder(100)]
@@ -20,26 +20,37 @@ public sealed class PlayerController : MonoBehaviour
     [SerializeField] private float gravity = -20f;
     [SerializeField, Min(1f)] private float terminalSpeed = 40f;
 
+    [Header("普攻")]
+    [SerializeField] private AttackComboDefinition attackCombo;
+
     public PlayerFsmCore.StateType State => fsm.State;
     public float HorizontalSpeed { get; private set; }
     public Animator VisualAnimator => animator;
+    public bool IsAttacking => attacks.IsAttacking;
+    public int ComboStep => attacks.CurrentStep;
     private static readonly int StateParameter = Animator.StringToHash("State");
     private static readonly int SpeedParameter = Animator.StringToHash("Speed");
     private bool controlEnabled = true;
 
     private CharacterController characterController;
     private PlayerFsmCore fsm;
+    private PlayerAttackController attacks;
     private Vector3 horizontalVelocity;
     private float verticalVelocity;
     private float groundedStepOffset;
 
-    /// <summary>获取必备组件并创建状态机；输入、Animator 和相机由场景装配。</summary>
+    /// <summary>记录胶囊原始台阶高度，避免离地时临时设为零后丢失配置。</summary>
     private void Awake()
+        => groundedStepOffset = GetComponent<CharacterController>().stepOffset;
+
+    /// <summary>每次启用都重建运行状态，也适用于编辑器脚本热重载。</summary>
+    private void OnEnable()
     {
         characterController = GetComponent<CharacterController>();
         animator.applyRootMotion = false;
-        groundedStepOffset = characterController.stepOffset;
         fsm = new PlayerFsmCore(walkSpeed, runSpeed);
+        attacks = new PlayerAttackController(animator, attackCombo);
+        ResetMovement();
     }
 
     /// <summary>读取输入、推进状态机，再执行一次胶囊移动。</summary>
@@ -49,6 +60,16 @@ public sealed class PlayerController : MonoBehaviour
             return;
 
         var input = inputSource.Sample();
+        // 地面起跳优先于开始普攻；已出招期间不接受跳跃，离地则取消连击。
+        var canAttack = characterController.isGrounded && (attacks.IsAttacking || !input.JumpPressed);
+        attacks.Tick(input.AttackPressed, canAttack, Time.deltaTime);
+        if (attacks.IsAttacking)
+        {
+            if (attacks.CanTurn) Rotate(ToWorldDirection(input.Move), Time.deltaTime);
+            input.Move = Vector2.zero;
+            input.RunHeld = false;
+            input.JumpPressed = false;
+        }
         fsm.Tick(input, characterController.isGrounded, verticalVelocity);
         Move(input.Move, fsm.MovementSpeed, fsm.JumpRequested, Time.deltaTime);
         UpdateAnimation();
@@ -61,11 +82,7 @@ public sealed class PlayerController : MonoBehaviour
         var targetVelocity = direction * speed;
         horizontalVelocity = Vector3.MoveTowards(horizontalVelocity, targetVelocity, acceleration * deltaTime);
 
-        if (direction.sqrMagnitude > 0.001f)
-        {
-            var targetRotation = Quaternion.LookRotation(direction);
-            transform.rotation = Quaternion.RotateTowards(transform.rotation, targetRotation, rotationSpeed * deltaTime);
-        }
+        Rotate(direction, deltaTime);
 
         if (characterController.isGrounded && verticalVelocity < 0f)
             verticalVelocity = -2f;
@@ -92,6 +109,12 @@ public sealed class PlayerController : MonoBehaviour
     {
         var localDirection = new Vector3(input.x, 0f, input.y);
         return Quaternion.Euler(0f, cameraRoot.eulerAngles.y, 0f) * localDirection;
+    }
+
+    private void Rotate(Vector3 direction, float deltaTime)
+    {
+        if (direction.sqrMagnitude <= 0.001f) return;
+        transform.rotation = Quaternion.RotateTowards(transform.rotation, Quaternion.LookRotation(direction), rotationSpeed * deltaTime);
     }
 
     /// <summary>停用角色时清除残留速度。</summary>
@@ -123,6 +146,7 @@ public sealed class PlayerController : MonoBehaviour
         verticalVelocity = 0f;
         HorizontalSpeed = 0f;
         characterController.stepOffset = groundedStepOffset;
+        attacks.Reset();
         fsm.ChangeState(fsm.Idle);
         UpdateAnimation();
     }

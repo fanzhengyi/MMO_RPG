@@ -1,55 +1,52 @@
 using UnityEngine;
 using UnityEngine.InputSystem;
 
-/// <summary>读取移动、奔跑和跳跃输入。</summary>
+/// <summary>读取本地移动和攻击输入。</summary>
 [DisallowMultipleComponent]
 public sealed class PlayerInputSource : MonoBehaviour
 {
     [SerializeField] private InputActionReference moveAction;
     [SerializeField] private InputActionReference runAction;
     [SerializeField] private InputActionReference jumpAction;
+    [SerializeField] private InputActionReference attackAction;
 
     private InputAction[] actions;
     private InputAction move;
     private InputAction run;
     private InputAction jump;
+    private InputAction attack;
 
-    /// <summary>FSM 每帧读取的输入数据。</summary>
+    /// <summary>角色每帧读取的输入数据。</summary>
     public struct Frame
     {
         public Vector2 Move;
         public bool RunHeld;
         public bool JumpPressed;
+        public bool AttackPressed;
     }
 
-    /// <summary>复制配置的 Action，避免影响共享的 Input Actions。</summary>
-    private void Awake()
+    /// <summary>启用时复制并开启 Action；重新启用或热重载后使用一组完整的新副本。</summary>
+    private void OnEnable()
     {
         move = moveAction.action.Clone();
         run = runAction.action.Clone();
         jump = jumpAction.action.Clone();
-        actions = new[] { move, run, jump };
-    }
-
-    /// <summary>启用本角色持有的输入副本。</summary>
-    private void OnEnable()
-    {
+        attack = attackAction.action.Clone();
+        actions = new[] { move, run, jump, attack };
         foreach (var action in actions) action.Enable();
     }
 
-    /// <summary>停用本角色持有的输入副本。</summary>
+    /// <summary>停用时关闭并释放输入副本，与 OnEnable 成对管理。</summary>
     private void OnDisable()
     {
-        foreach (var action in actions) action.Disable();
+        foreach (var action in actions)
+        {
+            action.Disable();
+            action.Dispose();
+        }
     }
 
-    /// <summary>释放复制的输入 Action。</summary>
-    private void OnDestroy()
-    {
-        foreach (var action in actions) action.Dispose();
-    }
-
-    /// <summary>采集当前移动方向、奔跑按住状态和跳跃单次按下。</summary>
+    /// <summary>采集移动方向、奔跑状态，以及跳跃和攻击的单次按下。</summary>
     public Frame Sample()
     {
         if (!isActiveAndEnabled)
@@ -59,7 +56,8 @@ public sealed class PlayerInputSource : MonoBehaviour
         {
             Move = Vector2.ClampMagnitude(move.ReadValue<Vector2>(), 1f),
             RunHeld = run.IsPressed(),
-            JumpPressed = jump.WasPressedThisFrame()
+            JumpPressed = jump.WasPressedThisFrame(),
+            AttackPressed = attack.WasPressedThisFrame()
         };
     }
 }

@@ -2595,6 +2595,63 @@ Light:
   m_LightUnit: 1
   m_LuxAtDistance: 1
   m_EnableSpotReflector: 1
+--- !u!1001 &319397807
+PrefabInstance:
+  m_ObjectHideFlags: 0
+  serializedVersion: 2
+  m_Modification:
+    serializedVersion: 3
+    m_TransformParent: {fileID: 1363724160}
+    m_Modifications:
+    - target: {fileID: -8679921383154817045, guid: 234f21bb233a6f842bb39b98e5ac07e9, type: 3}
+      propertyPath: m_LocalPosition.x
+      value: 0.09
+      objectReference: {fileID: 0}
+    - target: {fileID: -8679921383154817045, guid: 234f21bb233a6f842bb39b98e5ac07e9, type: 3}
+      propertyPath: m_LocalPosition.y
+      value: 0.078
+      objectReference: {fileID: 0}
+    - target: {fileID: -8679921383154817045, guid: 234f21bb233a6f842bb39b98e5ac07e9, type: 3}
+      propertyPath: m_LocalPosition.z
+      value: -0.043
+      objectReference: {fileID: 0}
+    - target: {fileID: -8679921383154817045, guid: 234f21bb233a6f842bb39b98e5ac07e9, type: 3}
+      propertyPath: m_LocalRotation.w
+      value: 0.5173393
+      objectReference: {fileID: 0}
+    - target: {fileID: -8679921383154817045, guid: 234f21bb233a6f842bb39b98e5ac07e9, type: 3}
+      propertyPath: m_LocalRotation.x
+      value: 0.48535946
+      objectReference: {fileID: 0}
+    - target: {fileID: -8679921383154817045, guid: 234f21bb233a6f842bb39b98e5ac07e9, type: 3}
+      propertyPath: m_LocalRotation.y
+      value: -0.53069746
+      objectReference: {fileID: 0}
+    - target: {fileID: -8679921383154817045, guid: 234f21bb233a6f842bb39b98e5ac07e9, type: 3}
+      propertyPath: m_LocalRotation.z
+      value: 0.46383893
+      objectReference: {fileID: 0}
+    - target: {fileID: -8679921383154817045, guid: 234f21bb233a6f842bb39b98e5ac07e9, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.x
+      value: 83.992
+      objectReference: {fileID: 0}
+    - target: {fileID: -8679921383154817045, guid: 234f21bb233a6f842bb39b98e5ac07e9, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.y
+      value: -109.203
+      objectReference: {fileID: 0}
+    - target: {fileID: -8679921383154817045, guid: 234f21bb233a6f842bb39b98e5ac07e9, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.z
+      value: -19.671
+      objectReference: {fileID: 0}
+    - target: {fileID: 919132149155446097, guid: 234f21bb233a6f842bb39b98e5ac07e9, type: 3}
+      propertyPath: m_Name
+      value: Sword_Saber
+      objectReference: {fileID: 0}
+    m_RemovedComponents: []
+    m_RemovedGameObjects: []
+    m_AddedGameObjects: []
+    m_AddedComponents: []
+  m_SourcePrefab: {fileID: 100100000, guid: 234f21bb233a6f842bb39b98e5ac07e9, type: 3}
 --- !u!1 &370864646
 GameObject:
   m_ObjectHideFlags: 0
@@ -8312,6 +8369,11 @@ Light:
   m_LightUnit: 1
   m_LuxAtDistance: 1
   m_EnableSpotReflector: 1
+--- !u!4 &1363724160 stripped
+Transform:
+  m_CorrespondingSourceObject: {fileID: -813381502879444169, guid: d1411dfe5b6473348aa04ec662133c4d, type: 3}
+  m_PrefabInstance: {fileID: 1469197334}
+  m_PrefabAsset: {fileID: 0}
 --- !u!1 &1390155866
 GameObject:
   m_ObjectHideFlags: 0
@@ -8677,7 +8739,10 @@ PrefabInstance:
       objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
-    m_AddedGameObjects: []
+    m_AddedGameObjects:
+    - targetCorrespondingSourceObject: {fileID: -813381502879444169, guid: d1411dfe5b6473348aa04ec662133c4d, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 1899523008}
     m_AddedComponents: []
   m_SourcePrefab: {fileID: 100100000, guid: d1411dfe5b6473348aa04ec662133c4d, type: 3}
 --- !u!1 &1497726203
@@ -9061,6 +9126,7 @@ MonoBehaviour:
   jumpHeight: 1.5
   gravity: -20
   terminalSpeed: 40
+  attackCombo: {fileID: 11400000, guid: 2347027e2b10fe84e99c9392df4503a8, type: 2}
 --- !u!114 &1532898103
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -9076,6 +9142,7 @@ MonoBehaviour:
   moveAction: {fileID: -6270807946894304933, guid: d50af30c9c7e4fd41bdcbc27e1e6c679, type: 3}
   runAction: {fileID: -8995969090107570898, guid: d50af30c9c7e4fd41bdcbc27e1e6c679, type: 3}
   jumpAction: {fileID: 2825981722264320158, guid: d50af30c9c7e4fd41bdcbc27e1e6c679, type: 3}
+  attackAction: {fileID: 1903506563957944628, guid: d50af30c9c7e4fd41bdcbc27e1e6c679, type: 3}
 --- !u!143 &1532898104
 CharacterController:
   m_ObjectHideFlags: 0
@@ -9134,6 +9201,7 @@ MonoBehaviour:
   positionThreshold: 0.05
   rotationThreshold: 1
   speedThreshold: 0.1
+  heartbeatInterval: 0.5
 --- !u!1 &1535173209
 GameObject:
   m_ObjectHideFlags: 0
@@ -11636,6 +11704,11 @@ Light:
   m_LightUnit: 1
   m_LuxAtDistance: 1
   m_EnableSpotReflector: 1
+--- !u!4 &1899523008 stripped
+Transform:
+  m_CorrespondingSourceObject: {fileID: -8679921383154817045, guid: 234f21bb233a6f842bb39b98e5ac07e9, type: 3}
+  m_PrefabInstance: {fileID: 319397807}
+  m_PrefabAsset: {fileID: 0}
 --- !u!1 &1902542642
 GameObject:
   m_ObjectHideFlags: 0

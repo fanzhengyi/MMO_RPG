@@ -27,15 +27,13 @@ public sealed class PlayerMovementSync : MonoBehaviour
     private bool hasSent;
     private float lastSentTime;
 
-    /// <summary>初始控制权由进入世界流程开启，避免场景加载首帧上报错误位置。</summary>
-    private void Awake()
+    /// <summary>角色先完成 OnEnable 装配，再绑定网络控制权和回正事件。</summary>
+    private void OnEnable()
     {
         playerController = GetComponent<PlayerController>();
         playerController.SetControlEnabled(false);
+        PlayerSelfModel.Instance.PositionCorrected += OnPositionCorrected;
     }
-
-    /// <summary>只监听当前场景角色的位置回正。</summary>
-    private void OnEnable() => PlayerSelfModel.Instance.PositionCorrected += OnPositionCorrected;
 
     /// <summary>释放事件订阅，避免切场景后仍操作旧角色。</summary>
     private void OnDisable() => PlayerSelfModel.Instance.PositionCorrected -= OnPositionCorrected;

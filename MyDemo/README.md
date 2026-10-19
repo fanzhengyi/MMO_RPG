@@ -1,6 +1,6 @@
 # 客户端与服务端代码说明
 
-当前实现一个公共世界、每个账号一个角色，支持移动、奔跑、跳跃、远端角色显示和断线保存。
+当前实现一个公共世界、每个账号一个角色，支持移动、奔跑、跳跃、远端角色显示和断线保存；本地主角还支持鼠标左键三段普攻。
 
 2026-10-15 的初审及 2026-10-16 的补充审查、架构边界、实际验证结果与商业化待办见 [状态同步审查](Docs/MovementSyncReview.md)。当前是经过服务端校验的客户端位移同步，尚未实现服务端碰撞权威模拟和 AOI。
 
@@ -8,6 +8,7 @@
 
 - `PlayerInputSource`：读取 Input Actions，返回一帧输入，不处理移动或网络。
 - `PlayerFsmCore` 和 `States`：保留 Idle、Move、Run、Jump、Fall 五个独立状态。
+- `AttackComboCore` / `AttackComboDefinition` / `PlayerAttackController`：分别管理连击时序、节奏配置和 Combat 层动画表现，不依赖移动协议。
 - `PlayerController`：执行 CharacterController 位移、转向和重力，更新 Animator。
 - `PlayerMovementSync`：进入世界后发送移动快照，收到服务端回正时重新定位。
 - `PlayerStateMapping`：网络状态与本地 FSM 的转换，放在网络集成层，不给 Player.Runtime 添加网络依赖。
@@ -32,8 +33,8 @@ Speed 是实际水平速度，角色和远端外观都关闭 Root Motion。
 | Init 的 `Canvas/LoadUi` | `LoadUi`，引用 LoadBar、txtContent 和启动入口；关闭时解除事件订阅 |
 | Login 的 `GlobalManager` | `GlobalManager`，初始化 Fantasy 后创建登录 UI |
 | GameScene 的 `PlayerRoot` | CharacterController、PlayerInputSource、PlayerController、PlayerMovementSync |
-| PlayerRoot 的 PlayerInputSource | 引用 Player/Move、Player/Run、Player/Jump |
-| PlayerRoot 的 PlayerController | 引用本物体的输入、模型子物体的 Animator、实际 Main Camera 的 Transform |
+| PlayerRoot 的 PlayerInputSource | 引用 Player/Move、Player/Run、Player/Jump、Player/Attack |
+| PlayerRoot 的 PlayerController | 引用本物体的输入、模型子物体的 Animator、实际 Main Camera 的 Transform、PlayerAttackCombo 配置 |
 | GameScene 的 `Main Camera` | Camera、AudioListener、CinemachineBrain |
 | GameScene 的 `CinemachineCamera` | OrbitalFollow、RotationComposer、Deoccluder、ThirdPersonCameraInput；跟踪 Tracking Target，输入引用 Camera/Look 和 Camera/Zoom |
 | UI 预制体根节点 | LoginPanel、ChooseRolePanel、TipPanel 分别挂对应面板脚本，控件引用已配置 |
@@ -161,7 +162,7 @@ dotnet run --project Server/Tests/Regression/Regression.csproj --no-restore
 ```
 
 回归检查覆盖角色 DTO、持久化字段、正常移动、位移预算、非法快照、序号回绕、重连、密码、Token 和客户端回正。
-新增回正代次、旧代次在途包和多次重登乱序检查；当前规则回归为 24 项。真实 TCP 联调也覆盖旧代次拒绝、回正重发、恢复移动及上线顺序。
+新增回正代次、旧代次在途包和多次重登乱序检查；加入三段普攻、短缓存有效期、接段与恢复边界检查后，当前规则回归为 34 项。真实 TCP 联调也覆盖旧代次拒绝、回正重发、恢复移动及上线顺序。
 额外检查协议职责、真实 ProtoBuf 嵌套序列化，以及 RPC 等待期间请求被对象池复用的生命周期。
 检查不启动服务端、不连接数据库，Token 检查使用独立临时密钥。
 客户端 helper 检查固定当前七个发送入口；新增业务发送方法时同步更新该检查。
@@ -170,6 +171,8 @@ Unity 的生成项目文件会在导入时刷新，新增脚本无需手工维�
 
 场景联调需要在 Unity 用两个不同账号验证：互相看见移动/奔跑/跳跃、重复登录关闭旧连接、断线后重登恢复最终位置。
 资源失败后的重新打开、相机跟随和具体模型动画也需要在编辑器中验证。
+
+主角已接入鼠标左键三段普攻，按 1 → 2 → 3 → 1 续接；输入最多缓存一次并在 0.25 秒后过期，到接段点消费。动作在恢复点解锁移动，不等待动画尾部；恢复后 0.35 秒未续接则回到第一段。起手允许调整朝向，跑动中出招会自然减速。三段 Root Y 已 Bake 到姿态，Root Motion 仍关闭；Unity MCP 已验证完整循环、实际地面无穿透、恢复控制和续段超时，规则回归 34/34。节奏配置、导入对比和验证记录见 [三段普攻说明](Docs/AttackCombo.md)。当前普攻仅有本地表现，尚无攻击广播、命中和服务端伤害判定。
 
 本次 Unity MCP 检查确认角色、相机、启动与登录场景、UI 预制体挂载完整，没有缺失脚本。
 运行检测覆盖 Init -> Login、五状态切换、实际奔跑速度、本人回正、远端动画映射和旧版本丢弃。

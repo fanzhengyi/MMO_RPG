@@ -19,6 +19,16 @@ using LightProto;
 // 回归检查只调用规则和数据模型，不启动服务器、不访问数据库。
 var checks = new (string Name, Action Run)[]
 {
+    ("Single attack finishes without automatic continuation", CheckAttackSingle),
+    ("Attack input is buffered briefly and stores only one continuation", CheckAttackBuffer),
+    ("Attack combo cycles through one, two, three and one", CheckAttackCycle),
+    ("Attack continuation expires after its post-recovery grace period", CheckAttackGrace),
+    ("Low frame rate consumes each attack input only once", CheckAttackFrameBoundary),
+    ("Attack interruption and reset clear the combo and buffered input", CheckAttackReset),
+    ("Paused attack timing does not progress or consume input", CheckAttackPause),
+    ("Attack buffer validity is evaluated at the actual chain point", CheckAttackBufferDeadline),
+    ("Late attack input never rewinds to an earlier chain point", CheckAttackLateInput),
+    ("Attack recovery releases control before the animation tail ends", CheckAttackRecovery),
     ("Correction epochs reject in-flight pre-correction movement", CheckCorrectionEpoch),
     ("Spawn ordering rejects retired instances across repeated reconnects", CheckSpawnOrdering),
     ("Role responses contain independent DTOs", CheckRoleMapping),
@@ -67,6 +77,154 @@ catch (Exception exception)
 var total = checks.Length + 1;
 Console.WriteLine($"{total - failures}/{total} checks passed.");
 return failures == 0 ? 0 : 1;
+
+// 固定时长使连击时序检查不依赖 Unity 帧率或真实等待时间。
+static AttackComboCore NewAttackCombo() => new(new[]
+{
+    new StepTiming(1f, 0.5f, 0.75f), new StepTiming(1f, 0.5f, 0.75f), new StepTiming(1f, 0.5f, 0.75f),
+}, 0.5f, 0.22f);
+
+static void CheckAttackSingle()
+{
+    var combo = NewAttackCombo();
+    Require(combo.Tick(0.01f, true, true) == 1 && combo.IsAttacking, "first click starts first attack");
+    Require(combo.Tick(0.25f, false, true) == 0 && combo.NormalizedTime == 0.25f, "progress advances");
+    Require(combo.Tick(0.5f, false, true) == 0 && !combo.IsAttacking && combo.CurrentStep == 1
+        && combo.NormalizedTime == 0.75f, "recovery without input does not start a second attack");
+    combo.Tick(0.51f, false, true);
+    Require(combo.CurrentStep == 0 && combo.NormalizedTime == 0f, "expired idle combo clears its step");
+}
+
+static void CheckAttackBuffer()
+{
+    var early = NewAttackCombo();
+    early.Tick(0.01f, true, true);
+    early.Tick(0.125f, true, true);
+    Require(early.Tick(0.375f, false, true) == 0 && early.IsAttacking, "old click expires before chain point");
+    Require(early.Tick(0.25f, false, true) == 0 && !early.IsAttacking, "expired input cannot trigger a later continuation");
+
+    var combo = NewAttackCombo();
+    combo.Tick(0.01f, true, true);
+    Require(combo.Tick(0.3125f, true, true) == 0, "recent input is stored before chain point");
+    combo.Tick(0.0625f, true, true);
+    Require(combo.Tick(0.125f, true, true) == 2 && combo.NormalizedTime == 0f, "buffer starts exactly one next attack at chain point");
+    Require(combo.Tick(0.75f, false, true) == 0 && !combo.IsAttacking && combo.CurrentStep == 2,
+        "repeated buffered clicks and chain-frame click cannot queue third attack");
+}
+
+static void CheckAttackCycle()
+{
+    var combo = NewAttackCombo();
+    Require(combo.Tick(0.01f, true, true) == 1, "first stage");
+    foreach (var expected in new[] { 2, 3, 1 })
+    {
+        combo.Tick(0.3125f, true, true);
+        Require(combo.Tick(0.1875f, false, true) == expected && combo.IsAttacking, "ordered cycle at chain points");
+    }
+}
+
+static void CheckAttackGrace()
+{
+    var combo = NewAttackCombo();
+    combo.Tick(0.01f, true, true);
+    combo.Tick(0.75f, false, true);
+    Require(combo.Tick(0.25f, true, true) == 2, "click during grace resumes next stage");
+    combo.Tick(0.75f, false, true);
+    Require(combo.Tick(0.51f, true, true) == 1, "click after grace restarts from stage one");
+    combo.Tick(0.75f, false, true);
+    Require(combo.Tick(0.5f, true, true) == 2, "grace deadline is inclusive");
+}
+
+static void CheckAttackFrameBoundary()
+{
+    var buffered = NewAttackCombo();
+    buffered.Tick(0.01f, true, true);
+    buffered.Tick(0.3125f, true, true);
+    Require(buffered.Tick(3.5f, true, true) == 2 && buffered.NormalizedTime == 0f,
+        "long frame starts one buffered animation without skipping its beginning");
+    Require(buffered.Tick(0.75f, false, true) == 0 && !buffered.IsAttacking, "same click cannot affect two stages");
+
+    var boundary = NewAttackCombo();
+    boundary.Tick(0.01f, true, true);
+    Require(boundary.Tick(0.875f, true, true) == 2, "new click crossing recovery uses actual recovery-time grace");
+    boundary.Reset();
+    boundary.Tick(0.01f, true, true);
+    Require(boundary.Tick(1.5f, true, true) == 1, "long frame beyond recovery grace restarts first stage");
+}
+
+static void CheckAttackReset()
+{
+    var combo = NewAttackCombo();
+    combo.Tick(0.01f, true, true);
+    combo.Tick(0.3125f, true, true);
+    Require(combo.Tick(0f, true, false) == 0 && combo.CurrentStep == 0 && !combo.IsAttacking,
+        "loss of attack permission cancels even when paused");
+    Require(combo.Tick(1f, false, true) == 0 && combo.CurrentStep == 0, "interruption clears buffered input");
+    Require(combo.Tick(0.01f, true, true) == 1, "interruption clears combo history");
+    combo.Tick(0.3125f, true, true);
+    combo.Reset();
+    Require(combo.CurrentStep == 0 && !combo.IsAttacking && combo.NormalizedTime == 0f, "explicit reset clears all presentation state");
+    Require(combo.Tick(1f, false, true) == 0 && combo.Tick(0.01f, true, true) == 1, "explicit reset clears continuation input");
+}
+
+static void CheckAttackPause()
+{
+    var combo = NewAttackCombo();
+    Require(combo.Tick(0f, true, true) == 0 && combo.CurrentStep == 0, "paused idle does not consume attack");
+    combo.Tick(0.01f, true, true);
+    combo.Tick(0.3125f, false, true);
+    Require(combo.Tick(0f, true, true) == 0 && combo.NormalizedTime == 0.3125f, "paused attack does not progress");
+    Require(combo.Tick(0.4375f, false, true) == 0 && !combo.IsAttacking, "paused click did not buffer continuation");
+}
+
+static void CheckAttackBufferDeadline()
+{
+    var timings = new[] { new StepTiming(1f, 0.5f, 0.75f), new StepTiming(1f, 0.5f, 0.75f) };
+    var exact = new AttackComboCore(timings, 0.5f, 0.25f);
+    exact.Tick(0.01f, true, true);
+    exact.Tick(0.25f, true, true);
+    Require(exact.Tick(2f, false, true) == 2, "buffer expiring exactly at chain point survives a long frame");
+
+    var expired = new AttackComboCore(timings, 0.5f, 0.25f);
+    expired.Tick(0.01f, true, true);
+    expired.Tick(0.125f, true, true);
+    Require(expired.Tick(2f, false, true) == 0 && expired.CurrentStep == 0 && !expired.IsAttacking,
+        "buffer already expired at chain point cannot start a skipped continuation");
+}
+
+static void CheckAttackLateInput()
+{
+    var combo = NewAttackCombo();
+    combo.Tick(0.01f, true, true);
+    Require(combo.Tick(0.5625f, true, true) == 2 && combo.NormalizedTime == 0f,
+        "click after chain point starts next stage immediately from its beginning");
+    Require(combo.Tick(0.75f, true, true) == 3 && combo.NormalizedTime == 0f,
+        "new click at recovery starts exactly one continuation");
+    combo.Reset();
+    combo.Tick(0.01f, true, true);
+    Require(combo.Tick(1.5f, true, true) == 1 && combo.NormalizedTime == 0f,
+        "click arriving after recovery grace cannot be backdated to chain point");
+    Require(combo.Tick(0.75f, false, true) == 0 && !combo.IsAttacking,
+        "late click was not also buffered for the restarted animation");
+}
+
+static void CheckAttackRecovery()
+{
+    var combo = new AttackComboCore(new[]
+    {
+        new StepTiming(2f, 0.25f, 0.5f), new StepTiming(0.5f, 0.5f, 0.75f),
+    }, 0.5f, 0.22f);
+    combo.Tick(0.01f, true, true);
+    combo.Tick(0.75f, false, true);
+    Require(combo.IsAttacking && combo.NormalizedTime == 0.375f, "recovery timing uses current clip duration");
+    Require(combo.Tick(0.25f, false, true) == 0 && !combo.IsAttacking && combo.NormalizedTime == 0.5f,
+        "control unlocks at recovery instead of waiting for full animation");
+    Require(combo.Tick(0.25f, true, true) == 2, "grace starts at recovery rather than full duration");
+    Require(combo.Tick(0.25f, true, true) == 1, "different second-stage duration determines its own chain point");
+    combo.Reset();
+    combo.Tick(0.01f, true, true);
+    Require(combo.Tick(1.75f, true, true) == 1, "animation tail does not extend post-recovery grace");
+}
 
 // 对外响应必须有完整数据；修改 DTO 不能修改在线实体。
 static void CheckRoleMapping()
