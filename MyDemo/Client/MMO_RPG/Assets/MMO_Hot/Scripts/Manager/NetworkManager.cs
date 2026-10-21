@@ -6,12 +6,18 @@ using Fantasy.Network;
 /// <summary>只管理连接、心跳和断线事件，不处理角色或界面数据。</summary>
 public sealed class NetworkManager : Singleton<NetworkManager>
 {
+    /// <summary>通过网关鉴权后的游戏长连接；登录、创建角色、进入世界和移动都使用它。</summary>
     public Session GateSession { get; private set; }
     // 换电脑后把这里设为 KCP；登录、同步协议和 Handler 无需改动。
+    /// <summary>建立连接使用的传输协议；客户端和服务端监听配置必须匹配。</summary>
     public NetworkProtocolType Protocol { get; set; } = NetworkProtocolType.TCP;
+    /// <summary>当前 Gate 长连接断开时触发，GlobalManager 负责清角色、停控制并返回登录。</summary>
     public event Action GateDisconnected;
+    /// <summary>是否正在建立连接，防止并发创建连接；不等于已登录。</summary>
     private bool connecting;
+    /// <summary>当前 Gate 连接的客户端上行移动序号；切场景不重置，新 Gate 连接才重置。</summary>
     private uint movementSequence;
+    /// <summary>Fantasy 网络运行场景，不是 Unity 的 GameScene；负责创建和调度网络连接。</summary>
     private Scene scene;
 
     /// <summary>由启动层注入 Fantasy 场景，连接层不依赖全局 UI 管理器。</summary>
@@ -43,11 +49,15 @@ public sealed class NetworkManager : Singleton<NetworkManager>
             throw new InvalidOperationException("已有连接或连接请求正在进行。");
 
         connecting = true;
+        // task：将连接回调转换为可 await 等待的异步任务。
         var task = FTask<Session>.Create(false);
+        // session：本次操作使用的客户端网络连接。
         Session session = null;
+        // completed：连接等待是否已结束，防止成功、失败和断开回调重复完成同一个任务。
         var completed = false;
         try
         {
+            // 后面三个回调依次处理连接成功、连接失败、连接断开；completed 确保只结束一次等待任务。
             session = scene.Connect(address, Protocol,
                 () =>
                 {
@@ -94,6 +104,7 @@ public sealed class NetworkManager : Singleton<NetworkManager>
     /// <summary>主动断开也触发相同的生命周期事件，业务层据此清理状态。</summary>
     public void DisconnectGate()
     {
+        // session：本次操作使用的客户端网络连接。
         var session = GateSession;
         if (session == null) return;
         GateSession = null;

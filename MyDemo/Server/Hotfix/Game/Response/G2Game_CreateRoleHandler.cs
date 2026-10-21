@@ -13,6 +13,7 @@ public sealed class G2Game_CreateRoleHandler : AddressRPC<Scene, G2Game_CreateRo
     {
         response.Result = ResultCode.ServerError;
         if (string.IsNullOrEmpty(request.UserName)) return;
+        // nickname：去掉首尾空白后的角色昵称。
         var nickname = request.NickName?.Trim();
         if (string.IsNullOrEmpty(nickname) || nickname.Length > 24)
         {
@@ -26,6 +27,7 @@ public sealed class G2Game_CreateRoleHandler : AddressRPC<Scene, G2Game_CreateRo
                 response.Result = ResultCode.RoleAlreadyExists;
                 return;
             }
+            // player：当前处理的服务端角色数据，包含持久资料和本次在线状态。
             var player = Entity.Create<OnlineInfo>(scene, false, true);
             player.UserName = request.UserName;
             player.NickName = nickname;

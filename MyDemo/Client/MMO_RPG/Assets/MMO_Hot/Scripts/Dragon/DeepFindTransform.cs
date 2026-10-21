@@ -6,9 +6,11 @@ public static class DeepFindTransform
     /// <summary>先查当前层，再递归查找后代，未找到返回 null。</summary>
     public static Transform DeepFindChild(Transform root, string childName)
     {
+        // result：按名称找到的子物体，未找到时为 null。
         var result = root.Find(childName);
         if (!result)
         {
+            // item：当前遍历的子节点，继续从它的后代中查找目标。
             foreach (Transform item in root)
             {
                 result = DeepFindChild(item, childName);

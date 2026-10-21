@@ -9,6 +9,7 @@ public sealed class Game2G_PlayerEnteredHandler : Address<Scene, Game2G_PlayerEn
     /// <summary>核对接收连接并转发公开资料。</summary>
     protected override async FTask Run(Scene scene, Game2G_PlayerEntered message)
     {
+        // session：本次操作使用的客户端网络连接。
         if (!GateSessionHelper.TryGetWorldSession(scene, message.GateSessionRuntimeId, message.WorldSessionId, out var session))
             return;
 

@@ -8,30 +8,38 @@ using YooAsset;
 
 /// <summary>
 /// 游戏启动入口。
-/// 编辑器中默认使用本地模拟资源；打包后的客户端使用 CDN 热更新资源。
+/// 编辑器按 playMode 选择本地模拟或远程资源；打包后的客户端使用 CDN 资源更新。
 /// </summary>
 public class MyYooAsset : MonoBehaviour
 {
+    /// <summary>编辑器使用的资源模式；Host 访问 HTTP 资源，EditorSimulate 直接模拟本地资源；安装包固定走 Host。</summary>
     public EPlayMode playMode = EPlayMode.HostPlayMode;
 
+    /// <summary>资源包名称，与构建工具和 ResManager 的包名保持一致。</summary>
     [Tooltip("YooAsset 资源包名称，必须和 Bundle Collector 中的包名一致。")]
     public string packageName = "DefaultPackage";
 
     // 初始化完成后赋值。其他脚本需要加载资源时可使用它。
+    /// <summary>初始化后的 YooAsset 资源包对象，负责清单、下载和加载。</summary>
     public ResourcePackage package;
 
     //服务器地址
+    /// <summary>主资源目录 URL，下面直接包含 .version、清单和 AB 文件；127.0.0.1 仅指运行客户端自己的电脑。</summary>
     public string defaultHostServer = "http://127.0.0.1/CDN/StandaloneWindows64/DefaultPackage";
     //备用地址
+    /// <summary>可选备用资源目录 URL；空字符串表示不配置备用源。</summary>
     public string fallbackHostServer = "";
 
+    /// <summary>最多同时下载的文件数量，不是总共要下载的文件数。</summary>
     [Header("下载设置")]
     [Tooltip("同时下载的文件数。移动端建议 4 到 6，PC 可尝试 8 到 10。")]
     [Range(1, 32)] public int downloadingMaxNum = 6;
+    /// <summary>单个下载文件失败后的重试次数；与界面的整次启动重试不同。</summary>
     [Tooltip("单个文件下载失败后的重试次数。")]
     [FormerlySerializedAs("filedTryAgain")]
     [Min(0)] public int failedTryAgain = 3;
 
+    /// <summary>资源准备完成后加载的登录场景地址，不是直接进入 GameScene。</summary>
     public string mainSceneLocation = "Assets/MMO_Hot/Scenes/Login.unity";
     //真实下载进度
     public float DownloadProgress { get; private set; }
@@ -44,11 +52,16 @@ public class MyYooAsset : MonoBehaviour
     // 状态文字变化时触发。可用于显示“请求版本”“清理旧资源”等提示。
     public event Action<string> StatusChanged;
 
+    /// <summary>启动流程是否仍在执行，重试时用它阻止并发启动。</summary>
     public bool IsRunning { get; private set; }
+    /// <summary>最近一次启动失败的详细原因；界面显示简短提示，日志保留具体错误。</summary>
     public string LastError { get; private set; }
+    /// <summary>失败且没有正在执行的启动流程时，允许显示重试按钮。</summary>
     public bool CanRetry => !IsRunning && !completed && LastError != null;
+    /// <summary>通知加载界面重试按钮是否可用。</summary>
     public event Action<bool> RetryAvailabilityChanged;
 
+    /// <summary>登录场景是否已成功加载；完成后不再次启动资源更新。</summary>
     private bool completed;
 
     // 编辑器可以模拟资源；安装包始终走同一套远程更新流程。
@@ -87,7 +100,7 @@ public class MyYooAsset : MonoBehaviour
         StartGameAsync(this.GetCancellationTokenOnDestroy()).Forget(Debug.LogException);
     }
 
-    /// 完整启动流程：初始化 -> 热更（仅客户端）-> 加载主场景。
+    /// 完整启动流程：初始化 -> Host 模式更新资源（编辑器也可测试）-> 加载登录场景。
     private async UniTask StartGameAsync(CancellationToken cancellationToken)
     {
         try
@@ -102,6 +115,7 @@ public class MyYooAsset : MonoBehaviour
             if (!YooAssets.TryGetPackage(packageName, out package))
                 package = YooAssets.CreatePackage(packageName);
 
+            // currentMode：本轮启动实际使用的资源模式，编辑器模拟或远程 Host。
             var currentMode = EffectivePlayMode;
             if (package.InitializeStatus != EOperationStatus.Succeeded)
                 await InitializePackageAsync(currentMode, cancellationToken);
@@ -110,6 +124,7 @@ public class MyYooAsset : MonoBehaviour
             if (currentMode == EPlayMode.EditorSimulateMode)
             {
 #if UNITY_EDITOR
+                // manifestOperation：资源清单加载任务，清单决定要使用哪些 AB 文件。
                 var manifestOperation = package.LoadPackageManifestAsync(new LoadPackageManifestOptions("Simulate", 60));
                 await WaitYooOperationAsync(manifestOperation, cancellationToken);
                 CheckOperation(manifestOperation, "加载编辑器资源清单");
@@ -121,7 +136,7 @@ public class MyYooAsset : MonoBehaviour
                 return;
             }
 
-            // 以下操作只在实际客户端的 HostPlayMode 执行。
+            // HostPlayMode 走真实资源更新，编辑器选择 Host 时也执行。
             await UpdateRemoteResourcesAsync(cancellationToken);
             await LoadMainSceneAsync();
             completed = true;
@@ -130,6 +145,7 @@ public class MyYooAsset : MonoBehaviour
             {
                 await ClearUnusedCacheAsync(cancellationToken);
             }
+            // exception：本次操作抛出的异常，用于记录具体失败原因。
             catch (Exception exception) when (!(exception is OperationCanceledException))
             {
                 Debug.LogWarning($"旧资源缓存暂未清理：{exception.Message}", this);
@@ -139,6 +155,7 @@ public class MyYooAsset : MonoBehaviour
         {
             SetStatus("加载已取消");
         }
+        // exception：本次操作抛出的异常，用于记录具体失败原因。
         catch (Exception exception)
         {
             LastError = exception.Message;
@@ -157,13 +174,16 @@ public class MyYooAsset : MonoBehaviour
     /// </summary>
     private async UniTask InitializePackageAsync(EPlayMode currentMode, CancellationToken cancellationToken)
     {
+        // operation：当前资源包的异步初始化任务。
         InitializePackageOperation operation;
 
 #if UNITY_EDITOR
         if (currentMode == EPlayMode.EditorSimulateMode)
         {
             // 临时构建虚拟资源包，资源来自本地，不会访问 CDN。
+            // buildResult：编辑器模拟构建结果，提供虚拟资源包目录。
             var buildResult = EditorSimulateBuildInvoker.Build(packageName, (int)EBundleType.VirtualAssetBundle);
+            // options：当前模式下资源包的初始化参数。
             var options = new EditorSimulateModeOptions
             {
                 EditorFileSystemParameters = FileSystemParameters.CreateDefaultEditorFileSystemParameters(
@@ -175,7 +195,9 @@ public class MyYooAsset : MonoBehaviour
 #endif
         {
             // 当前安装包只内置启动界面；资源从 CDN 下载到沙盒，不依赖内置资源目录。
+            // remoteService：为 YooAsset 拼接主、备用资源下载 URL 的服务。
             var remoteService = new RemoteServices(defaultHostServer, fallbackHostServer);
+            // options：当前模式下资源包的初始化参数。
             var options = new HostPlayModeOptions
             {
                 CacheFileSystemParameters = FileSystemParameters.CreateDefaultSandboxFileSystemParameters(remoteService)
@@ -195,11 +217,13 @@ public class MyYooAsset : MonoBehaviour
     private async UniTask UpdateRemoteResourcesAsync(CancellationToken cancellationToken)
     {
         SetStatus("正在请求资源版本");
+        // versionOperation：向资源服务器请求当前资源版本的异步任务。
         var versionOperation = package.RequestPackageVersionAsync();
         await WaitYooOperationAsync(versionOperation, cancellationToken);
         CheckOperation(versionOperation, "请求资源版本");
 
         SetStatus("正在更新资源清单");
+        // manifestOperation：资源清单加载任务，清单决定要使用哪些 AB 文件。
         var manifestOperation = package.LoadPackageManifestAsync(
             new LoadPackageManifestOptions(versionOperation.PackageVersion, 60));
         await WaitYooOperationAsync(manifestOperation, cancellationToken);
@@ -238,6 +262,7 @@ public class MyYooAsset : MonoBehaviour
     private async UniTask ClearUnusedCacheAsync(CancellationToken cancellationToken)
     {
         SetStatus("正在清理旧资源");
+        // clearOperation：清理不再被当前清单引用的旧 AB 缓存任务。
         var clearOperation = package.ClearCacheAsync(new ClearCacheOptions(ClearCacheMethods.ClearUnusedBundleFiles));
         await WaitYooOperationAsync(clearOperation, cancellationToken);
         CheckOperation(clearOperation, "清理旧资源");
@@ -299,7 +324,9 @@ public class MyYooAsset : MonoBehaviour
 /// </summary>
 public class RemoteServices : IRemoteService
 {
+    /// <summary>整理过末尾斜杠的主资源目录 URL。</summary>
     private readonly string _defaultHostServer;
+    /// <summary>备用资源目录 URL；空字符串表示未配置。</summary>
     private readonly string _fallbackHostServer;
 
     public RemoteServices(string defaultHostServer, string fallbackHostServer)
@@ -312,6 +339,7 @@ public class RemoteServices : IRemoteService
 
     public IReadOnlyList<string> GetRemoteUrls(string fileName)
     {
+        // primaryUrl：主资源目录与文件名拼接后的完整下载地址。
         var primaryUrl = $"{_defaultHostServer}/{fileName}";
         if (string.IsNullOrEmpty(_fallbackHostServer) || _fallbackHostServer == _defaultHostServer)
             return new[] { primaryUrl };

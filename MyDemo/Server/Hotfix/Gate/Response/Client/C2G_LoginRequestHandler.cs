@@ -15,25 +15,32 @@ public sealed class C2G_LoginRequestHandler : MessageRPC<C2G_LoginRequest, G2C_L
         if (request.ProtocolVersion != (uint)ProtocolRevision.Current) return;
         response.Result = ResultCode.InvalidToken;
         if (!session.Scene.GetComponent<GateJwtComponent>()
+            // userName：当前请求已验证的登录账号，不是角色昵称。
             .TryValidateToken(request.Token, session.Scene.SceneConfigId, out var userName)) return;
 
+        // existing：当前连接上已绑定的玩家会话组件。
         var existing = session.GetComponent<PlayerSessionComponent>();
         if (existing != null)
         {
             if (existing.UserName == userName) response.Result = ResultCode.Success;
             return;
         }
+        // gameScenes：配置中的 Game 场景列表，按账号哈希选择角色所在 Game。
         var gameScenes = SceneConfigData.Instance.GetSceneBySceneType(SceneType.Game);
         if (gameScenes.Count == 0) { response.Result = ResultCode.ServerError; return; }
 
+        // cache：当前 Gate 的账号到在线连接映射。
         var cache = session.Scene.GetComponent<GateLoginCache>();
+        // oldId：同一账号先前连接的运行时 ID。
         if (cache.Sessions.TryGetValue(userName, out var oldId)
+            // oldSession：同一账号先前使用的客户端连接，新登录将替换它。
             && session.Scene.TryGetEntity<Session>(oldId, out var oldSession))
         {
             GateSessionHelper.Detach(oldSession.GetComponent<PlayerSessionComponent>());
             oldSession.Send(new G2C_RepeatLogin());
             oldSession.SetTimeout(3000);
         }
+        // info：本次登录新绑定的玩家会话组件，保存已验证账号和路由。
         var info = session.AddComponent<PlayerSessionComponent>();
         info.ResetWorldState();
         info.UserName = userName;

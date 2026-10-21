@@ -5,6 +5,7 @@ using UnityEngine;
 /// </summary>
 public abstract class BasePanel : MonoBehaviour
 {
+    /// <summary>面板是否已完成一次性初始化，防止重复绑定按钮监听。</summary>
     private bool _inited;
     // 第一次创建面板时调用一次。写缓存控件、按钮监听。
     public void Init()

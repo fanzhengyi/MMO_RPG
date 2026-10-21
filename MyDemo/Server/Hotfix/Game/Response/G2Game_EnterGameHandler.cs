@@ -16,12 +16,14 @@ public sealed class G2Game_EnterGameHandler : AddressRPC<Scene, G2Game_EnterGame
 
         using (await scene.CoroutineLockComponent.Wait((int)LockType.PlayerData, request.UserName.GetHashCode()))
         {
+            // player：当前处理的服务端角色数据，包含持久资料和本次在线状态。
             var player = await OnlinePlayerSystem.LoadAsync(scene, request.UserName);
             if (player == null)
             {
                 response.Result = ResultCode.RoleNotFound;
                 return;
             }
+            // isNewConnection：此次绑定的 Gate 连接是否不同于上一次，换连接时生成新的上线顺序。
             var isNewConnection = player.GateSessionRuntimeId != request.GateSessionRuntimeId
                 || player.GateSceneAddress != request.GateSceneAddress;
             if (isNewConnection) WorldReplication.PublishLeft(scene, player);

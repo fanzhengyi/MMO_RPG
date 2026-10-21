@@ -9,6 +9,7 @@ public sealed class Game2G_PlayerPositionCorrectionHandler : Address<Scene, Game
     /// <summary>按连接运行时 ID 转发，旧连接不能影响新登录。</summary>
     protected override async FTask Run(Scene scene, Game2G_PlayerPositionCorrection message)
     {
+        // session：本次操作使用的客户端网络连接。
         if (!GateSessionHelper.TryGetWorldSession(scene, message.GateSessionRuntimeId, message.WorldSessionId, out var session)) return;
         session.Send(new G2C_PlayerPositionCorrection
         {

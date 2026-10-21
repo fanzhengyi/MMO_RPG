@@ -12,7 +12,9 @@ public sealed class AuthenticationComponentDestroySystem : DestroySystem<Authent
 {
     protected override void Destroy(AuthenticationComponent self)
     {
+        // account：从数据库或缓存取得的账号实体，不是角色实体。
         foreach (var account in self.RegisterCacheDic.Values) account.Dispose();
+        // cache：当前被清理的登录结果缓存实体。
         foreach (var cache in self.LoginCacheDic.Values) cache.Dispose();
         self.RegisterCacheDic.Clear();
         self.LoginCacheDic.Clear();
@@ -25,6 +27,7 @@ public static class AuthenticationComponentSystem
     /// <summary>缓存当前鉴权场景的路由索引。</summary>
     public static void UpdateServerData(this AuthenticationComponent self)
     {
+        // servers：配置中全部鉴权场景，顺序决定账号哈希分片。
         var servers = SceneConfigData.Instance.GetSceneBySceneType(SceneType.Authentication);
         self.LocalServerConfigIndex = servers.IndexOf(SceneConfigData.Instance.Get(self.Scene.SceneConfigId));
         self.AuthernServerCount = servers.Count;
@@ -33,18 +36,25 @@ public static class AuthenticationComponentSystem
     /// <summary>校验密码，短时缓存结果；正确的旧密码在登录时升级为哈希。</summary>
     public static async FTask<ResultCode> Login(this AuthenticationComponent self, string username, string password)
     {
+        // error：账号输入和鉴权分片的验证结果。
         var error = Validate(self, username, password);
         if (error != ResultCode.Success) return error;
+        // scene：当前操作所属的 Fantasy 网络场景，负责消息、实体和定时器。
         var scene = self.Scene;
         using (await scene.CoroutineLockComponent.Wait((int)LockType.Account, username.GetHashCode()))
         {
+            // key：账号与密码组合的哈希缓存键，不存明文密码。
             var key = GetCacheKey(username, password);
+            // cached：已缓存的登录验证结果。
             if (self.LoginCacheDic.TryGetValue(key, out var cached)) return cached.Result;
+            // account：从数据库或缓存取得的账号实体，不是角色实体。
             using var account = await scene.World.Database.First<Account>(d => d.Username == username);
+            // result：本次密码验证的业务结果，默认按凭证错误处理。
             var result = ResultCode.IncorrectCredentials;
             if (account != null)
             {
                 // 密码计算放到工作线程，避免阻塞同一场景的其他网络消息。
+                // valid：本次输入密码是否与账号存储密码匹配。
                 var valid = await PasswordHasher.VerifyAsync(password, account.Password);
                 if (valid)
                 {
@@ -55,6 +65,7 @@ public static class AuthenticationComponentSystem
                     result = ResultCode.Success;
                 }
             }
+            // entry：新建的登录结果缓存实体，短时间后自动清理。
             var entry = Entity.Create<LoginCacheEntity>(scene, true, true);
             entry.Result = result;
             self.LoginCacheDic[key] = entry;
@@ -66,8 +77,10 @@ public static class AuthenticationComponentSystem
     /// <summary>在同一账号锁内检查存在性并创建账号。</summary>
     public static async FTask<ResultCode> Register(this AuthenticationComponent self, string username, string password)
     {
+        // error：账号输入和鉴权分片的验证结果。
         var error = Validate(self, username, password);
         if (error != ResultCode.Success) return error;
+        // scene：当前操作所属的 Fantasy 网络场景，负责消息、实体和定时器。
         var scene = self.Scene;
         using (await scene.CoroutineLockComponent.Wait((int)LockType.Account, username.GetHashCode()))
         {
@@ -75,6 +88,7 @@ public static class AuthenticationComponentSystem
                 || await scene.World.Database.First<Account>(d => d.Username == username) != null)
                 return ResultCode.AccountExists;
 
+            // account：从数据库或缓存取得的账号实体，不是角色实体。
             var account = Entity.Create<Account>(scene, true, true);
             account.Username = username;
             account.Password = await PasswordHasher.HashAsync(password);
@@ -114,12 +128,14 @@ public static class AuthenticationComponentSystem
     /// <summary>移除注册缓存并释放账号实体。</summary>
     internal static void RemoveRegisterCache(this AuthenticationComponent self, string username)
     {
+        // account：从数据库或缓存取得的账号实体，不是角色实体。
         if (self.RegisterCacheDic.Remove(username, out var account)) account.Dispose();
     }
 
     /// <summary>移除登录结果并取消其过期任务。</summary>
     internal static void RemoveLoginCache(this AuthenticationComponent self, string key)
     {
+        // cache：当前被清理的登录结果缓存实体。
         if (self.LoginCacheDic.Remove(key, out var cache)) cache.Dispose();
     }
 }

@@ -20,6 +20,7 @@ public sealed class OnlineComponentDestroySystem : DestroySystem<OnlineComponent
     {
         if (self.SaveTimerId != 0) self.Scene.TimerComponent.Net.Remove(ref self.SaveTimerId);
         if (self.ReplicationTimerId != 0) self.Scene.TimerComponent.Net.Remove(ref self.ReplicationTimerId);
+        // player：当前处理的服务端角色数据，包含持久资料和本次在线状态。
         foreach (var player in self.PlayersByName.Values) player.Dispose();
         self.PlayersByName.Clear();
     }
@@ -31,7 +32,9 @@ public static class OnlinePlayerSystem
     /// <summary>优先复用内存角色，数据库实体加载后只激活一次。</summary>
     public static async FTask<OnlineInfo?> LoadAsync(Scene scene, string userName)
     {
+        // online：当前 Game 的角色索引和定时任务组件。
         var online = scene.GetComponent<OnlineComponent>();
+        // player：当前处理的服务端角色数据，包含持久资料和本次在线状态。
         if (online.PlayersByName.TryGetValue(userName, out var player)) return player;
         player = await scene.World.Database.First<OnlineInfo>(d => d.UserName == userName);
         if (player == null) return null;
@@ -44,6 +47,7 @@ public static class OnlinePlayerSystem
     public static void ScheduleSave(OnlineComponent online)
     {
         if (online.IsDisposed) return;
+        // runtimeId：开始操作时记录的对象运行时 ID，用于识别销毁或对象池复用。
         var runtimeId = online.RuntimeId;
         online.SaveTimerId = online.Scene.TimerComponent.Net.OnceTimer(5000, () =>
         {
@@ -56,13 +60,18 @@ public static class OnlinePlayerSystem
     /// <summary>逐个保存角色；离线角色保存成功后释放，失败则下轮重试。</summary>
     private static async FTask FlushAsync(OnlineComponent online)
     {
+        // runtimeId：开始操作时记录的对象运行时 ID，用于识别销毁或对象池复用。
         var runtimeId = online.RuntimeId;
+        // scene：当前操作所属的 Fantasy 网络场景，负责消息、实体和定时器。
         var scene = online.Scene;
         try
         {
+            // player：当前处理的服务端角色数据，包含持久资料和本次在线状态。
             foreach (var player in online.PlayersByName.Values.ToArray())
             {
+                // userName：当前请求已验证的登录账号，不是角色昵称。
                 var userName = player.UserName;
+                // playerRuntimeId：开始等待时记录的角色运行时 ID，避免继续操作已回收的旧角色。
                 var playerRuntimeId = player.RuntimeId;
                 using (await scene.CoroutineLockComponent.Wait((int)LockType.PlayerData, userName.GetHashCode()))
                 {
@@ -82,6 +91,7 @@ public static class OnlinePlayerSystem
     public static async FTask<bool> SaveAsync(Scene scene, OnlineInfo player)
     {
         if (!player.IsDirty) return true;
+        // version：开始存库时的移动版本；保存期间又移动时不能清除新的脏标记。
         var version = player.MovementVersion;
         try
         {
@@ -89,6 +99,7 @@ public static class OnlinePlayerSystem
             if (player.MovementVersion == version) player.IsDirty = false;
             return true;
         }
+        // exception：本次操作抛出的异常，用于记录具体失败原因。
         catch (Exception exception)
         {
             Log.Error($"角色保存失败，后续重试：{player.UserName}, {exception}");

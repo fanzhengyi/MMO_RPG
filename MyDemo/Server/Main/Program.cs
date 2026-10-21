@@ -19,10 +19,12 @@ try
     // 注意：Native AOT 不存在延迟加载问题，所有程序集在编译时打包
     AssemblyHelper.Initialize();
     // 配置 NLog 日志基础设施
+    // logger：传给 Fantasy 框架的服务端 NLog 日志适配器。
     var logger = new Fantasy.NLog("Server");
     // 使用 NLog 日志系统启动 Fantasy.Net 框架
     await Fantasy.Platform.Net.Entry.Start(logger);
 }
+// ex：服务器启动时捕获的异常。
 catch (Exception ex)
 {
     Console.Error.WriteLine($"服务器初始化过程中发生致命错误：{ex}");

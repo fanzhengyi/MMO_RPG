@@ -1,9 +1,12 @@
 /// <summary>人物 FSM 状态的基础类。</summary>
 public abstract class PlayerState
 {
+    /// <summary>该状态所属的状态机，用它读取输入、地面信息和切换目标状态。</summary>
     protected readonly PlayerFsmCore Fsm;
 
+    /// <summary>此状态对应的本地状态枚举，同时用于 Animator 的 State 参数。</summary>
     public abstract PlayerFsmCore.StateType Type { get; }
+    /// <summary>此状态要求的水平目标速度，单位米/秒；控制器再处理加速和碰撞。</summary>
     public abstract float MovementSpeed { get; }
 
     /// <summary>保存所属状态机。</summary>

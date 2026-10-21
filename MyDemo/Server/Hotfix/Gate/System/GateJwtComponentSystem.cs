@@ -42,9 +42,12 @@ public static class GateJwtComponentSystem
         if (string.IsNullOrWhiteSpace(token) || token.Length > 8192) return false;
         try
         {
+            // principal：JWT 验证成功后得到的身份声明集合。
             var principal = new JwtSecurityTokenHandler().ValidateToken(token, self.TokenValidationParameters, out _);
+            // account：从签名凭证中读出的账号声明，不是数据库实体。
             var account = principal.FindFirst("UserName")?.Value;
             if (string.IsNullOrWhiteSpace(account) || account.Length > 64
+                // targetId：Token 指定的目标 Gate 场景配置 ID。
                 || !long.TryParse(principal.FindFirst("GateSceneId")?.Value, out var targetId)
                 || targetId != gateSceneId) return false;
             userName = account;

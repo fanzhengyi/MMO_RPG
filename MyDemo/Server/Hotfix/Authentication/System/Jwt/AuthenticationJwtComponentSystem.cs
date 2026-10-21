@@ -31,6 +31,7 @@ public static class AuthenticationJwtComponentSystem
     /// <summary>Token 只用于登录 Gate，五分钟后失效。</summary>
     public static string GenerateJwtTokens(this AuthenticationJwtComponent self, string userName, long gateSceneId)
     {
+        // token：包含账号、目标 Gate 和有效期等声明的待签发 JWT 对象。
         var token = new JwtSecurityToken(issuer: "Fzy", audience: "Fzy",
             claims: new[] { new Claim("UserName", userName),
                 new Claim("GateSceneId", gateSceneId.ToString(System.Globalization.CultureInfo.InvariantCulture)) },

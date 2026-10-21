@@ -3,6 +3,7 @@ using Fantasy.Helper;
 /// <summary>按账号哈希取模选择鉴权服；顺序与服务端场景配置保持一致。</summary>
 public static class LoginServerConfig
 {
+    /// <summary>鉴权服务地址列表；账号哈希取模选其中一个，数量和顺序需要与服务端配置一致。</summary>
     private static readonly string[] Addresses =
     {
         "127.0.0.1:20001",

@@ -11,6 +11,7 @@ public sealed class G2C_PlayerEnteredHandler : Message<G2C_PlayerEntered>
     {
         if (NetworkManager.Instance.GateSession != session || message.Player?.Movement == null
             || !PlayerSelfModel.Instance.AcceptsWorld(message.WorldSessionId)) return;
+        // player：进入通知中其他玩家的公开资料，随后复制成独立快照。
         var player = message.Player;
         RemotePlayerManager.PlayerEntered(
             RemotePlayerManager.Snapshot.From(player));

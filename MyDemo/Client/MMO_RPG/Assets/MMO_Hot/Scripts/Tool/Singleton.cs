@@ -4,6 +4,7 @@
 /// </summary>
 public class Singleton<T> where T : new()
 {
+    /// <summary>首次访问 Instance 时创建并缓存的普通 C# 对象；不挂场景，也不接收 Unity 生命周期函数。</summary>
     private static T _instance;
     public static T Instance
     {

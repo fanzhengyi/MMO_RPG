@@ -8,6 +8,7 @@ namespace Fantasy
     /// </summary>
     public class NLog : ILog
     {
+        /// <summary>实际写入控制台或文件的 NLog 日志对象。</summary>
         private readonly Logger _logger;
 
         public NLog(string name)

@@ -7,19 +7,18 @@ public sealed class RemotePlayerManager : MonoBehaviour
     /// <summary>复制协议数据，避免持有会被回收的网络消息。</summary>
     public struct Snapshot
     {
-        public long RoleId;
-        public Vector3 Position;
-        public float RotationY;
-        public PlayerFsmCore.StateType State;
-        public float Speed;
-        public uint Version;
-        public long SpawnId;
-        public ulong SpawnRevision;
-        public long ServerTimeMs;
+        public long RoleId; // 角色唯一 ID，同一角色重新登录后不变。
+        public Vector3 Position; // 角色的世界坐标，单位米。
+        public float RotationY; // 角色绕 Y 轴的朝向，单位度。
+        public PlayerFsmCore.StateType State; // 移动状态：待机、步行、奔跑、跳跃或下落。
+        public float Speed; // 实际水平速度，单位米/秒，用于动画表现。
+        public uint Version; // 服务端递增的移动更新序号，用来判断快照新旧。
+        public long SpawnId; // 该角色本次上线的实例 ID，重新连接进入世界后改变。
+        public ulong SpawnRevision; // 本世界内的上线先后序号，用来区分同一角色前后两次上线。
+        public long ServerTimeMs; // 快照的服务端单调时钟毫秒值，用于排序和插值。
 
         /// <summary>复制协议快照，只保留远端表现需要的值。</summary>
-        public static Snapshot From(Fantasy.PlayerPresence player)
-            => From(player.RoleId, player.SpawnId, player.SpawnRevision, player.Version, player.ServerTimeMs, player.Movement);
+        public static Snapshot From(Fantasy.PlayerPresence player)=> From(player.RoleId, player.SpawnId, player.SpawnRevision, player.Version, player.ServerTimeMs, player.Movement);
 
         public static Snapshot From(long roleId, long spawnId, ulong spawnRevision, uint version, long serverTimeMs, Fantasy.MovementSnapshot movement) => new Snapshot
         {
@@ -39,13 +38,13 @@ public sealed class RemotePlayerManager : MonoBehaviour
             => unchecked((int)(Version - other.Version)) > 0;
     }
 
-    private static RemotePlayerManager instance;
-    private static readonly Dictionary<long, Snapshot> pendingEntries = new Dictionary<long, Snapshot>();
-    private static readonly Dictionary<long, Snapshot> pendingMoves = new Dictionary<long, Snapshot>();
-    private static readonly RemoteSpawnTracker spawns = new RemoteSpawnTracker();
-    private readonly Dictionary<long, RemotePlayerView> views = new Dictionary<long, RemotePlayerView>();
-    private Animator visualTemplate;
-    private Transform localRoot;
+    private static RemotePlayerManager instance; // 当前世界唯一的管理组件，进入游戏后动态创建。
+    private static readonly Dictionary<long, Snapshot> pendingEntries = new Dictionary<long, Snapshot>(); // 按角色 ID 缓存尚未创建外观的上线快照。
+    private static readonly Dictionary<long, Snapshot> pendingMoves = new Dictionary<long, Snapshot>(); // 按角色 ID 缓存尚未应用的最新移动快照。
+    private static readonly RemoteSpawnTracker spawns = new RemoteSpawnTracker(); // 记录各角色最新上线实例及是否已离线，过滤旧实例消息。
+    private readonly Dictionary<long, RemotePlayerView> views = new Dictionary<long, RemotePlayerView>(); // 按角色 ID 查找当前已创建的远端玩家外观。
+    private Animator visualTemplate; // 当前用于复制远端外观的本地玩家模型模板。
+    private Transform localRoot; // 本地角色根节点，用于还原模型相对位置和缩放。
 
     /// <summary>绑定本地角色的模型子物体作为临时外观模板。</summary>
     public static void Initialize(PlayerController localPlayer)
@@ -54,6 +53,7 @@ public sealed class RemotePlayerManager : MonoBehaviour
         instance = new GameObject(nameof(RemotePlayerManager)).AddComponent<RemotePlayerManager>();
         instance.visualTemplate = localPlayer.VisualAnimator;
         instance.localRoot = localPlayer.transform;
+        // snapshot：场景加载期间缓存的某个远端角色上线快照。
         foreach (var snapshot in pendingEntries.Values)
             if (spawns.Observe(snapshot.RoleId, snapshot.SpawnId, snapshot.SpawnRevision)) instance.Upsert(snapshot);
         pendingEntries.Clear();
@@ -87,6 +87,7 @@ public sealed class RemotePlayerManager : MonoBehaviour
     public static void PlayerMoved(Snapshot snapshot)
     {
         if (!IsRemote(snapshot.RoleId) || !spawns.Observe(snapshot.RoleId, snapshot.SpawnId, snapshot.SpawnRevision)) return;
+        // view：按 RoleId 查找的远端外观，查找失败时为 null。
         if (instance == null || !instance.views.TryGetValue(snapshot.RoleId, out var view))
         {
             CacheLatest(pendingMoves, snapshot);
@@ -100,8 +101,11 @@ public sealed class RemotePlayerManager : MonoBehaviour
     public static void PlayerLeft(long roleId, long spawnId, ulong spawnRevision)
     {
         if (!IsRemote(roleId) || !spawns.Observe(roleId, spawnId, spawnRevision, true)) return;
+        // entry：该角色尚未消费的上线快照。
         if (pendingEntries.TryGetValue(roleId, out var entry) && entry.SpawnRevision <= spawnRevision) pendingEntries.Remove(roleId);
+        // move：该角色尚未消费的最新移动快照。
         if (pendingMoves.TryGetValue(roleId, out var move) && move.SpawnRevision <= spawnRevision) pendingMoves.Remove(roleId);
+        // view：按 RoleId 查找的远端外观，查找失败时为 null。
         if (instance != null && instance.views.TryGetValue(roleId, out var view) && view.SpawnRevision <= spawnRevision)
         {
             instance.views.Remove(roleId);
@@ -115,6 +119,7 @@ public sealed class RemotePlayerManager : MonoBehaviour
     /// <summary>加载期间同一角色只保留最新快照。</summary>
     private static void CacheLatest(Dictionary<long, Snapshot> cache, Snapshot snapshot)
     {
+        // previous：缓存中同一角色的上一份快照，用于比较实例和移动版本。
         if (!cache.TryGetValue(snapshot.RoleId, out var previous) || snapshot.SpawnRevision > previous.SpawnRevision
             || (snapshot.SpawnId == previous.SpawnId && snapshot.IsNewerThan(previous)))
             cache[snapshot.RoleId] = snapshot;
@@ -123,6 +128,7 @@ public sealed class RemotePlayerManager : MonoBehaviour
     /// <summary>只克隆外观，同一帧完成激活和快照初始化。</summary>
     private void Upsert(Snapshot snapshot)
     {
+        // view：按 RoleId 查找的远端外观，查找失败时为 null。
         if (views.TryGetValue(snapshot.RoleId, out var view) && view.SpawnId != snapshot.SpawnId)
         {
             views.Remove(snapshot.RoleId);
@@ -134,15 +140,19 @@ public sealed class RemotePlayerManager : MonoBehaviour
             view.SetSnapshot(snapshot);
         else
         {
+            // avatar：远端角色的运行时根物体，其位置由网络快照驱动。
             var avatar = new GameObject($"RemotePlayer_{snapshot.RoleId}");
             avatar.SetActive(false);
             avatar.transform.SetParent(transform, false);
             avatar.transform.localScale = localRoot.localScale;
+            // visual：从本地角色复制出的视觉模型子物体。
             var visual = Instantiate(visualTemplate.gameObject, avatar.transform, false);
             visual.transform.localPosition = localRoot.InverseTransformPoint(visualTemplate.transform.position);
             visual.transform.localRotation = Quaternion.Inverse(localRoot.rotation) * visualTemplate.transform.rotation;
             // 相对世界缩放保留模型中间层的缩放，不依赖 Animator 必须是直接子物体。
+            // scale：本地角色根节点的世界缩放。
             var scale = localRoot.lossyScale;
+            // modelScale：视觉模型的世界缩放，用它还原相对根节点的缩放。
             var modelScale = visualTemplate.transform.lossyScale;
             visual.transform.localScale = new Vector3(
                 modelScale.x / scale.x, modelScale.y / scale.y, modelScale.z / scale.z);
@@ -152,6 +162,7 @@ public sealed class RemotePlayerManager : MonoBehaviour
             avatar.SetActive(true);
             view.Initialize(snapshot, visual.GetComponent<Animator>());
         }
+        // move：该角色尚未消费的最新移动快照。
         if (pendingMoves.TryGetValue(snapshot.RoleId, out var move))
         {
             if (view.SpawnId == move.SpawnId) view.SetSnapshot(move);

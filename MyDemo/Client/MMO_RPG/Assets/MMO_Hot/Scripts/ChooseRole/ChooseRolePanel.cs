@@ -6,8 +6,11 @@ using UnityEngine.UI;
 /// <summary>昵称输入与角色创建结果展示。</summary>
 public sealed class ChooseRolePanel : BasePanel
 {
+    /// <summary>提交创建角色的按钮，等待期间禁用。</summary>
     public Button createRoleButton;
+    /// <summary>游戏内角色昵称输入框，不是登录账号。</summary>
     public TMP_InputField nicknameInput;
+    /// <summary>是否正在创建角色并进入游戏；防止重复提交昵称。</summary>
     private bool requesting;
 
     /// <summary>绑定创建按钮。</summary>
@@ -24,6 +27,7 @@ public sealed class ChooseRolePanel : BasePanel
         createRoleButton.interactable = false;
         try
         {
+            // result：创建角色并进入世界的最终业务结果。
             var result = await RoleController.Instance.CreateRoleAsync(nicknameInput.text);
             switch (result)
             {

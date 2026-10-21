@@ -1,7 +1,9 @@
 /// <summary>人物上升跳跃状态。</summary>
 public sealed class PlayerJumpState : PlayerState
 {
+    /// <summary>跳跃上升状态。</summary>
     public override PlayerFsmCore.StateType Type => PlayerFsmCore.StateType.Jump;
+    /// <summary>空中目标水平速度，按输入选择步行或奔跑速度，单位米/秒。</summary>
     public override float MovementSpeed => AirMovementSpeed;
 
     /// <summary>创建跳跃状态。</summary>

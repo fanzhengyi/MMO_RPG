@@ -5,9 +5,13 @@ using UnityEngine.UI;
 /// <summary>显示启动进度和状态文字。</summary>
 public sealed class LoadUi : MonoBehaviour
 {
+    /// <summary>以 Image.fillAmount 显示真实 AB 下载进度，范围 0 到 1。</summary>
     [SerializeField] private Image imgProgress;
+    /// <summary>启动和资源下载流程入口；UI 通过事件获取状态。</summary>
     [SerializeField] private MyYooAsset yooAsset;
+    /// <summary>当前启动步骤、下载数量或失败提示的文字。</summary>
     [SerializeField] private TMP_Text txtProgress;
+    /// <summary>启动失败后显示的重试按钮；成功或正在处理时隐藏。</summary>
     [SerializeField] private Button retryButton;
 
     /// <summary>绑定加载事件，并刷新当前进度。</summary>

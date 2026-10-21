@@ -3,6 +3,7 @@ using UnityEngine;
 /// <summary>常驻 MonoBehaviour 单例；销毁时清除静态引用。</summary>
 public class MonoSingleton<T> : MonoBehaviour where T : MonoSingleton<T>
 {
+    /// <summary>Awake 登记的组件实例，基类不自动创建物体；DontDestroyOnLoad 使其跨场景保留。</summary>
     public static T Instance { get; private set; }
 
     /// <summary>登记唯一实例，重复实例销毁，保留实例跨场景存在。</summary>

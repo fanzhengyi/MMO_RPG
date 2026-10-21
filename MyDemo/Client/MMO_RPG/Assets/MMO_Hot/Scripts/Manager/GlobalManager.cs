@@ -4,6 +4,7 @@ using Fantasy.Async;
 /// <summary>初始化框架，并衔接连接生命周期与游戏界面。</summary>
 public sealed class GlobalManager : MonoSingleton<GlobalManager>
 {
+    /// <summary>Fantasy 的主线程网络场景，供 NetworkManager 建立连接；与 Unity 场景不是同一种对象。</summary>
     public Scene Scene { get; private set; }
 
     private void Start() => InitializeAsync().Coroutine();
@@ -13,6 +14,7 @@ public sealed class GlobalManager : MonoSingleton<GlobalManager>
     {
         await Fantasy.Platform.Unity.Entry.Initialize();
         if (this == null || Instance != this) return;
+        // scene：刚创建的 Fantasy 主线程网络场景，用来初始化连接管理器。
         var scene = await Scene.Create(SceneRuntimeMode.MainThread);
         if (this == null || Instance != this)
         {

@@ -5,7 +5,9 @@ using UnityEngine;
 /// <summary>单条提示动画；连续提示先停止旧动画，隐藏和销毁时释放 Tween。</summary>
 public sealed class TipPanel : BasePanel
 {
+    /// <summary>显示本次提示内容的文本控件。</summary>
     public TMP_Text textTip;
+    /// <summary>提示面板的 UI 位置，Tween 通过它实现上浮动画。</summary>
     private RectTransform rectTransform;
 
     /// <summary>缓存文字和动画使用的 RectTransform。</summary>

@@ -10,6 +10,7 @@ public sealed class OnSceneCreat_Init : AsyncEventSystem<OnCreateScene>
     /// <summary>鉴权、Gate、Game 各自初始化，不互相持有数据库组件。</summary>
     protected override async FTask Handler(OnCreateScene self)
     {
+        // scene：当前操作所属的 Fantasy 网络场景，负责消息、实体和定时器。
         var scene = self.Scene;
         switch (scene.SceneType)
         {

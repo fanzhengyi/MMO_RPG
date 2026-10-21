@@ -12,7 +12,9 @@ public sealed class G2Game_PlayerLeftHandler : Address<Scene, G2Game_PlayerLeft>
         if (string.IsNullOrEmpty(request.UserName)) return;
         using (await scene.CoroutineLockComponent.Wait((int)LockType.PlayerData, request.UserName.GetHashCode()))
         {
+            // online：当前 Game 的角色索引和定时任务组件。
             var online = scene.GetComponent<OnlineComponent>();
+            // player：当前处理的服务端角色数据，包含持久资料和本次在线状态。
             if (!online.PlayersByName.TryGetValue(request.UserName, out var player)
                 || player.GateSessionRuntimeId != request.GateSessionRuntimeId
                 || player.GateSceneAddress != request.GateSceneAddress

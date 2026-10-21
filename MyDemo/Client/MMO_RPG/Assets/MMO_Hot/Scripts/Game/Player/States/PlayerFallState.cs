@@ -1,7 +1,9 @@
 /// <summary>人物下落状态。</summary>
 public sealed class PlayerFallState : PlayerState
 {
+    /// <summary>下落状态。</summary>
     public override PlayerFsmCore.StateType Type => PlayerFsmCore.StateType.Fall;
+    /// <summary>空中目标水平速度，按输入选择步行或奔跑速度，单位米/秒。</summary>
     public override float MovementSpeed => AirMovementSpeed;
 
     /// <summary>创建下落状态。</summary>

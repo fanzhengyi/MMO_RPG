@@ -11,6 +11,7 @@ public sealed class RegisterResponse : MessageRPC<C2A_RegisterRequest, A2C_Regis
     {
         response.Result = ResultCode.ServerError;
         if (!session.CheckInterval(2000)) { response.Result = ResultCode.RateLimited; return; }
+        // sessionRuntimeId：开始操作时的连接运行时 ID，用于判断等待后是否仍是原连接。
         var sessionRuntimeId = session.RuntimeId;
         response.Result = await session.Scene.GetComponent<AuthenticationComponent>().Register(request.Username, request.Password);
         if (session.IsDisposed || session.RuntimeId != sessionRuntimeId) return;

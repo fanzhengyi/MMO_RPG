@@ -1,7 +1,9 @@
 /// <summary>人物待机状态。</summary>
 public sealed class PlayerIdleState : PlayerState
 {
+    /// <summary>待机状态。</summary>
     public override PlayerFsmCore.StateType Type => PlayerFsmCore.StateType.Idle;
+    /// <summary>待机时的目标水平速度为零。</summary>
     public override float MovementSpeed => 0f;
 
     /// <summary>创建待机状态。</summary>

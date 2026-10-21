@@ -5,106 +5,154 @@ import "Outer/OuterMessage.proto";
 ///Gate 提供可信账号和连接路由，客户端不能指定这些字段
 message G2Game_EnterGameRequest // IAddressRequest,Game2G_EnterGameResponse
 {
+    // Gate 已验证的账号身份，仅用于服务端内部请求，不接受客户端指定。
     string UserName = 1;
+    // 目标或来源客户端连接在 Gate 上的运行时 ID，用于内网定向路由和旧连接过滤。
     int64 GateSessionRuntimeId = 2;
+    // 所属 Gate 的内网场景路由地址，不是客户端 IP。
     int64 GateSceneAddress = 3;
 }
 
 ///直接复用外网 DTO；不传数据库实体
 message Game2G_EnterGameResponse // IAddressResponse
 {
+    // 业务结果码；Success 才是成功，独立于 Fantasy 框架 ErrorCode。
     ResultCode Result = 1;
+    // 本人的角色资料；进入成功时携带，客户端复制后释放响应对象。
     PlayerInfo Info = 2;
+    // 接收方/请求方本次进入世界的会话 ID，过滤旧世界消息；不要与消息里其他玩家的 SpawnId 混淆。
     int64 WorldSessionId = 3;
+    // 逻辑世界编号，用于客户端选择要加载的场景；当前 1 对应 GameScene。
     int32 WorldId = 4;
 }
 
 ///只有与 Enter 返回的世界会话匹配，才正式加入公共世界
 message G2Game_WorldReadyRequest // IAddressRequest,Game2G_WorldReadyResponse
 {
+    // Gate 已验证的账号身份，仅用于服务端内部请求，不接受客户端指定。
     string UserName = 1;
+    // 目标或来源客户端连接在 Gate 上的运行时 ID，用于内网定向路由和旧连接过滤。
     int64 GateSessionRuntimeId = 2;
+    // 所属 Gate 的内网场景路由地址，不是客户端 IP。
     int64 GateSceneAddress = 3;
+    // 接收方/请求方本次进入世界的会话 ID，过滤旧世界消息；不要与消息里其他玩家的 SpawnId 混淆。
     int64 WorldSessionId = 4;
 }
 
 message Game2G_WorldReadyResponse // IAddressResponse
 {
+    // 业务结果码；Success 才是成功，独立于 Fantasy 框架 ErrorCode。
     ResultCode Result = 1;
+    // 世界就绪时的其他可见角色基线列表，不包含本人。
     repeated PlayerPresence Players = 2;
 }
 
 ///创建数据不绑定在线连接，绑定统一由 EnterGame 完成
 message G2Game_CreateRoleRequest // IAddressRequest,Game2G_CreateRoleResponse
 {
+    // Gate 已验证的账号身份，仅用于服务端内部请求，不接受客户端指定。
     string UserName = 1;
+    // 游戏内公开显示的角色昵称。
     string NickName = 2;
 }
 
 ///创建结果，不重复返回角色数据
 message Game2G_CreateRoleResponse // IAddressResponse
 {
+    // 业务结果码；Success 才是成功，独立于 Fantasy 框架 ErrorCode。
     ResultCode Result = 1;
 }
 
 ///经过 Gate 限频和身份校验的移动采样
 message G2Game_PlayerMove // IAddressMessage
 {
+    // Gate 已验证的账号身份，仅用于服务端内部请求，不接受客户端指定。
     string UserName = 1;
+    // 目标或来源客户端连接在 Gate 上的运行时 ID，用于内网定向路由和旧连接过滤。
     int64 GateSessionRuntimeId = 2;
+    // 所属 Gate 的内网场景路由地址，不是客户端 IP。
     int64 GateSceneAddress = 3;
+    // 客户端上行移动序号，属于当前 Gate 连接，递增并允许 uint 回绕。
     uint32 Sequence = 4;
+    // 该消息对应的世界位置、朝向、移动状态和水平速度快照。
     MovementSnapshot Movement = 5;
+    // 接收方/请求方本次进入世界的会话 ID，过滤旧世界消息；不要与消息里其他玩家的 SpawnId 混淆。
     int64 WorldSessionId = 6;
+    // 服务端回正代次；客户端接受回正后，后续移动原样携带最新代次。
     uint32 MovementEpoch = 7;
 }
 
 ///定向转发其他玩家的移动版本
 message Game2G_PlayerMove // IAddressMessage
 {
+    // 目标或来源客户端连接在 Gate 上的运行时 ID，用于内网定向路由和旧连接过滤。
     int64 GateSessionRuntimeId = 1;
+    // 角色持久唯一 ID，不是账号名，也不是连接 ID。
     int64 RoleId = 2;
+    // Game 生成的移动更新序号，用于过滤旧快照；与客户端上行 Sequence 不同。
     uint32 Version = 3;
+    // 该消息对应的世界位置、朝向、移动状态和水平速度快照。
     MovementSnapshot Movement = 4;
+    // 接收方/请求方本次进入世界的会话 ID，过滤旧世界消息；不要与消息里其他玩家的 SpawnId 混淆。
     int64 WorldSessionId = 5;
+    // 消息中这个角色本次上线的实例 ID，取自他的 WorldSessionId；重连后改变。
     int64 SpawnId = 6;
+    // Game 的单调时钟毫秒值，用于快照排序和插值，不是现实日期。
     int64 ServerTimeMs = 7;
+    // 当前 Game 世界内递增的上线顺序，用于拒绝旧实例的迟到通知。
     uint64 SpawnRevision = 8;
 }
 
 ///定向回正被拒绝的移动
 message Game2G_PlayerPositionCorrection // IAddressMessage
 {
+    // 目标或来源客户端连接在 Gate 上的运行时 ID，用于内网定向路由和旧连接过滤。
     int64 GateSessionRuntimeId = 1;
+    // 触发此次回正的客户端移动序号，用于过滤重复或过期回正。
     uint32 AckSequence = 2;
+    // 该消息对应的世界位置、朝向、移动状态和水平速度快照。
     MovementSnapshot Movement = 3;
+    // 接收方/请求方本次进入世界的会话 ID，过滤旧世界消息；不要与消息里其他玩家的 SpawnId 混淆。
     int64 WorldSessionId = 4;
+    // 服务端回正代次；客户端接受回正后，后续移动原样携带最新代次。
     uint32 MovementEpoch = 5;
 }
 
 ///定向发送公开角色数据
 message Game2G_PlayerEntered // IAddressMessage
 {
+    // 目标或来源客户端连接在 Gate 上的运行时 ID，用于内网定向路由和旧连接过滤。
     int64 GateSessionRuntimeId = 1;
+    // 新上线角色的公开资料和移动基线，接收端据此创建远端模型。
     PlayerPresence Player = 2;
+    // 接收方/请求方本次进入世界的会话 ID，过滤旧世界消息；不要与消息里其他玩家的 SpawnId 混淆。
     int64 WorldSessionId = 3;
 }
 
 ///旧连接下线必须与原路由匹配，不能清除新连接
 message G2Game_PlayerLeft // IAddressMessage
 {
+    // Gate 已验证的账号身份，仅用于服务端内部请求，不接受客户端指定。
     string UserName = 1;
+    // 目标或来源客户端连接在 Gate 上的运行时 ID，用于内网定向路由和旧连接过滤。
     int64 GateSessionRuntimeId = 2;
+    // 所属 Gate 的内网场景路由地址，不是客户端 IP。
     int64 GateSceneAddress = 3;
+    // 接收方/请求方本次进入世界的会话 ID，过滤旧世界消息；不要与消息里其他玩家的 SpawnId 混淆。
     int64 WorldSessionId = 4;
 }
 
 ///定向发送离开通知
 message Game2G_PlayerLeft // IAddressMessage
 {
+    // 目标或来源客户端连接在 Gate 上的运行时 ID，用于内网定向路由和旧连接过滤。
     int64 GateSessionRuntimeId = 1;
+    // 角色持久唯一 ID，不是账号名，也不是连接 ID。
     int64 RoleId = 2;
+    // 接收方/请求方本次进入世界的会话 ID，过滤旧世界消息；不要与消息里其他玩家的 SpawnId 混淆。
     int64 WorldSessionId = 3;
+    // 消息中这个角色本次上线的实例 ID，取自他的 WorldSessionId；重连后改变。
     int64 SpawnId = 4;
+    // 当前 Game 世界内递增的上线顺序，用于拒绝旧实例的迟到通知。
     uint64 SpawnRevision = 5;
 }

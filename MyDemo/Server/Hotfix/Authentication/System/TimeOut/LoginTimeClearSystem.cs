@@ -14,7 +14,9 @@ public static class LoginTimeClearSystem
     /// <summary>到期后移除缓存；父实体的销毁负责释放组件。</summary>
     public static void TimeOut(this LoginTimeClear self, string key, int timeOut)
     {
+        // scene：当前操作所属的 Fantasy 网络场景，负责消息、实体和定时器。
         var scene = self.Scene;
+        // runtimeId：开始操作时记录的对象运行时 ID，用于识别销毁或对象池复用。
         var runtimeId = self.Parent.RuntimeId;
         self.TimerClearId = scene.TimerComponent.Net.OnceTimer(timeOut, () =>
         {

@@ -13,6 +13,7 @@ public static class GateSessionHelper
         return info != null && !info.IsDisposed && info.SessionRuntimeId == session.RuntimeId
             && !string.IsNullOrEmpty(info.UserName)
             && info.GameSceneAddress != 0
+            // runtimeId：开始操作时记录的对象运行时 ID，用于识别销毁或对象池复用。
             && session.Scene.GetComponent<GateLoginCache>().Sessions.TryGetValue(info.UserName, out var runtimeId)
             && runtimeId == session.RuntimeId;
     }
@@ -33,18 +34,26 @@ public static class GateSessionHelper
         if (info == null || string.IsNullOrEmpty(info.UserName))
             return;
 
+        // scene：当前操作所属的 Fantasy 网络场景，负责消息、实体和定时器。
         var scene = info.Scene;
+        // userName：当前请求已验证的登录账号，不是角色昵称。
         var userName = info.UserName;
+        // sessionRuntimeId：开始操作时的连接运行时 ID，用于判断等待后是否仍是原连接。
         var sessionRuntimeId = info.SessionRuntimeId;
+        // gameAddress：玩家所属 Game 场景的内网地址，离线时通知它清理。
         var gameAddress = info.GameSceneAddress;
+        // gateAddress：该玩家当前 Gate 场景的内网地址。
         var gateAddress = info.GateSceneAddress;
+        // worldSessionId：本次进入世界的会话 ID，用于排除旧世界的迟到操作。
         var worldSessionId = info.WorldSessionId;
         // 先清理全部身份字段，重复释放和对象池复用都不会再次通知下线。
         info.UserName = "";
         info.SessionRuntimeId = info.GameSceneAddress = info.GateSceneAddress = 0;
         info.ResetWorldState();
         if (scene == null || scene.IsDisposed) return;
+        // cache：当前 Gate 的账号到在线连接映射。
         var cache = scene.GetComponent<GateLoginCache>();
+        // runtimeId：开始操作时记录的对象运行时 ID，用于识别销毁或对象池复用。
         if (cache != null && cache.Sessions.TryGetValue(userName, out var runtimeId)
             && runtimeId == sessionRuntimeId)
             cache.Sessions.Remove(userName);

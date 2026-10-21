@@ -4,115 +4,171 @@ package Fantasy.Network.Message;
 ///两端必须同步发布；缺少版本号的旧客户端在 Gate 被明确拒绝
 enum ProtocolRevision
 {
+    // 未声明协议版本，旧客户端默认值；不能视为兼容当前协议。
     Unspecified = 0,
+    // 当前要求的协议版本，修改协议兼容规则时两端同步发布。
     Current = 3,
 }
 
 ///业务结果；默认值不是成功，Fantasy 的 ErrorCode 只表示框架错误
 enum ResultCode
 {
+    // 未指定业务结果；默认值不表示成功。
     Unknown = 0,
+    // 该请求处理成功；具体成功阶段取决于请求类型。
     Success = 1,
+    // 账号或密码为空，或超过允许长度。
     InvalidCredentials = 2,
+    // 注册时账号已经存在。
     AccountExists = 3,
+    // 账号哈希所属的鉴权分片与当前鉴权服务不匹配。
     WrongAuthenticationServer = 4,
+    // 账号不存在或密码不正确。
     IncorrectCredentials = 5,
+    // 登录凭证无效、过期或不满足验证规则。
     InvalidToken = 6,
+    // 当前连接尚未通过身份验证，或登录身份已经失效。
     NotAuthenticated = 7,
+    // 账号还没有角色，客户端应打开创建角色界面。
     RoleNotFound = 8,
+    // 账号已拥有角色，不允许重复创建。
     RoleAlreadyExists = 9,
+    // 角色昵称为空或超过允许长度。
     InvalidNickname = 10,
+    // 服务器处理或客户端封装流程失败，具体原因查看日志。
     ServerError = 11,
+    // 已有相关操作在处理，当前请求不能重复执行。
     Busy = 12,
+    // 请求过于频繁，被限频规则拒绝。
     RateLimited = 13,
+    // 客户端声明的协议版本不被当前服务器支持。
     UnsupportedProtocol = 14,
+    // 请求携带的世界会话不是当前有效会话。
     InvalidWorldSession = 15,
 }
 
 ///网络移动状态，不使用 Animator 的参数编号
 enum PlayerMotionState
 {
+    // 待机。
     Idle = 0,
+    // 步行，客户端映射为本地 Move 状态。
     Walk = 1,
+    // 跳跃或上升。
     Jump = 2,
+    // 奔跑，协议编号与本地 Animator 编号不同。
     Run = 3,
+    // 下落。
     Fall = 4,
 }
 
 ///位置为世界坐标；RotationY 为角度，Speed 为实际水平速度（米/秒）
 message MovementSnapshot
 {
+    // 世界 X 坐标，单位米。
     float X = 1;
+    // 世界 Y 坐标（高度），单位米。
     float Y = 2;
+    // 世界 Z 坐标，单位米。
     float Z = 3;
+    // 绕世界 Y 轴的朝向，单位度。
     float RotationY = 4;
+    // 网络移动状态枚举，接收端通过映射转换为本地 Animator/FSM 状态。
     PlayerMotionState State = 5;
+    // 实际水平移动速度，单位米/秒，用于远端动画表现。
     float Speed = 6;
 }
 
 ///只发给角色本人的数据，不包含登录账号
 message PlayerInfo
 {
+    // 角色持久唯一 ID，不是账号名，也不是连接 ID。
     int64 RoleId = 1;
+    // 游戏内公开显示的角色昵称。
     string NickName = 2;
+    // 当前生命值。
     int64 Hp = 3;
+    // 生命值上限。
     int64 MaxHp = 4;
+    // 当前法力值。
     int64 Mp = 5;
+    // 法力值上限。
     int64 MaxMp = 6;
+    // 金币数量。
     int64 Gold = 7;
+    // 该消息对应的世界位置、朝向、移动状态和水平速度快照。
     MovementSnapshot Movement = 8;
 }
 
 ///其他玩家可见的初始数据；Version 为移动版本，SpawnRevision 为当前 Game 世界内的上线顺序
 message PlayerPresence
 {
+    // 角色持久唯一 ID，不是账号名，也不是连接 ID。
     int64 RoleId = 1;
+    // 游戏内公开显示的角色昵称。
     string NickName = 2;
+    // 该消息对应的世界位置、朝向、移动状态和水平速度快照。
     MovementSnapshot Movement = 3;
+    // Game 生成的移动更新序号，用于过滤旧快照；与客户端上行 Sequence 不同。
     uint32 Version = 4;
+    // 消息中这个角色本次上线的实例 ID，取自他的 WorldSessionId；重连后改变。
     int64 SpawnId = 5;
+    // Game 的单调时钟毫秒值，用于快照排序和插值，不是现实日期。
     int64 ServerTimeMs = 6;
+    // 当前 Game 世界内递增的上线顺序，用于拒绝旧实例的迟到通知。
     uint64 SpawnRevision = 7;
 }
 
 ///注册账号
+// 命名方向：C=客户端，A=鉴权服，G=网关，Game=游戏逻辑服。Request/Response 是有应答请求，IMessage 是单向通知。
 message C2A_RegisterRequest // IRequest,A2C_RegisterResponse
 {
+    // 登录账号；鉴权和注册使用，不是角色昵称。
     string Username = 1;
+    // 本次登录或注册输入的密码。
     string Password = 2;
 }
 
 ///注册结果
 message A2C_RegisterResponse // IResponse
 {
+    // 业务结果码；Success 才是成功，独立于 Fantasy 框架 ErrorCode。
     ResultCode Result = 1;
 }
 
 ///鉴权登录
 message C2A_LoginRequest // IRequest,A2C_LoginResponse
 {
+    // 登录账号；鉴权和注册使用，不是角色昵称。
     string Username = 1;
+    // 本次登录或注册输入的密码。
     string Password = 2;
 }
 
 ///凭证和 Gate 地址分别返回，客户端不用解析 Token
 message A2C_LoginResponse // IResponse
 {
+    // 鉴权服务签发的登录凭证；客户端原样交给 Gate，无需自行解析。
     string Token = 1;
+    // 业务结果码；Success 才是成功，独立于 Fantasy 框架 ErrorCode。
     ResultCode Result = 2;
+    // 客户端下一步要连接的 Gate 外网地址，格式为主机:端口。
     string GateAddress = 3;
 }
 
 ///账号身份和目标 Gate 均从签名 Token 获取
 message C2G_LoginRequest // IRequest,G2C_LoginResponse
 {
+    // 鉴权服务签发的登录凭证；客户端原样交给 Gate，无需自行解析。
     string Token = 1;
+    // 客户端支持的协议版本，Gate 用它拒绝不兼容的旧客户端。
     uint32 ProtocolVersion = 2;
 }
 
 ///Gate 登录结果
 message G2C_LoginResponse // IResponse
 {
+    // 业务结果码；Success 才是成功，独立于 Fantasy 框架 ErrorCode。
     ResultCode Result = 1;
 }
 
@@ -129,79 +185,109 @@ message C2G_EnterGameRequest // IRequest,G2C_EnterGameResponse
 ///Success 时必须携带 Info；RoleNotFound 时进入创建角色界面
 message G2C_EnterGameResponse // IResponse
 {
+    // 业务结果码；Success 才是成功，独立于 Fantasy 框架 ErrorCode。
     ResultCode Result = 1;
+    // 本人的角色资料；进入成功时携带，客户端复制后释放响应对象。
     PlayerInfo Info = 2;
+    // 接收方/请求方本次进入世界的会话 ID，过滤旧世界消息；不要与消息里其他玩家的 SpawnId 混淆。
     int64 WorldSessionId = 3;
+    // 逻辑世界编号，用于客户端选择要加载的场景；当前 1 对应 GameScene。
     int32 WorldId = 4;
 }
 
 ///场景加载、角色放置完成后提交；进入与就绪分开，未就绪角色不参与同步
 message C2G_WorldReadyRequest // IRequest,G2C_WorldReadyResponse
 {
+    // 接收方/请求方本次进入世界的会话 ID，过滤旧世界消息；不要与消息里其他玩家的 SpawnId 混淆。
     int64 WorldSessionId = 1;
 }
 
 ///就绪成功返回当前可见角色的完整基线
 message G2C_WorldReadyResponse // IResponse
 {
+    // 业务结果码；Success 才是成功，独立于 Fantasy 框架 ErrorCode。
     ResultCode Result = 1;
+    // 世界就绪时的其他可见角色基线列表，不包含本人。
     repeated PlayerPresence Players = 2;
 }
 
 ///创建当前账号的唯一角色
 message C2G_CreateRoleRequest // IRequest,G2C_CreateRoleResponse
 {
+    // 游戏内公开显示的角色昵称。
     string NickName = 1;
 }
 
 ///只返回创建结果，角色初始数据统一由 EnterGame 获取
 message G2C_CreateRoleResponse // IResponse
 {
+    // 业务结果码；Success 才是成功，独立于 Fantasy 框架 ErrorCode。
     ResultCode Result = 1;
 }
 
 ///客户端移动采样；Sequence 属于当前连接；MovementEpoch 只能回传服务端最近一次回正的代次
 message C2G_PlayerMove // IMessage
 {
+    // 客户端上行移动序号，属于当前 Gate 连接，递增并允许 uint 回绕。
     uint32 Sequence = 1;
+    // 该消息对应的世界位置、朝向、移动状态和水平速度快照。
     MovementSnapshot Movement = 2;
+    // 接收方/请求方本次进入世界的会话 ID，过滤旧世界消息；不要与消息里其他玩家的 SpawnId 混淆。
     int64 WorldSessionId = 3;
+    // 服务端回正代次；客户端接受回正后，后续移动原样携带最新代次。
     uint32 MovementEpoch = 4;
 }
 
 ///只用于其他玩家的移动；Version 由 Game 递增生成
 message G2C_PlayerMove // IMessage
 {
+    // 角色持久唯一 ID，不是账号名，也不是连接 ID。
     int64 RoleId = 1;
+    // Game 生成的移动更新序号，用于过滤旧快照；与客户端上行 Sequence 不同。
     uint32 Version = 2;
+    // 该消息对应的世界位置、朝向、移动状态和水平速度快照。
     MovementSnapshot Movement = 3;
+    // 接收方/请求方本次进入世界的会话 ID，过滤旧世界消息；不要与消息里其他玩家的 SpawnId 混淆。
     int64 WorldSessionId = 4;
+    // 消息中这个角色本次上线的实例 ID，取自他的 WorldSessionId；重连后改变。
     int64 SpawnId = 5;
+    // Game 的单调时钟毫秒值，用于快照排序和插值，不是现实日期。
     int64 ServerTimeMs = 6;
+    // 当前 Game 世界内递增的上线顺序，用于拒绝旧实例的迟到通知。
     uint64 SpawnRevision = 7;
 }
 
 ///只发给本人；AckSequence 是触发回正的序号；重复发送同一代次以恢复丢失的回正
 message G2C_PlayerPositionCorrection // IMessage
 {
+    // 触发此次回正的客户端移动序号，用于过滤重复或过期回正。
     uint32 AckSequence = 1;
+    // 该消息对应的世界位置、朝向、移动状态和水平速度快照。
     MovementSnapshot Movement = 2;
+    // 接收方/请求方本次进入世界的会话 ID，过滤旧世界消息；不要与消息里其他玩家的 SpawnId 混淆。
     int64 WorldSessionId = 3;
+    // 服务端回正代次；客户端接受回正后，后续移动原样携带最新代次。
     uint32 MovementEpoch = 4;
 }
 
 ///创建或更新远端角色外观
 message G2C_PlayerEntered // IMessage
 {
+    // 新上线角色的公开资料和移动基线，接收端据此创建远端模型。
     PlayerPresence Player = 1;
+    // 接收方/请求方本次进入世界的会话 ID，过滤旧世界消息；不要与消息里其他玩家的 SpawnId 混淆。
     int64 WorldSessionId = 2;
 }
 
 ///删除远端角色
 message G2C_PlayerLeft // IMessage
 {
+    // 角色持久唯一 ID，不是账号名，也不是连接 ID。
     int64 RoleId = 1;
+    // 接收方/请求方本次进入世界的会话 ID，过滤旧世界消息；不要与消息里其他玩家的 SpawnId 混淆。
     int64 WorldSessionId = 2;
+    // 消息中这个角色本次上线的实例 ID，取自他的 WorldSessionId；重连后改变。
     int64 SpawnId = 3;
+    // 当前 Game 世界内递增的上线顺序，用于拒绝旧实例的迟到通知。
     uint64 SpawnRevision = 4;
 }

@@ -1053,7 +1053,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 5151f5be10b05324289a50f9e300084a, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::MyYooAsset
-  playMode: 3
+  playMode: 1
   packageName: DefaultPackage
   defaultHostServer: http://127.0.0.1/CDN/StandaloneWindows64/DefaultPackage
   fallbackHostServer: 
