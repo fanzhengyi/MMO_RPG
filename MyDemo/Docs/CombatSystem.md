@@ -44,9 +44,13 @@
 | PlayerActionPresentation / PlayerActionEffects | Animator 和特效表现，不读取按键、不发网络消息 |
 | PlayerActionSync | 上报本地动作，匹配预测代次，拒绝时只撤销对应动作 |
 | RemotePlayerManager / RemotePlayerView | 独立接收远端动作，在移动使用的同一延迟服务端时间轴播放 |
-| Gate / Game 动作处理器 | 验证连接、世界与移动代次；Game 判断动作顺序、锁定与冷却，然后广播 |
+| PlayerRouteType / Game 路由处理器 | Gate 在进入世界后把 `PlayerRouteType` 绑定到玩家 `OnlineInfo.Address`；Fantasy 自动把移动和动作请求送到该实体，Game 判断动作顺序、锁定与冷却，然后广播 |
 
-移动快照与战斗命令分离，不把攻击编号塞进移动 FSM。协议版本为 4，新增独立动作请求、响应、广播，并在进入视野的角色信息中携带当前动作基线。动作包含独立序号、服务端版本、起手服务端时间、朝向及起手位置；远端晚收到时从对应动画进度和特效年龄接入，避免重新从头播放。世界会话、出生代次与版本用于丢弃旧连接、旧角色实例和重复消息。
+移动快照与战斗命令分离，不把攻击编号塞进移动 FSM。协议版本为 4，移动和动作请求声明为 Fantasy 自定义路由消息，路由类型为 `PlayerRouteType = 1000`。登录仍由 Gate 验证 Token，进入世界仍由 Gate 编排；Game 返回当前玩家的 `OnlineInfo.Address` 后，Gate 只建立一次 `PlayerRouteType -> OnlineInfo.Address` 映射。之后客户端不携带实体地址，Fantasy 的消息调度器按 Session 路由自动把请求送到对应的 Game 实体，Gate 不再为每条移动或动作消息写重复转发处理器。
+
+Game 端的 `C2G_PlayerMoveRouteHandler` 和 `C2G_PlayerActionRouteHandler` 直接接收玩家实体，继续复用共享移动、动作规则和限流状态。Game 只通过原有内部消息向 Gate 发送权威广播、位置回正和生命周期通知。断线、离开世界或切换场景时清理旧路由，重新进入世界时绑定新的 `OnlineInfo.Address`。`RoleId` 是持久角色身份，`OnlineInfo.Address` 是当前运行时实体地址，两者不混用。
+
+预留 `ChatRouteType = 1001` 给 Chat 服务。以后 Chat 服务返回 Chat 实体地址后，可以在同一 Gate Session 上增加 Chat 路由；聊天协议声明 `ICustomRouteMessage` 或 `ICustomRouteRequest` 并使用该路由类型，客户端仍只发业务消息，不需要知道 Chat 地址。每个路由类型在重连或换服前先移除旧地址，再绑定新地址。
 
 本地先预测播放以保持响应速度，服务端使用自己的时钟校验，不接受客户端自报起手时间。动作取消只针对对应的已接受序号；迟到拒绝不会取消下一次动作。位置回正、断线、离开世界或角色停用会清理当前动作与特效；取消不会退还已经使用的冷却。
 

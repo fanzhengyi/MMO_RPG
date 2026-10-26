@@ -118,10 +118,11 @@ namespace Fantasy
             Info = default;
             WorldSessionId = default;
             WorldId = default;
+            PlayerAddress = default;
             MessageObjectPool<Game2G_EnterGameResponse>.Return(this);
         }
         public uint OpCode() { return InnerOpcode.Game2G_EnterGameResponse; }
-        [ProtoMember(5)]
+        [ProtoMember(6)]
         public uint ErrorCode { get; set; }
         [ProtoMember(1)]
         public ResultCode Result { get; set; }
@@ -131,6 +132,8 @@ namespace Fantasy
         public long WorldSessionId { get; set; }
         [ProtoMember(4)]
         public int WorldId { get; set; }
+        [ProtoMember(5)]
+        public long PlayerAddress { get; set; }
     }
     /// <summary>
     /// 只有与 Enter 返回的世界会话匹配，才正式加入公共世界
@@ -329,68 +332,6 @@ namespace Fantasy
         public uint ErrorCode { get; set; }
         [ProtoMember(1)]
         public ResultCode Result { get; set; }
-    }
-    /// <summary>
-    /// 经过 Gate 限频和身份校验的移动采样
-    /// </summary>
-    [Serializable]
-    [ProtoContract]
-    public partial class G2Game_PlayerMove : AMessage, IAddressMessage
-    {
-        public static G2Game_PlayerMove Create(bool autoReturn = true)
-        {
-            var g2Game_PlayerMove = MessageObjectPool<G2Game_PlayerMove>.Rent();
-            g2Game_PlayerMove.AutoReturn = autoReturn;
-
-            if (!autoReturn)
-            {
-                g2Game_PlayerMove.SetIsPool(false);
-            }
-
-            return g2Game_PlayerMove;
-        }
-
-        public void Return()
-        {
-            if (!AutoReturn)
-            {
-                SetIsPool(true);
-                AutoReturn = true;
-            }
-            else if (!IsPool())
-            {
-                return;
-            }
-            Dispose();
-        }
-
-        public void Dispose()
-        {
-            if (!IsPool()) return;
-            AccountUser = default;
-            GateSessionRuntimeId = default;
-            GateSceneAddress = default;
-            Sequence = default;
-            Movement = default;
-            WorldSessionId = default;
-            MovementEpoch = default;
-            MessageObjectPool<G2Game_PlayerMove>.Return(this);
-        }
-        public uint OpCode() { return InnerOpcode.G2Game_PlayerMove; }
-        [ProtoMember(1)]
-        public string AccountUser { get; set; }
-        [ProtoMember(2)]
-        public long GateSessionRuntimeId { get; set; }
-        [ProtoMember(3)]
-        public long GateSceneAddress { get; set; }
-        [ProtoMember(4)]
-        public uint Sequence { get; set; }
-        [ProtoMember(5)]
-        public MovementSnapshot Movement { get; set; }
-        [ProtoMember(6)]
-        public long WorldSessionId { get; set; }
-        [ProtoMember(7)]
-        public uint MovementEpoch { get; set; }
     }
     /// <summary>
     /// 定向转发其他玩家的移动版本
@@ -671,129 +612,6 @@ namespace Fantasy
         public long SpawnId { get; set; }
         [ProtoMember(5)]
         public ulong SpawnRevision { get; set; }
-    }
-    /// <summary>
-    /// Gate 附加已验证的账号和路由，Game 验证动作时序与冷却
-    /// </summary>
-    [Serializable]
-    [ProtoContract]
-    public partial class G2Game_PlayerActionRequest : AMessage, IAddressRequest
-    {
-        public static G2Game_PlayerActionRequest Create(bool autoReturn = true)
-        {
-            var g2Game_PlayerActionRequest = MessageObjectPool<G2Game_PlayerActionRequest>.Rent();
-            g2Game_PlayerActionRequest.AutoReturn = autoReturn;
-
-            if (!autoReturn)
-            {
-                g2Game_PlayerActionRequest.SetIsPool(false);
-            }
-
-            return g2Game_PlayerActionRequest;
-        }
-
-        public void Return()
-        {
-            if (!AutoReturn)
-            {
-                SetIsPool(true);
-                AutoReturn = true;
-            }
-            else if (!IsPool())
-            {
-                return;
-            }
-            Dispose();
-        }
-
-        public void Dispose()
-        {
-            if (!IsPool()) return;
-            AccountUser = default;
-            GateSessionRuntimeId = default;
-            GateSceneAddress = default;
-            WorldSessionId = default;
-            Sequence = default;
-            Kind = default;
-            RotationY = default;
-            MovementEpoch = default;
-            CancelSequence = default;
-            MessageObjectPool<G2Game_PlayerActionRequest>.Return(this);
-        }
-        public uint OpCode() { return InnerOpcode.G2Game_PlayerActionRequest; }
-        [ProtoIgnore]
-        public Game2G_PlayerActionResponse ResponseType { get; set; }
-        [ProtoMember(1)]
-        public string AccountUser { get; set; }
-        [ProtoMember(2)]
-        public long GateSessionRuntimeId { get; set; }
-        [ProtoMember(3)]
-        public long GateSceneAddress { get; set; }
-        [ProtoMember(4)]
-        public long WorldSessionId { get; set; }
-        [ProtoMember(5)]
-        public uint Sequence { get; set; }
-        [ProtoMember(6)]
-        public PlayerActionKind Kind { get; set; }
-        [ProtoMember(7)]
-        public float RotationY { get; set; }
-        [ProtoMember(8)]
-        public uint MovementEpoch { get; set; }
-        [ProtoMember(9)]
-        public uint CancelSequence { get; set; }
-    }
-    [Serializable]
-    [ProtoContract]
-    public partial class Game2G_PlayerActionResponse : AMessage, IAddressResponse
-    {
-        public static Game2G_PlayerActionResponse Create(bool autoReturn = true)
-        {
-            var game2G_PlayerActionResponse = MessageObjectPool<Game2G_PlayerActionResponse>.Rent();
-            game2G_PlayerActionResponse.AutoReturn = autoReturn;
-
-            if (!autoReturn)
-            {
-                game2G_PlayerActionResponse.SetIsPool(false);
-            }
-
-            return game2G_PlayerActionResponse;
-        }
-
-        public void Return()
-        {
-            if (!AutoReturn)
-            {
-                SetIsPool(true);
-                AutoReturn = true;
-            }
-            else if (!IsPool())
-            {
-                return;
-            }
-            Dispose();
-        }
-
-        public void Dispose()
-        {
-            if (!IsPool()) return;
-            ErrorCode = 0;
-            Result = default;
-            Sequence = default;
-            Action = default;
-            ServerTimeMs = default;
-            MessageObjectPool<Game2G_PlayerActionResponse>.Return(this);
-        }
-        public uint OpCode() { return InnerOpcode.Game2G_PlayerActionResponse; }
-        [ProtoMember(5)]
-        public uint ErrorCode { get; set; }
-        [ProtoMember(1)]
-        public ResultCode Result { get; set; }
-        [ProtoMember(2)]
-        public uint Sequence { get; set; }
-        [ProtoMember(3)]
-        public PlayerActionSnapshot Action { get; set; }
-        [ProtoMember(4)]
-        public long ServerTimeMs { get; set; }
     }
     /// <summary>
     /// 定向转发一次确认动作，不与移动快照合并

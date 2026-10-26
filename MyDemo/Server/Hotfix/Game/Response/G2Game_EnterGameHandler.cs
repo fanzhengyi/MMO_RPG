@@ -38,6 +38,7 @@ public sealed class G2Game_EnterGameHandler : AddressRPC<Scene, G2Game_EnterGame
             response.Info = PlayerMessageMapper.ToPlayerInfo(player);
             response.WorldSessionId = player.WorldSessionId;
             response.WorldId = 1;
+            response.PlayerAddress = player.Address;
         }
     }
 }

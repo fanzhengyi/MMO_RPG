@@ -349,12 +349,12 @@ static void CheckActionSnapshot()
 
 static void CheckActionLimiter()
 {
-    var gate = new PlayerSessionComponent();
-    for (var index = 0; index < 4; index++) Require(gate.TryAcceptAction(1000), "small command burst");
-    Require(!gate.TryAcceptAction(1000) && !gate.TryAcceptAction(1099), "unbounded RPC burst rejected");
-    Require(gate.TryAcceptAction(1100) && gate.TryAcceptMovement(1100), "independent budgets replenish by time");
-    gate.ResetWorldState();
-    Require(gate.TryAcceptAction(2000), "new world resets action limiter");
+    var player = NewPlayer();
+    for (var index = 0; index < 4; index++) Require(player.TryAcceptAction(1000), "small command burst");
+    Require(!player.TryAcceptAction(1000) && !player.TryAcceptAction(1099), "unbounded RPC burst rejected");
+    Require(player.TryAcceptAction(1100) && player.TryAcceptMovement(1100), "independent budgets replenish by time");
+    player.BindGateSession(2, 100);
+    Require(player.TryAcceptAction(2000), "new world resets action limiter");
 }
 
 // 对外响应必须有完整数据；修改 DTO 不能修改在线实体。
@@ -465,17 +465,17 @@ static void CheckInvalidMovement()
     var player = NewPlayer();
     var invalid = new[]
     {
-        new G2Game_PlayerMove { Sequence = 1, Movement = new MovementSnapshot { X = float.NaN } },
-        new G2Game_PlayerMove { Sequence = 1, Movement = new MovementSnapshot { Y = float.PositiveInfinity } },
-        new G2Game_PlayerMove { Sequence = 1, Movement = new MovementSnapshot { Z = float.NegativeInfinity } },
-        new G2Game_PlayerMove { Sequence = 1, Movement = new MovementSnapshot { RotationY = float.NaN } },
-        new G2Game_PlayerMove { Sequence = 1, Movement = new MovementSnapshot { Speed = float.NaN } },
-        new G2Game_PlayerMove { Sequence = 1, Movement = new MovementSnapshot { Speed = -1 } },
-        new G2Game_PlayerMove { Sequence = 1, Movement = new MovementSnapshot { Speed = 100 } },
-        new G2Game_PlayerMove { Sequence = 1, Movement = new MovementSnapshot { State = (PlayerMotionState)999 } },
-        new G2Game_PlayerMove { Sequence = 1, Movement = new MovementSnapshot { Y = 100 } },
-        new G2Game_PlayerMove { Sequence = 1 },
-        new G2Game_PlayerMove { Sequence = 1, Movement = new MovementSnapshot { State = (PlayerMotionState)(-1) } },
+        new C2G_PlayerMove { Sequence = 1, Movement = new MovementSnapshot { X = float.NaN } },
+        new C2G_PlayerMove { Sequence = 1, Movement = new MovementSnapshot { Y = float.PositiveInfinity } },
+        new C2G_PlayerMove { Sequence = 1, Movement = new MovementSnapshot { Z = float.NegativeInfinity } },
+        new C2G_PlayerMove { Sequence = 1, Movement = new MovementSnapshot { RotationY = float.NaN } },
+        new C2G_PlayerMove { Sequence = 1, Movement = new MovementSnapshot { Speed = float.NaN } },
+        new C2G_PlayerMove { Sequence = 1, Movement = new MovementSnapshot { Speed = -1 } },
+        new C2G_PlayerMove { Sequence = 1, Movement = new MovementSnapshot { Speed = 100 } },
+        new C2G_PlayerMove { Sequence = 1, Movement = new MovementSnapshot { State = (PlayerMotionState)999 } },
+        new C2G_PlayerMove { Sequence = 1, Movement = new MovementSnapshot { Y = 100 } },
+        new C2G_PlayerMove { Sequence = 1 },
+        new C2G_PlayerMove { Sequence = 1, Movement = new MovementSnapshot { State = (PlayerMotionState)(-1) } },
     };
     foreach (var request in invalid)
         Require(!Apply(player, request, 1100), "invalid snapshot");
@@ -662,17 +662,17 @@ static void CheckWorldReadiness()
 
 static void CheckMovementLimiter()
 {
-    var gate = new PlayerSessionComponent();
-    for (var i = 0; i < 5; i++) Require(gate.TryAcceptMovement(1000), "small burst");
-    Require(!gate.TryAcceptMovement(1000) && !gate.TryAcceptMovement(1019), "same-time flood");
-    Require(gate.TryAcceptMovement(1020), "tokens refill using elapsed time");
+    var player = NewPlayer();
+    for (var i = 0; i < 5; i++) Require(player.TryAcceptMovement(1000), "small burst");
+    Require(!player.TryAcceptMovement(1000) && !player.TryAcceptMovement(1019), "same-time flood");
+    Require(player.TryAcceptMovement(1020), "tokens refill using elapsed time");
     var accepted = 0;
-    for (var time = 1021; time <= 2020; time++) if (gate.TryAcceptMovement(time)) accepted++;
+    for (var time = 1021; time <= 2020; time++) if (player.TryAcceptMovement(time)) accepted++;
     Require(accepted == 50, "sustained rate is fifty per second");
-    gate.WorldSessionId = 42;
-    gate.IsWorldReady = true;
-    gate.ResetWorldState();
-    Require(gate.WorldSessionId == 0 && !gate.IsWorldReady && gate.TryAcceptMovement(3000), "pooled session reset");
+    player.WorldSessionId = 42;
+    player.IsWorldReady = true;
+    player.BindGateSession(2, 100);
+    Require(player.WorldSessionId != 42 && !player.IsWorldReady && player.TryAcceptMovement(3000), "new player incarnation resets limiter");
 }
 
 static void CheckIdlePersistence()
@@ -817,13 +817,13 @@ static OnlineInfo NewPlayer()
     return player;
 }
 
-static G2Game_PlayerMove Move(uint sequence, float x) => new()
+static C2G_PlayerMove Move(uint sequence, float x) => new()
 {
     Sequence = sequence, Movement = new MovementSnapshot { X = x, State = PlayerMotionState.Run, Speed = 6.5f },
 };
 
 // 测试通过同一入口提交协议采样，生产规则不依赖整条路由消息。
-static bool Apply(OnlineInfo player, G2Game_PlayerMove request, long now)
+static bool Apply(OnlineInfo player, C2G_PlayerMove request, long now)
     => PlayerMovementRules.TryApply(player, request.Sequence, request.Movement, now);
 
 static void Require(bool condition, string message)

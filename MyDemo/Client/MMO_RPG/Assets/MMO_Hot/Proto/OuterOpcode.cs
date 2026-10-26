@@ -13,14 +13,14 @@ namespace Fantasy
         public const uint C2G_CreateRoleRequest = 268445462;
         public const uint C2G_EnterGameRequest = 268445461;
         public const uint C2G_LoginRequest = 268445460;
-        public const uint C2G_PlayerActionRequest = 268445464;
-        public const uint C2G_PlayerMove = 134227732;
+        public const uint C2G_PlayerActionRequest = 2281711377;
+        public const uint C2G_PlayerMove = 2147493649;
         public const uint C2G_WorldReadyRequest = 268445463;
         public const uint G2C_CreateRoleResponse = 402663190;
         public const uint G2C_EnterGameResponse = 402663189;
         public const uint G2C_LoginResponse = 402663188;
         public const uint G2C_PlayerAction = 134227738;
-        public const uint G2C_PlayerActionResponse = 402663192;
+        public const uint G2C_PlayerActionResponse = 2415929105;
         public const uint G2C_PlayerEntered = 134227734;
         public const uint G2C_PlayerLeft = 134227735;
         public const uint G2C_PlayerMove = 134227733;

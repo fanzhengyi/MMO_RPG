@@ -68,6 +68,14 @@ public sealed class OnlineInfo : Entity
     [BsonIgnore] public ulong SpawnRevision;
     /// <summary>本次上线独立拥有的动作、连击序号和冷却；不入库。</summary>
     [BsonIgnore] public PlayerActionState Actions = new();
+    /// <summary>移动路由的令牌桶；消息已直接进入 Game，因此限频在权威实体上执行。</summary>
+    [BsonIgnore] private double movementTokens = 5;
+    /// <summary>上次补充移动令牌的服务端单调时钟毫秒值。</summary>
+    [BsonIgnore] private long lastMovementAt;
+    /// <summary>动作路由的令牌桶；限制动作请求放大场景线程压力。</summary>
+    [BsonIgnore] private double actionTokens = 4;
+    /// <summary>上次补充动作令牌的服务端单调时钟毫秒值。</summary>
+    [BsonIgnore] private long lastActionAt;
 
     /// <summary>是否绑定了有效的 Gate 路由身份；不等于客户端场景已经就绪。</summary>
     [BsonIgnore] public bool IsConnected => GateSessionRuntimeId != 0 && GateSceneAddress != 0;
@@ -107,8 +115,34 @@ public sealed class OnlineInfo : Entity
             MovementEpoch = 0;
             LastCorrectionSequence = 0;
             Actions.Reset();
+            movementTokens = 5;
+            lastMovementAt = 0;
+            actionTokens = 4;
+            lastActionAt = 0;
         }
         GateSessionRuntimeId = runtimeId;
         GateSceneAddress = sceneAddress;
+    }
+
+    /// <summary>允许少量移动突发，长期上限每秒 50 条。</summary>
+    public bool TryAcceptMovement(long now)
+    {
+        if (lastMovementAt != 0)
+            movementTokens = Math.Min(5, movementTokens + Math.Max(0, now - lastMovementAt) * 0.05);
+        lastMovementAt = now;
+        if (movementTokens < 1) return false;
+        movementTokens -= 1;
+        return true;
+    }
+
+    /// <summary>允许少量动作突发，长期上限每秒 10 条。</summary>
+    public bool TryAcceptAction(long now)
+    {
+        if (lastActionAt != 0)
+            actionTokens = Math.Min(4, actionTokens + Math.Max(0, now - lastActionAt) * 0.01);
+        lastActionAt = now;
+        if (actionTokens < 1) return false;
+        actionTokens -= 1;
+        return true;
     }
 }

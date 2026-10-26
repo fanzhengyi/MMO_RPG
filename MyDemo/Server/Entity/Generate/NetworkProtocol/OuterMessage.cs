@@ -917,11 +917,11 @@ namespace Fantasy
         public ResultCode Result { get; set; }
     }
     /// <summary>
-    /// 客户端移动采样；Sequence 属于当前连接；MovementEpoch 只能回传服务端最近一次回正的代次
+    /// 客户端移动采样；Gate 通过 PlayerRouteType 自动转发到当前 OnlineInfo 实体
     /// </summary>
     [Serializable]
     [ProtoContract]
-    public partial class C2G_PlayerMove : AMessage, IMessage
+    public partial class C2G_PlayerMove : AMessage, ICustomRouteMessage
     {
         public static C2G_PlayerMove Create(bool autoReturn = true)
         {
@@ -964,6 +964,8 @@ namespace Fantasy
             MessageObjectPool<C2G_PlayerMove>.Return(this);
         }
         public uint OpCode() { return OuterOpcode.C2G_PlayerMove; }
+        [ProtoIgnore]
+        public int RouteType => Fantasy.RouteType.PlayerRouteType;
         [ProtoMember(1)]
         public uint Sequence { get; set; }
         [ProtoMember(2)]
@@ -1201,11 +1203,11 @@ namespace Fantasy
         public ulong SpawnRevision { get; set; }
     }
     /// <summary>
-    /// 动作命令单独发送，不与高频移动快照合并；客户端可预测播放，Game 决定是否接受
+    /// 动作命令单独发送，不与高频移动快照合并；Gate 通过 PlayerRouteType 自动转发到当前 OnlineInfo 实体
     /// </summary>
     [Serializable]
     [ProtoContract]
-    public partial class C2G_PlayerActionRequest : AMessage, IRequest
+    public partial class C2G_PlayerActionRequest : AMessage, ICustomRouteRequest
     {
         public static C2G_PlayerActionRequest Create(bool autoReturn = true)
         {
@@ -1248,6 +1250,8 @@ namespace Fantasy
         public uint OpCode() { return OuterOpcode.C2G_PlayerActionRequest; }
         [ProtoIgnore]
         public G2C_PlayerActionResponse ResponseType { get; set; }
+        [ProtoIgnore]
+        public int RouteType => Fantasy.RouteType.PlayerRouteType;
         [ProtoMember(1)]
         public uint Sequence { get; set; }
         [ProtoMember(2)]
@@ -1266,7 +1270,7 @@ namespace Fantasy
     /// </summary>
     [Serializable]
     [ProtoContract]
-    public partial class G2C_PlayerActionResponse : AMessage, IResponse
+    public partial class G2C_PlayerActionResponse : AMessage, ICustomRouteResponse
     {
         public static G2C_PlayerActionResponse Create(bool autoReturn = true)
         {

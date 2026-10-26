@@ -30,6 +30,25 @@ public static class GateSessionHelper
         => TryGetSession(scene, runtimeId, out session) && worldSessionId != 0
             && session.GetComponent<PlayerSessionComponent>().WorldSessionId == worldSessionId;
 
+    /// <summary>把一个自定义路由类型绑定到目标实体地址；同一类型重连时先移除旧地址再绑定新地址。</summary>
+    public static void BindRoute(Session session, int routeType, long address)
+    {
+        var route = session.GetOrAddComponent<RouteComponent>();
+        route.RemoveAddress(routeType);
+        route.AddAddress(routeType, address);
+    }
+
+    /// <summary>把当前客户端的 PlayerRouteType 绑定到 Game 角色实体。</summary>
+    public static void BindPlayerRoute(Session session, long playerAddress)
+    {
+        BindRoute(session, RouteType.PlayerRouteType, playerAddress);
+        session.GetComponent<PlayerSessionComponent>().PlayerAddress = playerAddress;
+    }
+
+    /// <summary>移除一个自定义路由类型，供断线和换服时复用。</summary>
+    public static void RemoveRoute(Session session, int routeType)
+        => session.GetComponent<RouteComponent>()?.RemoveAddress(routeType);
+
     /// <summary>清除当前连接映射，并且只发送一次离开通知。</summary>
     public static void Detach(PlayerSessionComponent? info)
     {
@@ -48,9 +67,11 @@ public static class GateSessionHelper
         var gateAddress = info.GateSceneAddress;
         // worldSessionId：本次进入世界的会话 ID，用于排除旧世界的迟到操作。
         var worldSessionId = info.WorldSessionId;
+        if (info.Parent is Session session)
+            RemoveRoute(session, RouteType.PlayerRouteType);
         // 先清理全部身份字段，重复释放和对象池复用都不会再次通知下线。
         info.AccountUser = "";
-        info.SessionRuntimeId = info.GameSceneAddress = info.GateSceneAddress = 0;
+        info.SessionRuntimeId = info.GameSceneAddress = info.PlayerAddress = info.GateSceneAddress = 0;
         info.ResetWorldState();
         if (scene == null || scene.IsDisposed) return;
         // cache：当前 Gate 的账号到在线连接映射。

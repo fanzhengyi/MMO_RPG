@@ -8,12 +8,14 @@ namespace Fantasy
     public static partial class RouteType
     {
         public const int PlayerRouteType = 1000; // PlayerRouteType
+        public const int ChatRouteType = 1001; // ChatRouteType
 
         public static IEnumerable<int> RoamingTypes
         {
             get
             {
                 yield return PlayerRouteType;
+                yield return ChatRouteType;
             }
         }
     }

@@ -36,7 +36,8 @@ public sealed class C2G_EnterGameHandler : MessageRPC<C2G_EnterGameRequest, G2C_
             if (session.RuntimeId != runtimeId || !GateSessionHelper.TryGetPlayer(session, out _)) return;
             
             if (result == null || result.ErrorCode != 0
-                || (result.Result == ResultCode.Success && (result.Info?.Movement == null || result.WorldSessionId == 0)))
+                || (result.Result == ResultCode.Success && (result.Info?.Movement == null
+                    || result.WorldSessionId == 0 || result.PlayerAddress == 0)))
             {
                 response.Result = ResultCode.ServerError;
                 return;
@@ -45,7 +46,11 @@ public sealed class C2G_EnterGameHandler : MessageRPC<C2G_EnterGameRequest, G2C_
             response.Info = result.Info;
             response.WorldSessionId = result.WorldSessionId;
             response.WorldId = result.WorldId;
-            if (result.Result == ResultCode.Success) info.WorldSessionId = result.WorldSessionId;
+            if (result.Result == ResultCode.Success)
+            {
+                info.WorldSessionId = result.WorldSessionId;
+                GateSessionHelper.BindPlayerRoute(session, result.PlayerAddress);
+            }
         }
         finally
         {
