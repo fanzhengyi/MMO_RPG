@@ -1,3 +1,4 @@
+using System;
 using UnityEngine;
 
 /// <summary>本地角色入口，按输入、攻击、移动和表现的顺序组织一帧。</summary>
@@ -30,9 +31,9 @@ public sealed class PlayerController : MonoBehaviour
     /// <summary>最大下落速度的绝对值，单位米/秒，防止持续下落无限加速。</summary>
     [SerializeField, Min(1f)] private float terminalSpeed = 40f;
 
-    /// <summary>共享的普攻配置资产；每个角色另建独立连击运行状态。</summary>
-    [Header("普攻")]
-    [SerializeField] private AttackComboDefinition attackCombo;
+    /// <summary>共享的动作动画与特效资源；出招计时和冷却来自两端共用的 PlayerActionRules。</summary>
+    [Header("战斗表现")]
+    [SerializeField] private PlayerCombatDefinition combatDefinition;
 
     /// <summary>当前移动状态，用于动画和网络同步；攻击由独立连击核心管理。</summary>
     public PlayerFsmCore.StateType State => fsm.State;
@@ -41,9 +42,14 @@ public sealed class PlayerController : MonoBehaviour
     /// <summary>对外提供视觉模型入口，当前远端角色用它作为外观模板。</summary>
     public Animator VisualAnimator => animator;
     /// <summary>是否仍处于普攻动作的控制限制阶段。</summary>
-    public bool IsAttacking => attacks.IsAttacking;
+    public bool IsAttacking => combat.IsAttacking;
     /// <summary>当前或刚完成的连击段号，从 1 开始；无连击记录时为 0。</summary>
-    public int ComboStep => attacks.CurrentStep;
+    public int ComboStep => combat.ComboStep;
+    public bool IsPerformingAction => combat.IsBusy; // 普攻、技能或滑行是否正在限制移动。
+    public PlayerActionId ActionId => combat.ActionId; // 当前动作编号，与移动状态分离。
+    public uint ActionGeneration => combat.Generation; // 用来匹配本地预测动作的代次。
+    public PlayerCombatDefinition CombatDefinition => combatDefinition; // 远端外观共用同一套表现资源。
+    public event Action<PlayerActionId, uint> ActionChanged; // 起手/显式取消通知，网络层自行订阅。
     /// <summary>移动状态 Animator 参数的缓存哈希。</summary>
     private static readonly int StateParameter = Animator.StringToHash("State");
     /// <summary>实际水平速度 Animator 参数的缓存哈希。</summary>
@@ -56,7 +62,8 @@ public sealed class PlayerController : MonoBehaviour
     /// <summary>当前角色独立的移动状态机，决定走跑跳落的状态和目标速度。</summary>
     private PlayerFsmCore fsm;
     /// <summary>将连击核心的出招结果写到 Combat 动画层。</summary>
-    private PlayerAttackController attacks;
+    private PlayerCombatCore combat;
+    private PlayerActionPresentation presentation; // 本地角色的 Combat 层与特效表现。
     /// <summary>平滑加减速后的水平速度向量，单位米/秒，不含重力。</summary>
     private Vector3 horizontalVelocity;
     /// <summary>当前竖直速度，单位米/秒；正值上升，负值下落。</summary>
@@ -74,7 +81,8 @@ public sealed class PlayerController : MonoBehaviour
         characterController = GetComponent<CharacterController>();
         animator.applyRootMotion = false;
         fsm = new PlayerFsmCore(walkSpeed, runSpeed);
-        attacks = new PlayerAttackController(animator, attackCombo);
+        combat = new PlayerCombatCore();
+        presentation = new PlayerActionPresentation(transform, animator, combatDefinition);
         ResetMovement();
     }
 
@@ -86,13 +94,21 @@ public sealed class PlayerController : MonoBehaviour
 
         // input：本帧输入快照，攻击期间可暂时屏蔽其中的移动和跳跃。
         var input = inputSource.Sample();
-        // 地面起跳优先于开始普攻；已出招期间不接受跳跃，离地则取消连击。
-        // canAttack：当前是否接地且允许普攻；地面起跳优先于开始普攻。
-        var canAttack = characterController.isGrounded && (attacks.IsAttacking || !input.JumpPressed);
-        attacks.Tick(input.AttackPressed, canAttack, Time.deltaTime);
-        if (attacks.IsAttacking)
+        // 起跳优先于新出招；已经出招时不接受跳跃，离地则取消地面动作。
+        var canAct = characterController.isGrounded && (combat.IsBusy || !input.JumpPressed);
+        var generation = combat.Generation; // 仅新动作或显式取消才发出通知，普通帧不发。
+        if (!combat.IsBusy && canAct && (input.AttackPressed || input.SkillPressed != 0 || input.SlidePressed))
+            Rotate(ToWorldDirection(input.Move), Time.deltaTime);
+        combat.Tick(Time.deltaTime, input.AttackPressed, input.SkillPressed, input.SlidePressed, canAct);
+        if (generation != combat.Generation)
         {
-            if (attacks.CanTurn) Rotate(ToWorldDirection(input.Move), Time.deltaTime);
+            if (combat.ActionId == PlayerActionId.None) presentation.Cancel();
+            else presentation.Play(combat.ActionId, 0f, transform.position, transform.eulerAngles.y);
+            ActionChanged?.Invoke(combat.ActionId, combat.Generation);
+        }
+        if (combat.IsBusy)
+        {
+            if (combat.CanTurn) Rotate(ToWorldDirection(input.Move), Time.deltaTime);
             input.Move = Vector2.zero;
             input.RunHeld = false;
             input.JumpPressed = false;
@@ -100,6 +116,7 @@ public sealed class PlayerController : MonoBehaviour
         fsm.Tick(input, characterController.isGrounded, verticalVelocity);
         Move(input.Move, fsm.MovementSpeed, fsm.JumpRequested, Time.deltaTime);
         UpdateAnimation();
+        presentation.Tick(Time.deltaTime, combat.ElapsedSeconds);
     }
 
     /// <summary>把输入按相机水平朝向换算，再处理跳跃、重力和碰撞。</summary>
@@ -109,7 +126,9 @@ public sealed class PlayerController : MonoBehaviour
         var direction = ToWorldDirection(input);
         // targetVelocity：当前输入方向乘以目标速度得到的水平速度向量，单位米/秒。
         var targetVelocity = direction * speed;
-        horizontalVelocity = Vector3.MoveTowards(horizontalVelocity, targetVelocity, acceleration * deltaTime);
+        horizontalVelocity = combat.ActionId == PlayerActionId.Slide
+            ? transform.forward * PlayerActionRules.SlideSpeed
+            : Vector3.MoveTowards(horizontalVelocity, targetVelocity, acceleration * deltaTime);
 
         Rotate(direction, deltaTime);
 
@@ -181,10 +200,24 @@ public sealed class PlayerController : MonoBehaviour
         verticalVelocity = 0f;
         HorizontalSpeed = 0f;
         characterController.stepOffset = groundedStepOffset;
-        attacks.Reset();
+        var generation = combat.Generation;
+        combat.Cancel();
+        presentation.Cancel();
+        if (generation != combat.Generation) ActionChanged?.Invoke(PlayerActionId.None, combat.Generation);
         fsm.ChangeState(fsm.Idle);
         UpdateAnimation();
     }
+
+    /// <summary>服务端只撤销仍然对应这次请求的本地预测，旧响应不能打断后续动作。</summary>
+    public void RejectAction(uint generation)
+    {
+        if (generation != combat.Generation) return;
+        if (combat.ActionId == PlayerActionId.Slide) horizontalVelocity = Vector3.zero;
+        combat.Cancel();
+        presentation.Cancel();
+    }
+
+    public float ActionCooldownRemaining(PlayerActionId id) => combat.CooldownRemaining(id);
 
     /// <summary>把 FSM 状态和实际水平速度写入 Animator。</summary>
     private void UpdateAnimation()

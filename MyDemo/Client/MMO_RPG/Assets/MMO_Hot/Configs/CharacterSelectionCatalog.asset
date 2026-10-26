@@ -1,0 +1,25 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 4f09ce9a05196594daa5061ea083326e, type: 3}
+  m_Name: CharacterSelectionCatalog
+  m_EditorClassIdentifier: Assembly-CSharp::CharacterSelectionCatalog
+  Characters:
+  - PreviewPrefab: {fileID: 8024344457668124218, guid: 1f06652e966a64e45b76421c56de758c, type: 3}
+    Title: "\u5251\u4FEE"
+    Subtitle: "\u950B\u8292\u85CF\u4E8E\u5FC3\uFF0C\u53CC\u5203\u95EE\u524D\u8DEF"
+    Description: "\u6267\u53CC\u5203\u800C\u884C\u7684\u5E74\u8F7B\u5251\u5BA2\u3002\n\n\u4EE5\u7075\u5DE7\u7684\u6B65\u4F10\u5BFB\u627E\u7834\u7EFD\uFF0C\u5728\u57CE\u5E02\u4E0E\u5F02\u5883\u4E4B\u95F4\u8FFD\u5BFB\u5931\u843D\u7684\u7EBF\u7D22\u3002\n\n\u957F\u591C\u672A\u5C3D\uFF0C\u5251\u950B\u6240\u5411\uFF0C\u4FBF\u662F\u65B0\u7684\u9ECE\u660E\u3002"
+    Traits: "\u53CC\u5203  /  \u8FC5\u6377  /  \u8FD1\u8EAB"
+  - PreviewPrefab: {fileID: 7900195183818566470, guid: 9eeabd3148f27594da1022ab3bddc8c6, type: 3}
+    Title: "\u4E91\u6E38\u8005"
+    Subtitle: "\u884C\u8FC7\u4E07\u91CC\uFF0C\u4ECD\u6000\u8D64\u5B50\u4E4B\u5FC3"
+    Description: "\u81EA\u8FDC\u65B9\u800C\u6765\u7684\u5E74\u8F7B\u65C5\u8005\u3002\n\n\u8D70\u8FC7\u7E41\u534E\u8857\u5DF7\uFF0C\u4E5F\u542C\u8FC7\u5F02\u5883\u6DF1\u5904\u7684\u56DE\u54CD\uFF1B\u5C06\u6CBF\u9014\u76F8\u9047\uFF0C\u73CD\u85CF\u4E3A\u7EE7\u7EED\u524D\u884C\u7684\u52C7\u6C14\u3002\n\n\u4E16\u754C\u5F88\u5927\uFF0C\u6545\u4E8B\u624D\u521A\u521A\u5F00\u59CB\u3002"
+    Traits: "\u6E38\u5386  /  \u4ECE\u5BB9  /  \u63A2\u7D22"

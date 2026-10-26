@@ -17,7 +17,7 @@ public sealed class LoginResponse : MessageRPC<C2A_LoginRequest, A2C_LoginRespon
         var scene = session.Scene;
         // sessionRuntimeId：开始操作时的连接运行时 ID，用于判断等待后是否仍是原连接。
         var sessionRuntimeId = session.RuntimeId;
-        response.Result = await scene.GetComponent<AuthenticationComponent>().Login(request.Username, request.Password);
+        response.Result = await scene.GetComponent<AuthenticationComponent>().Login(request.AccountUser, request.Password);
         if (session.IsDisposed || session.RuntimeId != sessionRuntimeId) return;
         if (response.Result != ResultCode.Success) return;
         // gates：配置表中的全部 Gate 场景，供账号哈希选择目标网关。
@@ -28,13 +28,13 @@ public sealed class LoginResponse : MessageRPC<C2A_LoginRequest, A2C_LoginRespon
             return;
         }
         // gate：本账号选中的 Gate 场景配置，不是网络连接对象。
-        var gate = gates[(int)(HashCodeHelper.MurmurHash3(request.Username) % gates.Count)];
+        var gate = gates[(int)(HashCodeHelper.MurmurHash3(request.AccountUser) % gates.Count)];
         // process：目标 Gate 所属的进程配置。
         var process = ProcessConfigData.Instance.Get(gate.ProcessConfigId);
         // address：目标 Gate 所在机器的客户端可访问地址。
         var address = MachineConfigData.Instance.Get(process.MachineId).OuterIP;
         response.GateAddress = $"{address}:{gate.OuterPort}";
         response.Token = scene.GetComponent<AuthenticationJwtComponent>()
-            .GenerateJwtTokens(request.Username, gate.Id);
+            .GenerateJwtTokens(request.AccountUser, gate.Id);
     }
 }

@@ -79,8 +79,7 @@ public sealed class SnapshotTimeline<T>
         fraction = 0;
         if (entries.Count == 0) return false;
         // playback：延后插值且保证不倒退的播放时刻，单位为相对服务端秒数。
-        var playback = Math.Max(lastPlaybackTime, now - localOrigin - clockOffset - interpolationDelay);
-        lastPlaybackTime = playback;
+        var playback = AdvancePlayback(now);
         while (entries.Count > 2 && entries[1].Time <= playback) entries.RemoveAt(0);
         // first：插值区间的较早样本。
         var first = entries[0];
@@ -92,5 +91,20 @@ public sealed class SnapshotTimeline<T>
         var duration = second.Time - first.Time;
         fraction = duration <= 0 ? 1f : (float)Math.Max(0, Math.Min(1, (playback - first.Time) / duration));
         return true;
+    }
+
+    /// <summary>让动作事件使用同一条播放时钟；移动停在最新位置时，动作计时仍正常前进。</summary>
+    public bool TryGetPlaybackServerTimeMs(double now, out double serverTimeMs)
+    {
+        serverTimeMs = 0d;
+        if (entries.Count == 0) return false;
+        serverTimeMs = serverOrigin + AdvancePlayback(now) * 1000d;
+        return true;
+    }
+
+    private double AdvancePlayback(double now)
+    {
+        lastPlaybackTime = Math.Max(lastPlaybackTime, now - localOrigin - clockOffset - interpolationDelay);
+        return lastPlaybackTime;
     }
 }

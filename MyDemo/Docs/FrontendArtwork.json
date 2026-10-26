@@ -1,0 +1,40 @@
+{
+  "tool": "built-in image_gen",
+  "assets": [
+    {
+      "key": "frontend_button",
+      "alpha": true,
+      "prompt": "Use case: stylized-concept. Asset type: SINGLE reusable game UI button sprite, transparent PNG background. Design a premium wide horizontal rectangular BUTTON FRAME with very slightly clipped / beveled corners, straight edges and a flat long center suited to nine-slice scaling. Aspect ratio 3:1, target canvas 1536x512. The button artwork fills almost the entire canvas with just 2 percent transparent outer padding. Palette: midnight navy inset center, subtle brushed antique-gold metal hairline border, restrained desaturated teal / cyan inner edge illumination, tiny symmetric ornamental corner details, tastefully minimal urban-fantasy sword MMORPG art direction. Center MUST be smooth dark blue, completely empty and calm so white Chinese text rendered later is readable. Front orthographic UI asset, perfectly horizontal, symmetric, crisp edges and polished materials. The background OUTSIDE the button is truly transparent alpha. Inside the button stays opaque navy, no holes in center. No text, letters, icons, symbols, emblems, jewels or logos, no words, no watermark, no surrounding scene, no sheet of variants. One isolated finished button asset only.",
+      "generated_file": "C:/Users/user/.codex/generated_images/01a144e0-c60f-7822-8852-2be599cc1788/exec-4c3ca69a-00d7-40be-970d-e5232ca7976c.png",
+      "project_file": "Client/MMO_RPG/Assets/Main/UI/Frontend/Button.png"
+    },
+    {
+      "key": "frontend_input",
+      "alpha": true,
+      "prompt": "Use case: stylized-concept. Asset type: SINGLE reusable game UI text-input field sprite, transparent PNG. Wide simple horizontal rectangle, 3:1 landscape canvas target 1536x512, frame fills almost entire canvas with at most 2 percent transparent padding. Match a premium urban fantasy MMO interface: deep midnight-blue opaque recessed input surface, thin subtle antique-gold edge, faint cool teal bevel, restrained cyan focus-like line on inner bottom edge, small clipped corners. Strong readable straight frame, minimal, elegant, FLAT ORTHOGRAPHIC front view, no perspective. The whole central 80 percent is plain dark navy, no texture or decorative detail behind text. Designed to stretch with nine-slice sprites, evenly thin edges, only corners have minimal detail. Truly transparent outside the rectangle; interior is opaque dark blue. NO text, no placeholder text, no cursor, no icon, no magnifying glass, no locks, no emblems, no gradients extending outside the frame, no watermark, no background scene. Single input background asset only.",
+      "generated_file": "C:/Users/user/.codex/generated_images/01a144e0-c60f-7822-8852-2be599cc1788/exec-6d474483-19e5-4fe7-a369-ead86b9b3b1d.png",
+      "project_file": "Client/MMO_RPG/Assets/Main/UI/Frontend/Input.png"
+    },
+    {
+      "key": "frontend_progress_track",
+      "alpha": true,
+      "prompt": "Use case: stylized-concept. Asset type: SINGLE horizontal loading progress-bar EMPTY TRACK sprite for a modern urban-fantasy MMORPG. Transparent PNG background. Very wide thin bar centered horizontally, 3:1 canvas target 1536x512; actual bar occupies 96 percent canvas width and about 28 percent canvas height, centered vertically, leaving transparent space above and below. Elegant straight track, midnight-blue EMPTY inset interior, razor-thin brushed gold metallic top/bottom rim, restrained teal line detail, small clean beveled end caps, premium minimal design, symmetrical and front orthographic. Track depth is dark navy with no existing progress or light inside. The fill will be a separate Unity Image. Nine-slice friendly straight edges and small matching corners. No dragons or ornate bulky wings. All exterior is actual transparent alpha. No text, no numbers, no loading label, no ticks, no white backdrop, no shadow plate, no surrounding UI, no watermark. Exactly one empty bar track only.",
+      "generated_file": "C:/Users/user/.codex/generated_images/01a144e0-c60f-7822-8852-2be599cc1788/exec-90097c87-2fbb-477d-a32d-3d69c160c5b8.png",
+      "project_file": "Client/MMO_RPG/Assets/Main/UI/Frontend/ProgressTrack.png"
+    },
+    {
+      "key": "frontend_progress_fill",
+      "alpha": true,
+      "prompt": "Use case: stylized-concept. Asset type: SINGLE loading progress bar FILL sprite, transparent PNG, to sit INSIDE a separate navy-and-gold bar frame in Unity. 3:1 landscape canvas target 1536x512, actual thin luminous horizontal rectangle fills 96 percent canvas width and about 22 percent canvas height, centered vertically with transparent space above and below. Straight perfectly horizontal left/right edges, squared very slightly softened corners, no end caps, NO outer metal frame. Rich refined desaturated teal core with a fine pale-cyan highlight along upper edge and very subtle gold warmth, smooth evenly lit reusable center, not glittery. Fully filled luminous strip across its full width; Unity will crop it to show progress. Orthographic crisp UI art, controlled tiny bloom contained immediately around strip. Outside the strip truly transparent alpha. No text, no labels, no percentage, no markings, no ornaments, no backdrop, no buttons, no surrounding scene, no watermark. One single luminous progress fill only.",
+      "generated_file": "C:/Users/user/.codex/generated_images/01a144e0-c60f-7822-8852-2be599cc1788/exec-54ed63d6-e555-40c7-aab0-ab87505ac1b7.png",
+      "project_file": "Client/MMO_RPG/Assets/Main/UI/Frontend/ProgressFill.png"
+    },
+    {
+      "key": "frontend_selection_background",
+      "alpha": false,
+      "prompt": "Use case: stylized-concept. Asset type: full-screen character selection background for a Unity urban-fantasy MMORPG. ONE finished 16:9 landscape illustration, target 1920x1080. Cohesive with our blue-grey modern city, monumental bridges, spectral dragons and restrained antique-gold / teal interface. Make a grand modern city overlook at blue hour before dawn, wide slate terrace, brushed metal railings, distant modern glass-and-stone skyline and river bridges, clouded sky, sparse amber streetlights. On the LEFT-CENTER of the foreground (x38%, y80%) a FLAT circular teal-and-gold floor inlay marks where Unity will render a real full-body white-haired swordsman OR young traveler. Keep x20-56%, y18-80% open with simple medium-dark blue mist so character silhouettes read clearly, NO painted character. The RIGHT third is intentionally dark, calm and low contrast for a real character information panel added later; no bright sunset behind it. Frame only far outer edges with monumental modern architectural elements and sparse trees, no obstructions at the central standing area. One restrained spectral dragon shape dissolves into the distant UPPER LEFT cloud bank, not over the character's face. Premium semi-realistic stylized 3D fantasy game key-art, majestic scale, readable soft atmosphere, tasteful cool blue and muted gold palette. Perspective supports a standing hero on the left-center stage. Lower edge calm for nickname field and creation controls. No humans, no statues of people, no character silhouettes, no medieval palace, no pink candy colors, no snow, no weapon embedded in floor, no oversized portal. NO TEXT, NO LOGO, NO WATERMARK, no UI, no labels, no buttons, no interface frame, no collage. Background environment only.",
+      "generated_file": "C:/Users/user/.codex/generated_images/01a144e0-c60f-7822-8852-2be599cc1788/exec-b31722e1-628e-4d1b-bb99-26e1c41b78fb.png",
+      "project_file": "Client/MMO_RPG/Assets/MMO_Hot/ArtRes/BK/ChoicePanel.jpg"
+    }
+  ]
+}

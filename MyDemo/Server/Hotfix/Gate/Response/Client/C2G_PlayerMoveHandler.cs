@@ -18,7 +18,7 @@ public sealed class C2G_PlayerMoveHandler : Message<C2G_PlayerMove>
 
         session.Scene.Send(info.GameSceneAddress, new G2Game_PlayerMove
         {
-            UserName = info.UserName,
+            AccountUser = info.AccountUser,
             GateSessionRuntimeId = session.RuntimeId,
             GateSceneAddress = info.GateSceneAddress,
             Sequence = request.Sequence,

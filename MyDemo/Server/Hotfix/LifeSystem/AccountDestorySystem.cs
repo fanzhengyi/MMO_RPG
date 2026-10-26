@@ -6,7 +6,7 @@ public sealed class AccountDestorySystem : DestroySystem<Account>
     /// <summary>防止对象池中的账号带着上一次的数据。</summary>
     protected override void Destroy(Account self)
     {
-        self.Username = "";
+        self.AccountUser = "";
         self.Password = "";
         self.CreatTime = 0;
         self.LoginTime = 0;

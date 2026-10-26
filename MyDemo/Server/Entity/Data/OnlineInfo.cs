@@ -7,7 +7,9 @@ namespace Fantasy.MongdbModel;
 public sealed class OnlineInfo : Entity
 {
     /// <summary>角色所属的登录账号，只供服务端查找，不作为公开角色资料发送。</summary>
-    public string UserName = "";
+    // 保留现有 MongoDB 字段名，已有角色仍能按登录账号读取。
+    [BsonElement("UserName")]
+    public string AccountUser = "";
     /// <summary>游戏内公开显示的昵称。</summary>
     public string NickName = "";
     /// <summary>当前生命值。</summary>
@@ -64,6 +66,8 @@ public sealed class OnlineInfo : Entity
     [BsonIgnore] public uint LastCorrectionSequence;
     /// <summary>当前 Game 世界分配的上线顺序，对应客户端 Snapshot.SpawnRevision。</summary>
     [BsonIgnore] public ulong SpawnRevision;
+    /// <summary>本次上线独立拥有的动作、连击序号和冷却；不入库。</summary>
+    [BsonIgnore] public PlayerActionState Actions = new();
 
     /// <summary>是否绑定了有效的 Gate 路由身份；不等于客户端场景已经就绪。</summary>
     [BsonIgnore] public bool IsConnected => GateSessionRuntimeId != 0 && GateSceneAddress != 0;
@@ -102,6 +106,7 @@ public sealed class OnlineInfo : Entity
             NeedsReplication = false;
             MovementEpoch = 0;
             LastCorrectionSequence = 0;
+            Actions.Reset();
         }
         GateSessionRuntimeId = runtimeId;
         GateSceneAddress = sceneAddress;

@@ -24,6 +24,73 @@ using Fantasy.Serialize;
 namespace Fantasy
 {
     /// <summary>
+    /// 由 Game 确认的一次动作；用开始时间恢复进度，用 Version 防止重复播放特效
+    /// </summary>
+    [Serializable]
+    [ProtoContract]
+    public partial class PlayerActionSnapshot : AMessage, IDisposable
+    {
+        public static PlayerActionSnapshot Create(bool autoReturn = true)
+        {
+            var playerActionSnapshot = MessageObjectPool<PlayerActionSnapshot>.Rent();
+            playerActionSnapshot.AutoReturn = autoReturn;
+
+            if (!autoReturn)
+            {
+                playerActionSnapshot.SetIsPool(false);
+            }
+
+            return playerActionSnapshot;
+        }
+
+        public void Return()
+        {
+            if (!AutoReturn)
+            {
+                SetIsPool(true);
+                AutoReturn = true;
+            }
+            else if (!IsPool())
+            {
+                return;
+            }
+            Dispose();
+        }
+
+        public void Dispose()
+        {
+            if (!IsPool()) return;
+            Kind = default;
+            Version = default;
+            Sequence = default;
+            StartedAtServerTimeMs = default;
+            DurationMs = default;
+            RotationY = default;
+            OriginX = default;
+            OriginY = default;
+            OriginZ = default;
+            MessageObjectPool<PlayerActionSnapshot>.Return(this);
+        }
+        [ProtoMember(1)]
+        public PlayerActionKind Kind { get; set; }
+        [ProtoMember(2)]
+        public uint Version { get; set; }
+        [ProtoMember(3)]
+        public uint Sequence { get; set; }
+        [ProtoMember(4)]
+        public long StartedAtServerTimeMs { get; set; }
+        [ProtoMember(5)]
+        public int DurationMs { get; set; }
+        [ProtoMember(6)]
+        public float RotationY { get; set; }
+        [ProtoMember(7)]
+        public float OriginX { get; set; }
+        [ProtoMember(8)]
+        public float OriginY { get; set; }
+        [ProtoMember(9)]
+        public float OriginZ { get; set; }
+    }
+    /// <summary>
     /// 位置为世界坐标；RotationY 为角度，Speed 为实际水平速度（米/秒）
     /// </summary>
     [Serializable]
@@ -197,6 +264,11 @@ namespace Fantasy
             SpawnId = default;
             ServerTimeMs = default;
             SpawnRevision = default;
+            if (Action != null)
+            {
+                Action.Dispose();
+                Action = null;
+            }
             MessageObjectPool<PlayerPresence>.Return(this);
         }
         [ProtoMember(1)]
@@ -213,6 +285,8 @@ namespace Fantasy
         public long ServerTimeMs { get; set; }
         [ProtoMember(7)]
         public ulong SpawnRevision { get; set; }
+        [ProtoMember(8)]
+        public PlayerActionSnapshot Action { get; set; }
     }
     /// <summary>
     /// 注册账号
@@ -251,7 +325,7 @@ namespace Fantasy
         public void Dispose()
         {
             if (!IsPool()) return;
-            Username = default;
+            AccountUser = default;
             Password = default;
             MessageObjectPool<C2A_RegisterRequest>.Return(this);
         }
@@ -259,7 +333,7 @@ namespace Fantasy
         [ProtoIgnore]
         public A2C_RegisterResponse ResponseType { get; set; }
         [ProtoMember(1)]
-        public string Username { get; set; }
+        public string AccountUser { get; set; }
         [ProtoMember(2)]
         public string Password { get; set; }
     }
@@ -347,7 +421,7 @@ namespace Fantasy
         public void Dispose()
         {
             if (!IsPool()) return;
-            Username = default;
+            AccountUser = default;
             Password = default;
             MessageObjectPool<C2A_LoginRequest>.Return(this);
         }
@@ -355,7 +429,7 @@ namespace Fantasy
         [ProtoIgnore]
         public A2C_LoginResponse ResponseType { get; set; }
         [ProtoMember(1)]
-        public string Username { get; set; }
+        public string AccountUser { get; set; }
         [ProtoMember(2)]
         public string Password { get; set; }
     }
@@ -1125,5 +1199,189 @@ namespace Fantasy
         public long SpawnId { get; set; }
         [ProtoMember(4)]
         public ulong SpawnRevision { get; set; }
+    }
+    /// <summary>
+    /// 动作命令单独发送，不与高频移动快照合并；客户端可预测播放，Game 决定是否接受
+    /// </summary>
+    [Serializable]
+    [ProtoContract]
+    public partial class C2G_PlayerActionRequest : AMessage, IRequest
+    {
+        public static C2G_PlayerActionRequest Create(bool autoReturn = true)
+        {
+            var c2G_PlayerActionRequest = MessageObjectPool<C2G_PlayerActionRequest>.Rent();
+            c2G_PlayerActionRequest.AutoReturn = autoReturn;
+
+            if (!autoReturn)
+            {
+                c2G_PlayerActionRequest.SetIsPool(false);
+            }
+
+            return c2G_PlayerActionRequest;
+        }
+
+        public void Return()
+        {
+            if (!AutoReturn)
+            {
+                SetIsPool(true);
+                AutoReturn = true;
+            }
+            else if (!IsPool())
+            {
+                return;
+            }
+            Dispose();
+        }
+
+        public void Dispose()
+        {
+            if (!IsPool()) return;
+            Sequence = default;
+            Kind = default;
+            RotationY = default;
+            WorldSessionId = default;
+            MovementEpoch = default;
+            CancelSequence = default;
+            MessageObjectPool<C2G_PlayerActionRequest>.Return(this);
+        }
+        public uint OpCode() { return OuterOpcode.C2G_PlayerActionRequest; }
+        [ProtoIgnore]
+        public G2C_PlayerActionResponse ResponseType { get; set; }
+        [ProtoMember(1)]
+        public uint Sequence { get; set; }
+        [ProtoMember(2)]
+        public PlayerActionKind Kind { get; set; }
+        [ProtoMember(3)]
+        public float RotationY { get; set; }
+        [ProtoMember(4)]
+        public long WorldSessionId { get; set; }
+        [ProtoMember(5)]
+        public uint MovementEpoch { get; set; }
+        [ProtoMember(6)]
+        public uint CancelSequence { get; set; }
+    }
+    /// <summary>
+    /// 请求序号原样回传，客户端只能回滚同一条仍在播放的预测，不能取消后发的新动作
+    /// </summary>
+    [Serializable]
+    [ProtoContract]
+    public partial class G2C_PlayerActionResponse : AMessage, IResponse
+    {
+        public static G2C_PlayerActionResponse Create(bool autoReturn = true)
+        {
+            var g2C_PlayerActionResponse = MessageObjectPool<G2C_PlayerActionResponse>.Rent();
+            g2C_PlayerActionResponse.AutoReturn = autoReturn;
+
+            if (!autoReturn)
+            {
+                g2C_PlayerActionResponse.SetIsPool(false);
+            }
+
+            return g2C_PlayerActionResponse;
+        }
+
+        public void Return()
+        {
+            if (!AutoReturn)
+            {
+                SetIsPool(true);
+                AutoReturn = true;
+            }
+            else if (!IsPool())
+            {
+                return;
+            }
+            Dispose();
+        }
+
+        public void Dispose()
+        {
+            if (!IsPool()) return;
+            ErrorCode = 0;
+            Result = default;
+            Sequence = default;
+            if (Action != null)
+            {
+                Action.Dispose();
+                Action = null;
+            }
+            ServerTimeMs = default;
+            MessageObjectPool<G2C_PlayerActionResponse>.Return(this);
+        }
+        public uint OpCode() { return OuterOpcode.G2C_PlayerActionResponse; }
+        [ProtoMember(5)]
+        public uint ErrorCode { get; set; }
+        [ProtoMember(1)]
+        public ResultCode Result { get; set; }
+        [ProtoMember(2)]
+        public uint Sequence { get; set; }
+        [ProtoMember(3)]
+        public PlayerActionSnapshot Action { get; set; }
+        [ProtoMember(4)]
+        public long ServerTimeMs { get; set; }
+    }
+    /// <summary>
+    /// 立刻向其他可见玩家发送的一次动作，不经过移动复制周期合并
+    /// </summary>
+    [Serializable]
+    [ProtoContract]
+    public partial class G2C_PlayerAction : AMessage, IMessage
+    {
+        public static G2C_PlayerAction Create(bool autoReturn = true)
+        {
+            var g2C_PlayerAction = MessageObjectPool<G2C_PlayerAction>.Rent();
+            g2C_PlayerAction.AutoReturn = autoReturn;
+
+            if (!autoReturn)
+            {
+                g2C_PlayerAction.SetIsPool(false);
+            }
+
+            return g2C_PlayerAction;
+        }
+
+        public void Return()
+        {
+            if (!AutoReturn)
+            {
+                SetIsPool(true);
+                AutoReturn = true;
+            }
+            else if (!IsPool())
+            {
+                return;
+            }
+            Dispose();
+        }
+
+        public void Dispose()
+        {
+            if (!IsPool()) return;
+            RoleId = default;
+            if (Action != null)
+            {
+                Action.Dispose();
+                Action = null;
+            }
+            WorldSessionId = default;
+            SpawnId = default;
+            SpawnRevision = default;
+            ServerTimeMs = default;
+            MessageObjectPool<G2C_PlayerAction>.Return(this);
+        }
+        public uint OpCode() { return OuterOpcode.G2C_PlayerAction; }
+        [ProtoMember(1)]
+        public long RoleId { get; set; }
+        [ProtoMember(2)]
+        public PlayerActionSnapshot Action { get; set; }
+        [ProtoMember(3)]
+        public long WorldSessionId { get; set; }
+        [ProtoMember(4)]
+        public long SpawnId { get; set; }
+        [ProtoMember(5)]
+        public ulong SpawnRevision { get; set; }
+        [ProtoMember(6)]
+        public long ServerTimeMs { get; set; }
     }
 }

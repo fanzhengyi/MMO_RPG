@@ -1,20 +1,25 @@
 <linker>
   <assembly fullname="Assembly-CSharp, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null">
+    <type fullname="CharacterSelectionCatalog" preserve="all" />
+    <type fullname="CharacterSelectionPreview" preserve="all" />
     <type fullname="ChooseRolePanel" preserve="all" />
     <type fullname="Frostwurmnorthrend" preserve="all" />
     <type fullname="GlobalManager" preserve="all" />
     <type fullname="LoginPanel" preserve="all" />
+    <type fullname="PlayerActionSync" preserve="all" />
     <type fullname="PlayerMovementSync" preserve="all" />
     <type fullname="TipPanel" preserve="all" />
+    <type fullname="CharacterSelectionCatalog/Entry" preserve="nothing" serialized="true" />
   </assembly>
   <assembly fullname="Camera.Runtime, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null">
     <type fullname="MMO_Hot.Game.Camera.ThirdPersonCameraInput" preserve="all" />
   </assembly>
   <assembly fullname="Player.Runtime, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null">
-    <type fullname="AttackComboDefinition" preserve="all" />
+    <type fullname="PlayerCombatDefinition" preserve="all" />
     <type fullname="PlayerController" preserve="all" />
     <type fullname="PlayerInputSource" preserve="all" />
-    <type fullname="AttackComboDefinition/Step" preserve="nothing" serialized="true" />
+    <type fullname="PlayerCombatDefinition/ActionDefinition" preserve="nothing" serialized="true" />
+    <type fullname="PlayerCombatDefinition/EffectCue" preserve="nothing" serialized="true" />
   </assembly>
   <assembly fullname="Unity.Cinemachine, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null">
     <type fullname="Unity.Cinemachine.CinemachineBrain" preserve="all" />
@@ -138,7 +143,6 @@
     <type fullname="UnityEngine.UI.CanvasScaler" preserve="all" />
     <type fullname="UnityEngine.UI.GraphicRaycaster" preserve="all" />
     <type fullname="UnityEngine.UI.Image" preserve="all" />
-    <type fullname="UnityEngine.UI.LayoutElement" preserve="all" />
     <type fullname="UnityEngine.UI.RawImage" preserve="all" />
     <type fullname="UnityEngine.UI.RectMask2D" preserve="all" />
     <type fullname="UnityEngine.UI.AnimationTriggers" preserve="nothing" serialized="true" />
@@ -157,8 +161,5 @@
     <type fullname="UnityEngine.TextCore.Glyph" preserve="nothing" serialized="true" />
     <type fullname="UnityEngine.TextCore.GlyphMetrics" preserve="nothing" serialized="true" />
     <type fullname="UnityEngine.TextCore.GlyphRect" preserve="nothing" serialized="true" />
-    <type fullname="UnityEngine.TextCore.LowLevel.GlyphAdjustmentRecord" preserve="nothing" serialized="true" />
-    <type fullname="UnityEngine.TextCore.LowLevel.GlyphPairAdjustmentRecord" preserve="nothing" serialized="true" />
-    <type fullname="UnityEngine.TextCore.LowLevel.GlyphValueRecord" preserve="nothing" serialized="true" />
   </assembly>
 </linker>

@@ -21,23 +21,16 @@ Material:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_Name: LighntingAnchor
-  m_Shader: {fileID: -6465566751694194690, guid: 482790da9e6ee014b93589bbc3fa82cd, type: 3}
+  m_Shader: {fileID: 4800000, guid: 704b28b85e983f349ada9120bb588c68, type: 3}
   m_Parent: {fileID: 0}
   m_ModifiedSerializedProperties: 0
-  m_ValidKeywords:
-  - _BUILTIN_ALPHATEST_ON
-  - _BUILTIN_AlphaClip
-  - _BUILTIN_SURFACE_TYPE_TRANSPARENT
-  - _USEALPHANOISE
-  - _USEUVNOISE
-  m_InvalidKeywords:
-  - _USEVERTEXCOLOR
+  m_ValidKeywords: []
+  m_InvalidKeywords: []
   m_LightmapFlags: 4
   m_EnableInstancingVariants: 0
   m_DoubleSidedGI: 0
   m_CustomRenderQueue: 3000
-  stringTagMap:
-    RenderType: Transparent
+  stringTagMap: {}
   disabledShaderPasses: []
   m_LockedProperties: 
   m_SavedProperties:
@@ -46,6 +39,26 @@ Material:
     - _AlphaNoise:
         m_Texture: {fileID: 2800000, guid: 527b7b52ea6bce04f98f06e08bbd6fdc, type: 3}
         m_Scale: {x: 20, y: 20}
+        m_Offset: {x: 0, y: 0}
+    - _CombatDissolveTex:
+        m_Texture: {fileID: 0}
+        m_Scale: {x: 1, y: 1}
+        m_Offset: {x: 0, y: 0}
+    - _CombatMainTex:
+        m_Texture: {fileID: 2800000, guid: 18ef0d54bf8be8545a449032ee49c173, type: 3}
+        m_Scale: {x: 1, y: 1}
+        m_Offset: {x: 0, y: 0}
+    - _CombatMaskTex:
+        m_Texture: {fileID: 0}
+        m_Scale: {x: 1, y: 1}
+        m_Offset: {x: 0, y: 0}
+    - _CombatNoiseTex:
+        m_Texture: {fileID: 2800000, guid: 8008b488a2ddb5c4696561e0694ae7d0, type: 3}
+        m_Scale: {x: 0.4, y: 0.2}
+        m_Offset: {x: 0, y: 0}
+    - _CombatSecondaryTex:
+        m_Texture: {fileID: 0}
+        m_Scale: {x: 1, y: 1}
         m_Offset: {x: 0, y: 0}
     - _MainTex:
         m_Texture: {fileID: 2800000, guid: 18ef0d54bf8be8545a449032ee49c173, type: 3}
@@ -73,6 +86,21 @@ Material:
     - _BUILTIN_ZWrite: 0
     - _BUILTIN_ZWriteControl: 0
     - _BumpScale: 1
+    - _CombatAlphaFromLuminance: 1
+    - _CombatDissolve: 0
+    - _CombatDissolveSoftness: 0.035
+    - _CombatDstBlend: 1
+    - _CombatEmission: 1
+    - _CombatFresnelPower: 1
+    - _CombatFresnelStrength: 1
+    - _CombatNoiseStrength: 0
+    - _CombatOpacity: 1
+    - _CombatPremultiply: 0
+    - _CombatSrcBlend: 5
+    - _CombatUseDissolve: 0
+    - _CombatUseFresnel: 0
+    - _CombatUseMask: 0
+    - _CombatUseSecondary: 0
     - _Custout: 0.1
     - _Cutoff: 0.5
     - _Cutout: 0.05
@@ -104,9 +132,15 @@ Material:
     - _ZWrite: 1
     m_Colors:
     - _Color: {r: 0.83351684, g: 1.8015194, b: 31.840351, a: 1}
+    - _CombatColor: {r: 0.83351684, g: 1.8015194, b: 31.840351, a: 1}
+    - _CombatMainScroll: {r: 0, g: 0, b: 0, a: 0}
+    - _CombatMaskScroll: {r: 0, g: 0, b: 0, a: 0}
+    - _CombatNoiseScroll: {r: 0.1, g: -0.2, b: 0, a: 0}
+    - _CombatSecondaryScroll: {r: 0, g: 0, b: 0, a: 0}
     - _DistortionSpeed: {r: 0.1, g: -0.2, b: 0, a: 0}
     - _DistortionStrength: {r: 0.5, g: 1, b: 0, a: 0}
     - _EmissionColor: {r: 0, g: 0, b: 0, a: 1}
     - _FlipbookSize: {r: 8, g: 8, b: 0, a: 0}
     - _NoiseVertexOffsetStrength: {r: 0.08, g: 0.08, b: 0.08, a: 0}
   m_BuildTextureStacks: []
+  m_AllowLocking: 1

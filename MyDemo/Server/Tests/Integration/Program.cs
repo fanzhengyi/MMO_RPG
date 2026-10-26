@@ -16,6 +16,9 @@ var secondAccount = "sync_b_" + suffix;
 
 try
 {
+    if (args.Length > 0 && args[0] == "--combat-peer")
+        return await RunCombatPeerAsync(args[1], args.Length > 2 ? int.Parse(args[2]) : 120);
+
     if (args.Length > 0 && args[0] == "--peer")
     {
         using var peer = await LoginAsync(args[1]);
@@ -78,6 +81,8 @@ try
     var b = await EnterAsync(second);
 
     await MoveAsync(second, b.WorldSessionId, 1, 0.5f);
+    var loadingAction = await ActionAsync(second, b.WorldSessionId, 1, PlayerActionKind.Skill01);
+    Require(loadingAction.Result == ResultCode.InvalidWorldSession, "loading player cannot start actions");
     Require(await first.WaitAsync(f => f.Opcode == OuterOpcode.G2C_PlayerEntered || f.Opcode == OuterOpcode.G2C_PlayerMove, 250) == null,
         "loading player is invisible and cannot move");
     var wrongReady = await second.CallAsync<C2G_WorldReadyRequest, G2C_WorldReadyResponse>(new() { WorldSessionId = b.WorldSessionId + 1 });
@@ -90,6 +95,48 @@ try
     await ReadyAsync(second, b.WorldSessionId);
     Require(await first.WaitAsync(f => f.Opcode == OuterOpcode.G2C_PlayerEntered, 200) == null, "ready is idempotent");
     Pass("prepare -> ready visibility, identity and idempotence");
+
+    var action = await ActionAsync(second, b.WorldSessionId, 1, PlayerActionKind.Skill04);
+    Require(action.Result == ResultCode.Success && action.Sequence == 1 && action.Action.Kind == PlayerActionKind.Skill04
+        && action.Action.DurationMs == 1200 && action.Action.StartedAtServerTimeMs > 0,
+        "skill accepted with authoritative timing");
+    var actionFrame = await first.WaitAsync(f => f.Opcode == OuterOpcode.G2C_PlayerAction);
+    var visibleAction = actionFrame?.Read<G2C_PlayerAction>();
+    Require(visibleAction?.RoleId == b.Info.RoleId && visibleAction.WorldSessionId == a.WorldSessionId
+        && visibleAction.SpawnId == b.WorldSessionId && visibleAction.SpawnRevision == initialPresence.SpawnRevision
+        && visibleAction.Action.Version == action.Action.Version, "independent action broadcast preserves incarnation");
+    var actionBaseline = await ReadyAsync(first, a.WorldSessionId);
+    Require(actionBaseline.Players.Single(p => p.RoleId == b.Info.RoleId).Action.Sequence == 1,
+        "fresh visibility baseline carries ongoing action");
+    var busy = await ActionAsync(second, b.WorldSessionId, 2, PlayerActionKind.Slide);
+    Require(busy.Result == ResultCode.Busy && busy.Sequence == 2 && busy.Action.Sequence == 1,
+        "locked skill cannot be replaced by slide and rejection echoes exact request");
+    Require(await first.WaitAsync(f => f.Opcode == OuterOpcode.G2C_PlayerAction, 150) == null,
+        "rejected action is not broadcast");
+    await Task.Delay(1200);
+    var cooldown = await ActionAsync(second, b.WorldSessionId, 3, PlayerActionKind.Skill04);
+    Require(cooldown.Result == ResultCode.Cooldown, "recovering does not reset skill cooldown");
+    var nextSkill = await ActionAsync(second, b.WorldSessionId, 4, PlayerActionKind.Skill01);
+    Require(nextSkill.Result == ResultCode.Success, "another ready skill can start");
+    Require((await first.WaitAsync(f => f.Opcode == OuterOpcode.G2C_PlayerAction))?.Read<G2C_PlayerAction>().Action.Sequence == 4,
+        "second action arrives immediately without movement traffic");
+    var oldCancel = await ActionAsync(second, b.WorldSessionId, 5, PlayerActionKind.None, cancelSequence: 1);
+    Require(oldCancel.Result == ResultCode.Busy && oldCancel.Action.Sequence == 4,
+        "cancel for old prediction cannot cancel a newer action");
+    var cancelled = await ActionAsync(second, b.WorldSessionId, 6, PlayerActionKind.None, cancelSequence: 4);
+    Require(cancelled.Result == ResultCode.Success && cancelled.Action.Kind == PlayerActionKind.None,
+        "matching action cancel accepted");
+    Require((await first.WaitAsync(f => f.Opcode == OuterOpcode.G2C_PlayerAction))?.Read<G2C_PlayerAction>().Action.Kind == PlayerActionKind.None,
+        "explicit cancellation reaches observers");
+    var wrongWorldAction = await ActionAsync(second, b.WorldSessionId + 1, 7, PlayerActionKind.Attack01);
+    Require(wrongWorldAction.Result == ResultCode.InvalidWorldSession, "wrong world cannot act");
+    await Task.Delay(110); // 本组集中发出多个 RPC，留出动作令牌，分别验证 epoch 与编号规则。
+    var oldEpochAction = await ActionAsync(second, b.WorldSessionId, 8, PlayerActionKind.Attack01, movementEpoch: 1);
+    Require(oldEpochAction.Result == ResultCode.InvalidAction, "wrong correction epoch cannot act: " + oldEpochAction.Result);
+    await Task.Delay(110);
+    var invalidAction = await ActionAsync(second, b.WorldSessionId, 9, (PlayerActionKind)999);
+    Require(invalidAction.Result == ResultCode.InvalidAction, "unknown action kind rejected");
+    Pass("action routing, visibility baseline, lock, cooldown, exact cancellation and stale-world rejection");
 
     await MoveAsync(second, b.WorldSessionId, 2, 0.5f);
     var moved = await first.WaitAsync(f => f.Opcode == OuterOpcode.G2C_PlayerMove);
@@ -138,7 +185,7 @@ try
     var denied = await reconnected.CallAsync<C2G_EnterGameRequest, G2C_EnterGameResponse>(new());
     Require(denied.Result == ResultCode.NotAuthenticated, "replaced connection loses authority");
     Pass("duplicate login invalidates old authority");
-    Console.WriteLine("4/4 real-network scenarios passed.");
+    Console.WriteLine("5/5 real-network scenarios passed.");
     return 0;
 }
 catch (Exception exception)
@@ -155,14 +202,17 @@ static async Task<TcpTestClient> LoginAsync(string account)
 {
     string address;
     string token;
-    using (var registration = await TcpTestClient.ConnectAsync(LoginServerConfig.GetAddress(account)))
+    // authenticationAddress：只对鉴权入口加测试端口偏移，Gate 地址由隔离服务器真实返回。
+    var authenticationAddress = System.Net.IPEndPoint.Parse(LoginServerConfig.GetAddress(account));
+    authenticationAddress.Port += int.TryParse(Environment.GetEnvironmentVariable("MMO_TEST_PORT_OFFSET"), out var offset) ? offset : 0;
+    using (var registration = await TcpTestClient.ConnectAsync(authenticationAddress.ToString()))
     {
-        var registered = await registration.CallAsync<C2A_RegisterRequest, A2C_RegisterResponse>(new() { Username = account, Password = password });
+        var registered = await registration.CallAsync<C2A_RegisterRequest, A2C_RegisterResponse>(new() { AccountUser = account, Password = password });
         Require(registered.Result is ResultCode.Success or ResultCode.AccountExists, "registration: " + registered.Result);
     }
-    using (var authentication = await TcpTestClient.ConnectAsync(LoginServerConfig.GetAddress(account)))
+    using (var authentication = await TcpTestClient.ConnectAsync(authenticationAddress.ToString()))
     {
-        var authenticated = await authentication.CallAsync<C2A_LoginRequest, A2C_LoginResponse>(new() { Username = account, Password = password });
+        var authenticated = await authentication.CallAsync<C2A_LoginRequest, A2C_LoginResponse>(new() { AccountUser = account, Password = password });
         Require(authenticated.Result == ResultCode.Success, "authentication: " + authenticated.Result);
         address = authenticated.GateAddress;
         token = authenticated.Token;
@@ -200,3 +250,122 @@ static Task MoveAsync(TcpTestClient gate, long worldSessionId, uint sequence, fl
     => gate.SendAsync(new C2G_PlayerMove { WorldSessionId = worldSessionId, Sequence = sequence,
         MovementEpoch = movementEpoch,
         Movement = new MovementSnapshot { X = x, Y = y, Z = z, RotationY = rotationY, State = PlayerMotionState.Run, Speed = 6.5f } });
+
+static Task<G2C_PlayerActionResponse> ActionAsync(TcpTestClient gate, long worldSessionId, uint sequence,
+    PlayerActionKind kind, uint cancelSequence = 0, uint movementEpoch = 0, float rotationY = 90)
+    => gate.CallAsync<C2G_PlayerActionRequest, G2C_PlayerActionResponse>(new()
+    {
+        WorldSessionId = worldSessionId, Sequence = sequence, Kind = kind,
+        CancelSequence = cancelSequence, MovementEpoch = movementEpoch, RotationY = rotationY,
+    });
+
+/// <summary>编辑器联调陪测端：真实收发动作与移动，不在测试端调用服务器规则或业务 Handler。</summary>
+static async Task<int> RunCombatPeerAsync(string account, int durationSeconds)
+{
+    using var peer = await LoginAsync(account);
+    var entered = await EnterAsync(peer);
+    await ReadyAsync(peer, entered.WorldSessionId);
+    Console.WriteLine($"COMBAT_PEER_READY account={account} role={entered.Info.RoleId} world={entered.WorldSessionId}");
+    // pattern：按共享节奏演示三段连击、四个技能和一次滑行，再回到起点开始下一轮。
+    var pattern = new[] { PlayerActionId.Attack01, PlayerActionId.Attack02, PlayerActionId.Attack03,
+        PlayerActionId.Skill01, PlayerActionId.Skill02, PlayerActionId.Skill03, PlayerActionId.Skill04, PlayerActionId.Slide };
+    var actionCounts = new Dictionary<string, int>();
+    var receivedMoves = 0;
+    var sentActions = 0;
+    var cursor = 0;
+    uint actionSequence = 0, movementSequence = 0, epoch = 0;
+    var x = entered.Info.Movement.X;
+    var y = entered.Info.Movement.Y;
+    var z = entered.Info.Movement.Z;
+    var homeX = x + 2f;
+    var homeZ = z + 2f;
+    var started = Environment.TickCount64;
+    var lastTick = started;
+    var nextActionAt = started + 1500;
+    var activeUntil = started;
+    var activeKind = PlayerActionId.None;
+    while (Environment.TickCount64 - started < durationSeconds * 1000L)
+    {
+        var now = Environment.TickCount64;
+        var delta = Math.Min((now - lastTick) / 1000f, 0.25f);
+        lastTick = now;
+        var oldX = x;
+        var oldZ = z;
+        if (activeKind == PlayerActionId.Slide && now < activeUntil)
+            x -= PlayerActionRules.SlideSpeed * delta;
+        else if (now >= activeUntil && cursor == 0)
+        {
+            x += Math.Clamp(homeX - x, -2f * delta, 2f * delta);
+            z += Math.Clamp(homeZ - z, -2f * delta, 2f * delta);
+        }
+
+        if (now >= nextActionAt && (cursor != 0 || Math.Abs(homeX - x) < 0.05f))
+        {
+            var id = pattern[cursor];
+            var response = await ActionAsync(peer, entered.WorldSessionId, ++actionSequence,
+                (PlayerActionKind)id, movementEpoch: epoch, rotationY: id == PlayerActionId.Slide ? 270f : 225f);
+            Console.WriteLine(System.Text.Json.JsonSerializer.Serialize(new
+            {
+                eventName = "sent_action", roleId = entered.Info.RoleId, kind = id.ToString(),
+                sequence = response.Sequence, result = response.Result.ToString(), version = response.Action?.Version,
+            }));
+            now = Environment.TickCount64;
+            if (response.Result == ResultCode.Success)
+            {
+                sentActions++;
+                activeKind = id;
+                var timing = PlayerActionRules.Get(id);
+                activeUntil = now + timing.RecoverAtMs;
+                nextActionAt = now + (id is PlayerActionId.Attack01 or PlayerActionId.Attack02
+                    ? timing.ChainAtMs : timing.RecoverAtMs) + 40;
+                cursor = (cursor + 1) % pattern.Length;
+            }
+            else nextActionAt = now + 250;
+        }
+
+        var speed = delta > 0 ? Math.Min(MathF.Sqrt((x - oldX) * (x - oldX) + (z - oldZ) * (z - oldZ)) / delta,
+            PlayerActionRules.SlideSpeed) : 0f;
+        await peer.SendAsync(new C2G_PlayerMove
+        {
+            Sequence = ++movementSequence, WorldSessionId = entered.WorldSessionId, MovementEpoch = epoch,
+            Movement = new MovementSnapshot
+            {
+                X = x, Y = y, Z = z, RotationY = activeKind == PlayerActionId.Slide ? 270f : 225f,
+                State = speed > 0.01f ? PlayerMotionState.Walk : PlayerMotionState.Idle, Speed = speed,
+            },
+        });
+        // RPC 和观察共用同一收包者，避免并行 WaitAsync 抢走对方正在等待的响应。
+        for (var index = 0; index < 64; index++)
+        {
+            var frame = await peer.WaitAsync(_ => true, 1);
+            if (frame == null) break;
+            if (frame.Value.Opcode == OuterOpcode.G2C_PlayerMove) receivedMoves++;
+            else if (frame.Value.Opcode == OuterOpcode.G2C_PlayerPositionCorrection)
+            {
+                var correction = frame.Value.Read<G2C_PlayerPositionCorrection>();
+                epoch = correction.MovementEpoch;
+                x = correction.Movement.X; y = correction.Movement.Y; z = correction.Movement.Z;
+                Console.WriteLine($"COMBAT_PEER_CORRECTION epoch={epoch}");
+            }
+            else if (frame.Value.Opcode == OuterOpcode.G2C_PlayerAction)
+            {
+                var action = frame.Value.Read<G2C_PlayerAction>();
+                Require(action.WorldSessionId == entered.WorldSessionId, "observer world identity");
+                var key = action.RoleId + ":" + action.Action.Kind;
+                actionCounts[key] = actionCounts.GetValueOrDefault(key) + 1;
+                Console.WriteLine(System.Text.Json.JsonSerializer.Serialize(new
+                {
+                    eventName = "received_action", roleId = action.RoleId, kind = action.Action.Kind.ToString(),
+                    version = action.Action.Version, sequence = action.Action.Sequence,
+                    origin = new[] { action.Action.OriginX, action.Action.OriginY, action.Action.OriginZ },
+                }));
+            }
+            else if (frame.Value.Opcode == OuterOpcode.G2C_PlayerEntered)
+                Console.WriteLine("COMBAT_PEER_SPAWN role=" + frame.Value.Read<G2C_PlayerEntered>().Player.RoleId);
+        }
+        await Task.Delay(50);
+    }
+    Console.WriteLine("COMBAT_PEER_SUMMARY " + System.Text.Json.JsonSerializer.Serialize(new
+        { sentActions, receivedMoves, receivedActions = actionCounts }));
+    return 0;
+}

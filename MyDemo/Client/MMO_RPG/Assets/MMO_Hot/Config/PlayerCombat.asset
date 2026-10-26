@@ -1,0 +1,95 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 993abc19c0c17d44b815c8dbf31d3c14, type: 3}
+  m_Name: PlayerCombat
+  m_EditorClassIdentifier: Player.Runtime::PlayerCombatDefinition
+  actions:
+  - ActionId: 1
+    Clip: {fileID: -7030401614675919370, guid: ce77ffc368ef00c47a724737245b135f, type: 3}
+    Effects:
+    - Prefab: {fileID: 1911572854980929481, guid: 31a002e239edec74f82b993716735ce8, type: 3}
+      NormalizedTime: 0.12
+      Anchor: 2
+      LocalPosition: {x: 0, y: 0, z: 0}
+      LocalEuler: {x: 0, y: 0, z: 0}
+      LocalScale: {x: 0.25, y: 0.25, z: 0.25}
+      Lifetime: 0.9
+  - ActionId: 2
+    Clip: {fileID: 7693307270822759963, guid: 9817e09a8ca50974d97988618183ca1e, type: 3}
+    Effects:
+    - Prefab: {fileID: 1911572854980929481, guid: 31a002e239edec74f82b993716735ce8, type: 3}
+      NormalizedTime: 0.12
+      Anchor: 2
+      LocalPosition: {x: 0, y: 0, z: 0}
+      LocalEuler: {x: 0, y: 0, z: 0}
+      LocalScale: {x: 0.25, y: 0.25, z: 0.25}
+      Lifetime: 0.9
+  - ActionId: 3
+    Clip: {fileID: 4310435838307014163, guid: 8d85c0117b2b27c42bf3d89d230d49f8, type: 3}
+    Effects:
+    - Prefab: {fileID: 1911572854980929481, guid: 31a002e239edec74f82b993716735ce8, type: 3}
+      NormalizedTime: 0.12
+      Anchor: 2
+      LocalPosition: {x: 0, y: 0, z: 0}
+      LocalEuler: {x: 0, y: 0, z: 0}
+      LocalScale: {x: 0.25, y: 0.25, z: 0.25}
+      Lifetime: 0.9
+  - ActionId: 11
+    Clip: {fileID: 8993902097722301239, guid: 2fea97bed489ed14c93d3750dcc965a8, type: 3}
+    Effects:
+    - Prefab: {fileID: 8221181055007562159, guid: 10a89178a9905cf469575043f6255f62, type: 3}
+      NormalizedTime: 0.18
+      Anchor: 0
+      LocalPosition: {x: 0, y: 0, z: 0}
+      LocalEuler: {x: 0, y: 0, z: 0}
+      LocalScale: {x: 0.35, y: 0.35, z: 0.35}
+      Lifetime: 4
+  - ActionId: 12
+    Clip: {fileID: -6302548034035704796, guid: 8edc0b56a82cf30469284b37a340b7b2, type: 3}
+    Effects:
+    - Prefab: {fileID: 6129357769443821960, guid: d2adf48ae55888c4683f2077eaf21822, type: 3}
+      NormalizedTime: 0
+      Anchor: 0
+      LocalPosition: {x: 0, y: 0, z: 0}
+      LocalEuler: {x: 0, y: 0, z: 0}
+      LocalScale: {x: 0.35, y: 0.35, z: 0.35}
+      Lifetime: 3
+  - ActionId: 13
+    Clip: {fileID: -182087240078344236, guid: 151b07b174a7aec40bd0b383a78a84da, type: 3}
+    Effects:
+    - Prefab: {fileID: 3391158376525424131, guid: 23e795605239c664e80feb0cdadbaa6b, type: 3}
+      NormalizedTime: 0.35
+      Anchor: 3
+      LocalPosition: {x: 0, y: 0, z: 2}
+      LocalEuler: {x: 0, y: 0, z: 0}
+      LocalScale: {x: 0.18, y: 0.18, z: 0.18}
+      Lifetime: 5
+  - ActionId: 14
+    Clip: {fileID: 1069517450382045888, guid: b10c6a10ca30f96458e84d7e38b5afda, type: 3}
+    Effects:
+    - Prefab: {fileID: 2819319353582085206, guid: e5deda0e75488a74c9a6fbbe12e639a6, type: 3}
+      NormalizedTime: 0
+      Anchor: 0
+      LocalPosition: {x: 0, y: 0, z: 0}
+      LocalEuler: {x: 0, y: 0, z: 0}
+      LocalScale: {x: 0.4, y: 0.4, z: 0.4}
+      Lifetime: 0.85
+    - Prefab: {fileID: 5576241031387433987, guid: 0046b2c100737c646aa7d738f82127ba, type: 3}
+      NormalizedTime: 0.35
+      Anchor: 3
+      LocalPosition: {x: 0, y: 0, z: 3}
+      LocalEuler: {x: 0, y: 0, z: 0}
+      LocalScale: {x: 0.18, y: 0.18, z: 0.18}
+      Lifetime: 5
+  - ActionId: 20
+    Clip: {fileID: -5853296643011188390, guid: 015fa64b96ff23d4abf6aff8591aa1c4, type: 3}
+    Effects: []

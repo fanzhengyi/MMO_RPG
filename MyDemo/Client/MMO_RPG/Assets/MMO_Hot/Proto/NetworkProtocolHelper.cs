@@ -8,19 +8,19 @@ namespace Fantasy
     {
         // Create 的请求由 Fantasy 在发送后归还；不能跨 await 用 using 再次释放。
         /// <summary>向鉴权服请求注册账号。</summary>
-        public static async FTask<A2C_RegisterResponse> C2A_RegisterRequest(this Session session, string username, string password)
+        public static async FTask<A2C_RegisterResponse> C2A_RegisterRequest(this Session session, string accountUser, string password)
         {
             var request = Fantasy.C2A_RegisterRequest.Create();
-            request.Username = username;
+            request.AccountUser = accountUser;
             request.Password = password;
             return (A2C_RegisterResponse)await session.Call(request);
         }
 
         /// <summary>向鉴权服登录，获取 Gate Token。</summary>
-        public static async FTask<A2C_LoginResponse> C2A_LoginRequest(this Session session, string username, string password)
+        public static async FTask<A2C_LoginResponse> C2A_LoginRequest(this Session session, string accountUser, string password)
         {
             var request = Fantasy.C2A_LoginRequest.Create();
-            request.Username = username;
+            request.AccountUser = accountUser;
             request.Password = password;
             return (A2C_LoginResponse)await session.Call(request);
         }
@@ -66,6 +66,20 @@ namespace Fantasy
             message.WorldSessionId = worldSessionId;
             message.Movement = movement;
             session.Send(message);
+        }
+
+        /// <summary>提交一次预测动作；服务端检查动作锁、连击顺序、冷却和世界身份。</summary>
+        public static async FTask<G2C_PlayerActionResponse> C2G_PlayerActionRequest(this Session session,
+            long worldSessionId, uint sequence, uint movementEpoch, PlayerActionKind kind, float rotationY, uint cancelSequence = 0)
+        {
+            var request = Fantasy.C2G_PlayerActionRequest.Create();
+            request.WorldSessionId = worldSessionId;
+            request.Sequence = sequence;
+            request.MovementEpoch = movementEpoch;
+            request.Kind = kind;
+            request.RotationY = rotationY;
+            request.CancelSequence = cancelSequence;
+            return (G2C_PlayerActionResponse)await session.Call(request);
         }
     }
 }

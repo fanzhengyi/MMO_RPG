@@ -13,26 +13,28 @@ public sealed class C2G_LoginRequestHandler : MessageRPC<C2G_LoginRequest, G2C_L
     {
         response.Result = ResultCode.UnsupportedProtocol;
         if (request.ProtocolVersion != (uint)ProtocolRevision.Current) return;
+        
         response.Result = ResultCode.InvalidToken;
         if (!session.Scene.GetComponent<GateJwtComponent>()
-            // userName：当前请求已验证的登录账号，不是角色昵称。
-            .TryValidateToken(request.Token, session.Scene.SceneConfigId, out var userName)) return;
+            
+            .TryValidateToken(request.Token, session.Scene.SceneConfigId, out var accountUser)) return;
 
         // existing：当前连接上已绑定的玩家会话组件。
         var existing = session.GetComponent<PlayerSessionComponent>();
+        //客户端可能用同一个Session点了两次登录
         if (existing != null)
         {
-            if (existing.UserName == userName) response.Result = ResultCode.Success;
+            if (existing.AccountUser == accountUser) response.Result = ResultCode.Success;
             return;
         }
         // gameScenes：配置中的 Game 场景列表，按账号哈希选择角色所在 Game。
         var gameScenes = SceneConfigData.Instance.GetSceneBySceneType(SceneType.Game);
         if (gameScenes.Count == 0) { response.Result = ResultCode.ServerError; return; }
-
+        
         // cache：当前 Gate 的账号到在线连接映射。
         var cache = session.Scene.GetComponent<GateLoginCache>();
         // oldId：同一账号先前连接的运行时 ID。
-        if (cache.Sessions.TryGetValue(userName, out var oldId)
+        if (cache.Sessions.TryGetValue(accountUser, out var oldId)
             // oldSession：同一账号先前使用的客户端连接，新登录将替换它。
             && session.Scene.TryGetEntity<Session>(oldId, out var oldSession))
         {
@@ -43,12 +45,12 @@ public sealed class C2G_LoginRequestHandler : MessageRPC<C2G_LoginRequest, G2C_L
         // info：本次登录新绑定的玩家会话组件，保存已验证账号和路由。
         var info = session.AddComponent<PlayerSessionComponent>();
         info.ResetWorldState();
-        info.UserName = userName;
+        info.AccountUser = accountUser;
         // 当前是单个公共世界，同场景玩家不能按账号分到不同 Game。
         info.GameSceneAddress = gameScenes[0].Address;
         info.GateSceneAddress = SceneConfigData.Instance.Get(session.Scene.SceneConfigId).Address;
         info.SessionRuntimeId = session.RuntimeId;
-        cache.Sessions[userName] = session.RuntimeId;
+        cache.Sessions[accountUser] = session.RuntimeId;
         response.Result = ResultCode.Success;
         await FTask.CompletedTask;
     }

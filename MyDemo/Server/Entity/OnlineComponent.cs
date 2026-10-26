@@ -5,7 +5,7 @@ namespace Fantasy.MongdbModel;
 public sealed class OnlineComponent : Entity
 {
     /// <summary>按登录账号索引当前 Game 载入的角色；字典存在不代表已 WorldReady，需再看 IsInWorld。</summary>
-    public readonly Dictionary<string, OnlineInfo> PlayersByName = new(StringComparer.Ordinal);
+    public readonly Dictionary<string, OnlineInfo> PlayersByAccountUser = new(StringComparer.Ordinal);
     /// <summary>定时保存角色数据的任务 ID，销毁组件时用于移除计时器。</summary>
     public long SaveTimerId;
     /// <summary>定时广播移动变化的任务 ID，当前每 50 毫秒处理一次。</summary>

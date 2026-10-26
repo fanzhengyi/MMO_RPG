@@ -29,10 +29,17 @@ var checks = new (string Name, Action Run)[]
     ("Attack buffer validity is evaluated at the actual chain point", CheckAttackBufferDeadline),
     ("Late attack input never rewinds to an earlier chain point", CheckAttackLateInput),
     ("Attack recovery releases control before the animation tail ends", CheckAttackRecovery),
+    ("Shared combat IDs and timings match the generated protocol", CheckActionContract),
+    ("Client combat input, interruption and cooldown stay deterministic", ClientCombatTests.Run),
+    ("Combat commands enforce ordered chains without losing sequence wraparound", CheckActionOrder),
+    ("Skills and slide respect action locks, cooldowns and precise cancellation", CheckActionCooldown),
+    ("Action baselines retain cast origin and survive protobuf serialization", CheckActionSnapshot),
+    ("Action limiter is independent of movement and resets with its world", CheckActionLimiter),
     ("Correction epochs reject in-flight pre-correction movement", CheckCorrectionEpoch),
     ("Spawn ordering rejects retired instances across repeated reconnects", CheckSpawnOrdering),
     ("Role responses contain independent DTOs", CheckRoleMapping),
     ("Database snapshots exclude session and runtime movement fields", CheckPersistence),
+    ("AccountUser naming retains existing MongoDB accounts and roles", CheckAccountUserStorage),
     ("Normal movement and running remain valid", CheckNormalMovement),
     ("All five motion states are accepted independently of Animator numbers", CheckMotionStates),
     ("High packet frequency cannot refill movement allowance", CheckMovementBurst),
@@ -226,11 +233,135 @@ static void CheckAttackRecovery()
     Require(combo.Tick(1.75f, true, true) == 1, "animation tail does not extend post-recovery grace");
 }
 
+static void CheckActionContract()
+{
+    foreach (var kind in Enum.GetValues<PlayerActionKind>())
+    {
+        var id = (PlayerActionId)kind;
+        Require(PlayerActionRules.IsDefined(id), "every wire action has shared timing");
+        var timing = PlayerActionRules.Get(id);
+        Require(timing.DurationMs == (int)Math.Round(timing.Duration * 1000d, MidpointRounding.AwayFromZero), "wire milliseconds");
+        Require(id == PlayerActionId.None || timing.Duration > 0 && timing.RecoverAt > 0 && timing.RecoverAt <= 1,
+            "valid lock duration");
+    }
+    Require((int)PlayerActionId.Skill01 == 11 && (int)PlayerActionId.Skill04 == 14
+        && (int)PlayerActionId.Slide == 20 && (int)ProtocolRevision.Current == 4, "stable action IDs and revision");
+    Require(PlayerActionRules.SlideSpeed <= 8f && PlayerActionRules.Get(PlayerActionId.Slide).DurationMs == 650,
+        "slide fits existing authoritative movement budget");
+    Require(!PlayerActionRules.IsDefined((PlayerActionId)10) && !PlayerActionRules.IsDefined((PlayerActionId)999),
+        "unknown wire actions are not configuration lookups");
+}
+
+static void CheckActionOrder()
+{
+    var state = new PlayerActionState();
+    Require(PlayerActionRules.Process(state, 1, PlayerActionId.Attack01, -90, 0, 1000) == PlayerActionRules.Decision.Accepted
+        && state.Version == 1 && state.RotationY == 270, "first action accepted");
+    var firstChain = PlayerActionRules.Get(PlayerActionId.Attack01).ChainAtMs;
+    Require(PlayerActionRules.Process(state, 2, PlayerActionId.Attack02, 0, 0,
+        1000 + firstChain - PlayerActionRules.TimingToleranceMs - 1) == PlayerActionRules.Decision.Busy, "no early chain exploit");
+    Require(PlayerActionRules.Process(state, 3, PlayerActionId.Attack03, 0, 0, 1000 + firstChain)
+        == PlayerActionRules.Decision.InvalidAction && state.Version == 1, "cannot skip an attack stage");
+    Require(PlayerActionRules.Process(state, 4, PlayerActionId.Attack02, 0, 0, 1000 + firstChain)
+        == PlayerActionRules.Decision.Accepted, "chain two at its real chain point");
+    var thirdAt = 1000 + firstChain + PlayerActionRules.Get(PlayerActionId.Attack02).ChainAtMs;
+    Require(PlayerActionRules.Process(state, 5, PlayerActionId.Attack03, 0, 0, thirdAt)
+        == PlayerActionRules.Decision.Accepted, "chain three");
+    var cycleAt = thirdAt + PlayerActionRules.Get(PlayerActionId.Attack03).ChainAtMs;
+    Require(PlayerActionRules.Process(state, 6, PlayerActionId.Attack01, 0, 0, cycleAt)
+        == PlayerActionRules.Decision.Accepted, "cycles to one");
+    Require(PlayerActionRules.Process(state, 7, PlayerActionId.Attack02, 0, 0, cycleAt + 3000)
+        == PlayerActionRules.Decision.InvalidAction, "expired combo requires first stage");
+    Require(PlayerActionRules.Process(state, 8, PlayerActionId.Attack01, 0, 0, cycleAt + 3000)
+        == PlayerActionRules.Decision.Accepted, "expired combo restarts");
+    Require(PlayerActionRules.Process(state, 7, PlayerActionId.Skill01, 0, 0, cycleAt + 5000)
+        == PlayerActionRules.Decision.Ignored && state.Sequence == 8, "late old command cannot replace a new action");
+
+    state.Reset();
+    Require(PlayerActionRules.Process(state, uint.MaxValue, PlayerActionId.Attack01, 0, 0, 1000)
+        == PlayerActionRules.Decision.Accepted, "first sequence may be maximum");
+    Require(PlayerActionRules.Process(state, 0, PlayerActionId.Attack02, 0, 0, 1000 + firstChain)
+        == PlayerActionRules.Decision.Accepted && state.Version == 2, "action sequence wraps independently of movement");
+    Require(PlayerActionRules.Process(state, uint.MaxValue, PlayerActionId.Skill01, 0, 0, 5000)
+        == PlayerActionRules.Decision.Ignored, "pre-wrap command stays old");
+}
+
+static void CheckActionCooldown()
+{
+    var state = new PlayerActionState();
+    Require(PlayerActionRules.Process(state, 1, PlayerActionId.Skill04, 0, 0, 1000)
+        == PlayerActionRules.Decision.Accepted, "skill starts");
+    Require(PlayerActionRules.Process(state, 2, PlayerActionId.Slide, 0, 0, 1200)
+        == PlayerActionRules.Decision.Busy, "F cannot cancel locked skill");
+    Require(PlayerActionRules.Process(state, 3, PlayerActionId.Skill04, 0, 0, 2300)
+        == PlayerActionRules.Decision.Cooldown, "recovery does not clear skill cooldown");
+    Require(PlayerActionRules.Process(state, 4, PlayerActionId.Skill01, 0, 0, 2300)
+        == PlayerActionRules.Decision.Accepted, "another ready skill starts after recovery");
+    Require(PlayerActionRules.Process(state, 5, PlayerActionId.None, 0, 1, 2310)
+        == PlayerActionRules.Decision.Ignored && state.Kind == PlayerActionId.Skill01, "old cancel cannot stop newer action");
+    Require(PlayerActionRules.Process(state, 6, PlayerActionId.None, 0, 4, 2320)
+        == PlayerActionRules.Decision.Accepted && state.Kind == PlayerActionId.None, "matching cancel stops exact action");
+    Require(PlayerActionRules.Process(state, 7, PlayerActionId.Skill01, 0, 0, 2330)
+        == PlayerActionRules.Decision.Cooldown, "cancellation retains consumed cooldown");
+    Require(PlayerActionRules.Process(state, 8, PlayerActionId.Slide, 0, 0, 2500)
+        == PlayerActionRules.Decision.Accepted, "ready slide starts");
+    Require(PlayerActionRules.Process(state, 9, PlayerActionId.Slide, 0, 0, 3200)
+        == PlayerActionRules.Decision.Cooldown, "held or repeated F cannot extend one slide");
+    Require(PlayerActionRules.Process(state, 10, (PlayerActionId)999, 0, 0, 3700)
+        == PlayerActionRules.Decision.InvalidAction, "malformed action rejected without lookup exception");
+    Require(PlayerActionRules.Process(state, 11, PlayerActionId.Slide, float.NaN, 0, 3700)
+        == PlayerActionRules.Decision.InvalidAction, "nonfinite facing rejected");
+    Require(PlayerActionRules.Process(state, 12, PlayerActionId.Slide, 0, 0, 3700)
+        == PlayerActionRules.Decision.Accepted, "slide cooldown ends at shared deadline");
+    state.Reset();
+    Require(PlayerActionRules.Process(state, 1, PlayerActionId.Skill04, 0, 0, 4000)
+        == PlayerActionRules.Decision.Accepted && state.Version == 1, "new world clears old action identity");
+}
+
+static void CheckActionSnapshot()
+{
+    var player = NewPlayer();
+    PlayerActionRules.Process(player.Actions, 8, PlayerActionId.Skill04, 90, 0, 1000);
+    player.Actions.OriginX = 2;
+    player.Actions.OriginY = 3;
+    player.Actions.OriginZ = 4;
+    var presence = PlayerMessageMapper.ToPresence(player);
+    var cloned = Serializer.DeepClone(new G2C_PlayerAction
+    {
+        RoleId = player.Id, WorldSessionId = 77, SpawnId = 88, SpawnRevision = 99,
+        Action = presence.Action, ServerTimeMs = 1100,
+    });
+    Require(cloned.Action.Kind == PlayerActionKind.Skill04 && cloned.Action.Sequence == 8
+        && cloned.Action.DurationMs == 1200 && cloned.Action.StartedAtServerTimeMs == 1000
+        && cloned.Action.Version == 1 && cloned.Action.RotationY == 90, "action envelope preserves timing and identity");
+    Require(cloned.Action.OriginX == 2 && cloned.Action.OriginY == 3 && cloned.Action.OriginZ == 4,
+        "late playback retains cast position");
+    presence.Action.OriginX = 100;
+    Require(player.Actions.OriginX == 2 && cloned.Action.OriginX == 2, "DTO does not retain mutable entity data");
+    var response = Serializer.DeepClone(new G2C_PlayerActionResponse
+        { Sequence = 9, Result = ResultCode.Busy, Action = cloned.Action, ServerTimeMs = 1200 });
+    Require(response.Sequence == 9 && response.Action.Sequence == 8 && response.Result == ResultCode.Busy,
+        "rejection keeps request and accepted action sequences distinct");
+    var copy = BsonSerializer.Deserialize<OnlineInfo>(player.ToBson());
+    Require(copy.Actions.Kind == PlayerActionId.None && copy.Actions.Version == 0
+        && !copy.Actions.HasRequestSequence, "runtime action state excluded from persistence");
+}
+
+static void CheckActionLimiter()
+{
+    var gate = new PlayerSessionComponent();
+    for (var index = 0; index < 4; index++) Require(gate.TryAcceptAction(1000), "small command burst");
+    Require(!gate.TryAcceptAction(1000) && !gate.TryAcceptAction(1099), "unbounded RPC burst rejected");
+    Require(gate.TryAcceptAction(1100) && gate.TryAcceptMovement(1100), "independent budgets replenish by time");
+    gate.ResetWorldState();
+    Require(gate.TryAcceptAction(2000), "new world resets action limiter");
+}
+
 // 对外响应必须有完整数据；修改 DTO 不能修改在线实体。
 static void CheckRoleMapping()
 {
     var player = BsonSerializer.Deserialize<OnlineInfo>("{ '_id': 42 }");
-    player.UserName = "account";
+    player.AccountUser = "account";
     player.NickName = "nickname";
     player.Hp = 90;
     player.MaxHp = 100;
@@ -253,14 +384,37 @@ static void CheckRoleMapping()
 static void CheckPersistence()
 {
     var player = NewPlayer();
-    player.UserName = "account";
+    player.AccountUser = "account";
     player.MovementEpoch = 7;
     player.SpawnRevision = 123;
     Require(Apply(player, Move(10, 0.65f), 1100), "accepted movement");
     var copy = BsonSerializer.Deserialize<OnlineInfo>(player.ToBson());
-    Require(copy.UserName == player.UserName && copy.X == player.X, "persistent data");
+    Require(copy.AccountUser == player.AccountUser && copy.X == player.X, "persistent data");
     Require(!copy.IsConnected && !copy.IsDirty && copy.MovementVersion == 0 && !copy.HasLastMoveSequence, "runtime data excluded");
     Require(copy.MovementEpoch == 0 && copy.SpawnRevision == 0, "correction epoch and spawn order are world-scoped");
+}
+
+// 改代码中的账号命名后，仍按原有 MongoDB 字段读写，无须迁移玩家数据。
+static void CheckAccountUserStorage()
+{
+    var account = BsonSerializer.Deserialize<Account>(new BsonDocument("Username", "existing-account"));
+    Require(account.AccountUser == "existing-account", "existing account is readable");
+    var accountDocument = account.ToBsonDocument();
+    Require(accountDocument["Username"] == "existing-account" && !accountDocument.Contains("AccountUser"),
+        "account writes retain the original storage field");
+    Require(BsonClassMap.LookupClassMap(typeof(Account)).GetMemberMap(nameof(Account.AccountUser)).ElementName == "Username",
+        "account query expressions map to the original field");
+
+    var player = BsonSerializer.Deserialize<OnlineInfo>(new BsonDocument
+    {
+        { "UserName", "existing-account" }, { "NickName", "existing-role" },
+    });
+    Require(player.AccountUser == "existing-account" && player.NickName == "existing-role", "existing role is readable");
+    var playerDocument = player.ToBsonDocument();
+    Require(playerDocument["UserName"] == "existing-account" && !playerDocument.Contains("AccountUser"),
+        "role writes retain the original storage field");
+    Require(BsonClassMap.LookupClassMap(typeof(OnlineInfo)).GetMemberMap(nameof(OnlineInfo.AccountUser)).ElementName == "UserName",
+        "role query expressions map to the original field");
 }
 
 static void CheckNormalMovement()
@@ -392,18 +546,20 @@ static void CheckTokens()
         new AuthenticationJwtAwakeSystem().Invoke(authentication);
         new GateJwtAwakeSystem().Invoke(gate);
         var token = authentication.GenerateJwtTokens("account", 1002);
+        Require(new JwtSecurityTokenHandler().ReadJwtToken(token).Claims
+            .Any(claim => claim.Type == "AccountUser" && claim.Value == "account"), "token carries AccountUser identity");
         Require(gate.TryValidateToken(token, 1002, out var account) && account == "account", "valid token");
         Require(!gate.TryValidateToken(token, 1003, out _), "wrong account");
         Require(!gate.TryValidateToken("invalid", 1002, out _), "malformed token");
         Require(!gate.TryValidateToken("", 1002, out _), "empty token");
         var expired = new JwtSecurityToken(issuer: "Fzy", audience: "Fzy",
-            claims: new[] { new Claim("UserName", "account"), new Claim("GateSceneId", "1002") },
+            claims: new[] { new Claim("AccountUser", "account"), new Claim("GateSceneId", "1002") },
             notBefore: DateTime.UtcNow.AddMinutes(-5), expires: DateTime.UtcNow.AddMinutes(-2),
             signingCredentials: authentication.SigningCredentials);
         Require(!gate.TryValidateToken(new JwtSecurityTokenHandler().WriteToken(expired), 1002, out _), "expired token");
         using var unrelatedKey = RSA.Create(2048);
         var forged = new JwtSecurityToken(issuer: "Fzy", audience: "Fzy",
-            claims: new[] { new Claim("UserName", "account"), new Claim("GateSceneId", "1002") }, expires: DateTime.UtcNow.AddMinutes(5),
+            claims: new[] { new Claim("AccountUser", "account"), new Claim("GateSceneId", "1002") }, expires: DateTime.UtcNow.AddMinutes(5),
             signingCredentials: new SigningCredentials(new RsaSecurityKey(unrelatedKey), SecurityAlgorithms.RsaSha256));
         Require(!gate.TryValidateToken(new JwtSecurityTokenHandler().WriteToken(forged), 1002, out _), "wrong signature");
     }
@@ -556,11 +712,11 @@ static void CheckProtocolContracts()
 {
     Require(new A2C_RegisterResponse().Result != ResultCode.Success, "missing result must not mean success");
     Require(new G2C_EnterGameResponse().Result == ResultCode.Unknown, "default result");
-    Require(typeof(PlayerPresence).GetProperty("UserName") == null
-        && typeof(PlayerInfo).GetProperty("UserName") == null, "no account exposure");
+    Require(typeof(PlayerPresence).GetProperty("AccountUser") == null
+        && typeof(PlayerInfo).GetProperty("AccountUser") == null, "no account exposure");
     Require(typeof(G2C_CreateRoleResponse).GetProperty("Info") == null, "create result only");
     Require(typeof(G2Game_CreateRoleRequest).GetProperty("GateSessionRuntimeId") == null, "create does not bind session");
-    Require(typeof(C2G_LoginRequest).GetProperty("UserName") == null, "identity comes from signed token");
+    Require(typeof(C2G_LoginRequest).GetProperty("AccountUser") == null, "identity comes from signed token");
     Require(typeof(Game2G_EnterGameResponse).GetProperty("Info")?.PropertyType == typeof(PlayerInfo), "shared DTO");
     Require(typeof(G2C_PlayerPositionCorrection).GetProperty("AckSequence") != null
         && typeof(G2C_PlayerMove).GetProperty("Version") != null, "separate correction and broadcast");
@@ -569,6 +725,14 @@ static void CheckProtocolContracts()
 // 使用生成的序列化器而非模拟 DTO，检查字段编号和嵌套数据。
 static void CheckProtocolSerialization()
 {
+    var login = Serializer.DeepClone(new C2A_LoginRequest { AccountUser = "account", Password = "password" });
+    Require(login.AccountUser == "account" && login.Password == "password", "login account round trip");
+    var enterRequest = Serializer.DeepClone(new G2Game_EnterGameRequest
+    {
+        AccountUser = "account", GateSessionRuntimeId = 17, GateSceneAddress = 23,
+    });
+    Require(enterRequest.AccountUser == "account" && enterRequest.GateSessionRuntimeId == 17
+        && enterRequest.GateSceneAddress == 23, "internal account identity round trip");
     var movement = new MovementSnapshot { X = 1, Y = 2, Z = 3, RotationY = 90,
         State = PlayerMotionState.Run, Speed = 6.5f };
     var request = Serializer.DeepClone(new C2G_PlayerMove { WorldSessionId = long.MaxValue - 7, Sequence = uint.MaxValue, MovementEpoch = 7, Movement = movement });
@@ -599,7 +763,7 @@ static void CheckRequestOwnership()
     var pending = session.C2A_LoginRequest("account", "password");
     session.Complete();
     using var response = pending.GetAwaiter().GetResult();
-    Require(session.Reused.Username == "new-request" && session.Reused.IsPool(), "await must not release reused request");
+    Require(session.Reused.AccountUser == "new-request" && session.Reused.IsPool(), "await must not release reused request");
     session.Reused.Dispose();
 }
 
@@ -615,6 +779,7 @@ static void CheckClientProtocolHelper()
         nameof(NetworkProtocolHelper.C2G_CreateRoleRequest),
         nameof(NetworkProtocolHelper.C2G_WorldReadyRequest),
         nameof(NetworkProtocolHelper.C2G_PlayerMove),
+        nameof(NetworkProtocolHelper.C2G_PlayerActionRequest),
     };
     var methods = typeof(NetworkProtocolHelper).GetMethods(
         System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Static | System.Reflection.BindingFlags.DeclaredOnly);
@@ -624,7 +789,7 @@ static void CheckClientProtocolHelper()
     {
         var parameters = method.GetParameters();
         Require(parameters[0].ParameterType == typeof(Fantasy.Network.Session), "session extension");
-        Require(parameters.Skip(1).All(parameter => parameter.ParameterType.IsPrimitive
+        Require(parameters.Skip(1).All(parameter => parameter.ParameterType.IsPrimitive || parameter.ParameterType.IsEnum
             || parameter.ParameterType == typeof(string) || parameter.ParameterType == typeof(MovementSnapshot)), "only actual payloads, no unused request-object overload");
     }
 }
@@ -676,7 +841,7 @@ sealed class RequestReuseSession : Session
         request.Dispose();
         Reused = C2A_LoginRequest.Create();
         RequireReuse(ReferenceEquals(request, Reused));
-        Reused.Username = "new-request";
+        Reused.AccountUser = "new-request";
         return completion;
     }
 

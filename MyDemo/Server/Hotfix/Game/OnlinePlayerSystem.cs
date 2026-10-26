@@ -21,8 +21,8 @@ public sealed class OnlineComponentDestroySystem : DestroySystem<OnlineComponent
         if (self.SaveTimerId != 0) self.Scene.TimerComponent.Net.Remove(ref self.SaveTimerId);
         if (self.ReplicationTimerId != 0) self.Scene.TimerComponent.Net.Remove(ref self.ReplicationTimerId);
         // player：当前处理的服务端角色数据，包含持久资料和本次在线状态。
-        foreach (var player in self.PlayersByName.Values) player.Dispose();
-        self.PlayersByName.Clear();
+        foreach (var player in self.PlayersByAccountUser.Values) player.Dispose();
+        self.PlayersByAccountUser.Clear();
     }
 }
 
@@ -30,16 +30,17 @@ public sealed class OnlineComponentDestroySystem : DestroySystem<OnlineComponent
 public static class OnlinePlayerSystem
 {
     /// <summary>优先复用内存角色，数据库实体加载后只激活一次。</summary>
-    public static async FTask<OnlineInfo?> LoadAsync(Scene scene, string userName)
+    public static async FTask<OnlineInfo?> LoadAsync(Scene scene, string accountUser)
     {
         // online：当前 Game 的角色索引和定时任务组件。
         var online = scene.GetComponent<OnlineComponent>();
         // player：当前处理的服务端角色数据，包含持久资料和本次在线状态。
-        if (online.PlayersByName.TryGetValue(userName, out var player)) return player;
-        player = await scene.World.Database.First<OnlineInfo>(d => d.UserName == userName);
+        if (online.PlayersByAccountUser.TryGetValue(accountUser, out var player)) return player;
+        
+        player = await scene.World.Database.First<OnlineInfo>(d => d.AccountUser == accountUser);
         if (player == null) return null;
         player.Deserialize(scene);
-        online.PlayersByName[userName] = player;
+        online.PlayersByAccountUser[accountUser] = player;
         return player;
     }
 
@@ -67,13 +68,13 @@ public static class OnlinePlayerSystem
         try
         {
             // player：当前处理的服务端角色数据，包含持久资料和本次在线状态。
-            foreach (var player in online.PlayersByName.Values.ToArray())
+            foreach (var player in online.PlayersByAccountUser.Values.ToArray())
             {
-                // userName：当前请求已验证的登录账号，不是角色昵称。
-                var userName = player.UserName;
+                // accountUser：当前请求已验证的登录账号，不是角色昵称。
+                var accountUser = player.AccountUser;
                 // playerRuntimeId：开始等待时记录的角色运行时 ID，避免继续操作已回收的旧角色。
                 var playerRuntimeId = player.RuntimeId;
-                using (await scene.CoroutineLockComponent.Wait((int)LockType.PlayerData, userName.GetHashCode()))
+                using (await scene.CoroutineLockComponent.Wait((int)LockType.PlayerData, accountUser.GetHashCode()))
                 {
                     if (online.IsDisposed || online.RuntimeId != runtimeId) return;
                     if (player.IsDisposed || player.RuntimeId != playerRuntimeId) continue;
@@ -102,7 +103,7 @@ public static class OnlinePlayerSystem
         // exception：本次操作抛出的异常，用于记录具体失败原因。
         catch (Exception exception)
         {
-            Log.Error($"角色保存失败，后续重试：{player.UserName}, {exception}");
+            Log.Error($"角色保存失败，后续重试：{player.AccountUser}, {exception}");
             return false;
         }
     }
@@ -110,7 +111,7 @@ public static class OnlinePlayerSystem
     /// <summary>保存完成后释放离线角色，避免在线表无限增长。</summary>
     public static void Remove(OnlineComponent online, OnlineInfo player)
     {
-        online.PlayersByName.Remove(player.UserName);
+        online.PlayersByAccountUser.Remove(player.AccountUser);
         player.Dispose();
     }
 }

@@ -9,7 +9,7 @@ namespace Fantasy
 	public enum ProtocolRevision
 	{
 		Unspecified = 0,
-		Current = 3
+		Current = 4
 	}
 
 	/// <summary>
@@ -32,7 +32,25 @@ namespace Fantasy
 		Busy = 12,
 		RateLimited = 13,
 		UnsupportedProtocol = 14,
-		InvalidWorldSession = 15
+		InvalidWorldSession = 15,
+		InvalidAction = 16,
+		Cooldown = 17
+	}
+
+	/// <summary>
+	/// 战斗动作独立于移动状态；编号与共享 PlayerActionId 保持一致
+	/// </summary>
+	public enum PlayerActionKind
+	{
+		None = 0,
+		Attack01 = 1,
+		Attack02 = 2,
+		Attack03 = 3,
+		Skill01 = 11,
+		Skill02 = 12,
+		Skill03 = 13,
+		Skill04 = 14,
+		Slide = 20
 	}
 
 	/// <summary>

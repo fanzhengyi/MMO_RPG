@@ -11,6 +11,8 @@ public sealed class LoadUi : MonoBehaviour
     [SerializeField] private MyYooAsset yooAsset;
     /// <summary>当前启动步骤、下载数量或失败提示的文字。</summary>
     [SerializeField] private TMP_Text txtProgress;
+    /// <summary>显示真实下载进度的百分比，独立于当前步骤文字。</summary>
+    [SerializeField] private TMP_Text txtPercent;
     /// <summary>启动失败后显示的重试按钮；成功或正在处理时隐藏。</summary>
     [SerializeField] private Button retryButton;
 
@@ -29,6 +31,7 @@ public sealed class LoadUi : MonoBehaviour
     private void OnDownloadProgress(float progress, string message)
     {
         imgProgress.fillAmount = progress;
+        txtPercent.text = $"{Mathf.RoundToInt(progress * 100f)}%";
         OnStatusChanged(message);
     }
 
@@ -41,7 +44,7 @@ public sealed class LoadUi : MonoBehaviour
         retryButton.interactable = available;
     }
 
-      /// <summary>界面关闭时解除订阅，避免启动入口持有已销毁的 UI。</summary>
+    /// <summary>界面关闭时解除订阅，避免启动入口持有已销毁的 UI。</summary>
     private void OnDisable()
     {
         yooAsset.DownloadProgressChanged -= OnDownloadProgress;

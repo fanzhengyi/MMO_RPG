@@ -17,6 +17,7 @@ public sealed class NetworkManager : Singleton<NetworkManager>
     private bool connecting;
     /// <summary>当前 Gate 连接的客户端上行移动序号；切场景不重置，新 Gate 连接才重置。</summary>
     private uint movementSequence;
+    private uint actionSequence; // 当前 Gate 连接独立的动作命令序号，与移动采样序号分开。
     /// <summary>Fantasy 网络运行场景，不是 Unity 的 GameScene；负责创建和调度网络连接。</summary>
     private Scene scene;
 
@@ -35,6 +36,7 @@ public sealed class NetworkManager : Singleton<NetworkManager>
 
     /// <summary>上行序号属于 Gate 连接，切场景或停用同步脚本不能重置。</summary>
     public uint NextMovementSequence() => movementSequence = unchecked(movementSequence + 1);
+    public uint NextActionSequence() => actionSequence = unchecked(actionSequence + 1);
 
     /// <summary>跨 await 校验连接时同时比较运行时 ID，避免 Session 对象池复用。</summary>
     public bool IsCurrentGate(Session session, long runtimeId)
@@ -97,6 +99,7 @@ public sealed class NetworkManager : Singleton<NetworkManager>
         if (session == null || session.IsDisposed) throw new ArgumentException("Gate 连接已失效。", nameof(session));
         GateSession = session;
         movementSequence = 0;
+        actionSequence = 0;
         if (session.GetComponent<SessionHeartbeatComponent>() == null)
             session.AddComponent<SessionHeartbeatComponent>().Start(2000);
     }

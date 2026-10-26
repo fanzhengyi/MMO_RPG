@@ -34,21 +34,21 @@ public static class AuthenticationComponentSystem
     }
 
     /// <summary>校验密码，短时缓存结果；正确的旧密码在登录时升级为哈希。</summary>
-    public static async FTask<ResultCode> Login(this AuthenticationComponent self, string username, string password)
+    public static async FTask<ResultCode> Login(this AuthenticationComponent self, string accountUser, string password)
     {
         // error：账号输入和鉴权分片的验证结果。
-        var error = Validate(self, username, password);
+        var error = Validate(self, accountUser, password);
         if (error != ResultCode.Success) return error;
         // scene：当前操作所属的 Fantasy 网络场景，负责消息、实体和定时器。
         var scene = self.Scene;
-        using (await scene.CoroutineLockComponent.Wait((int)LockType.Account, username.GetHashCode()))
+        using (await scene.CoroutineLockComponent.Wait((int)LockType.Account, accountUser.GetHashCode()))
         {
             // key：账号与密码组合的哈希缓存键，不存明文密码。
-            var key = GetCacheKey(username, password);
+            var key = GetCacheKey(accountUser, password);
             // cached：已缓存的登录验证结果。
             if (self.LoginCacheDic.TryGetValue(key, out var cached)) return cached.Result;
             // account：从数据库或缓存取得的账号实体，不是角色实体。
-            using var account = await scene.World.Database.First<Account>(d => d.Username == username);
+            using var account = await scene.World.Database.First<Account>(d => d.AccountUser == accountUser);
             // result：本次密码验证的业务结果，默认按凭证错误处理。
             var result = ResultCode.IncorrectCredentials;
             if (account != null)
@@ -75,28 +75,28 @@ public static class AuthenticationComponentSystem
     }
 
     /// <summary>在同一账号锁内检查存在性并创建账号。</summary>
-    public static async FTask<ResultCode> Register(this AuthenticationComponent self, string username, string password)
+    public static async FTask<ResultCode> Register(this AuthenticationComponent self, string accountUser, string password)
     {
         // error：账号输入和鉴权分片的验证结果。
-        var error = Validate(self, username, password);
+        var error = Validate(self, accountUser, password);
         if (error != ResultCode.Success) return error;
         // scene：当前操作所属的 Fantasy 网络场景，负责消息、实体和定时器。
         var scene = self.Scene;
-        using (await scene.CoroutineLockComponent.Wait((int)LockType.Account, username.GetHashCode()))
+        using (await scene.CoroutineLockComponent.Wait((int)LockType.Account, accountUser.GetHashCode()))
         {
-            if (self.RegisterCacheDic.ContainsKey(username)
-                || await scene.World.Database.First<Account>(d => d.Username == username) != null)
+            if (self.RegisterCacheDic.ContainsKey(accountUser)
+                || await scene.World.Database.First<Account>(d => d.AccountUser == accountUser) != null)
                 return ResultCode.AccountExists;
 
             // account：从数据库或缓存取得的账号实体，不是角色实体。
             var account = Entity.Create<Account>(scene, true, true);
-            account.Username = username;
+            account.AccountUser = accountUser;
             account.Password = await PasswordHasher.HashAsync(password);
             account.CreatTime = TimeHelper.Now;
             try
             {
                 await scene.World.Database.Save(account);
-                self.RegisterCacheDic[username] = account;
+                self.RegisterCacheDic[accountUser] = account;
                 account.AddComponent<RegisterTimeClear>().RegisterCacheClear(4000);
             }
             catch
@@ -104,32 +104,32 @@ public static class AuthenticationComponentSystem
                 account.Dispose();
                 throw;
             }
-            self.RemoveLoginCache(GetCacheKey(username, password));
+            self.RemoveLoginCache(GetCacheKey(accountUser, password));
             return ResultCode.Success;
         }
     }
 
     /// <summary>限制输入长度，并确认账号所属的鉴权场景。</summary>
-    private static ResultCode Validate(AuthenticationComponent self, string username, string password)
+    private static ResultCode Validate(AuthenticationComponent self, string accountUser, string password)
     {
-        if (string.IsNullOrWhiteSpace(username) || username.Length > 64
+        if (string.IsNullOrWhiteSpace(accountUser) || accountUser.Length > 64
             || string.IsNullOrEmpty(password) || password.Length > 128)
             return ResultCode.InvalidCredentials;
         if (self.AuthernServerCount == 0
-            || self.LocalServerConfigIndex != HashCodeHelper.MurmurHash3(username) % self.AuthernServerCount)
+            || self.LocalServerConfigIndex != HashCodeHelper.MurmurHash3(accountUser) % self.AuthernServerCount)
             return ResultCode.WrongAuthenticationServer;
         return ResultCode.Success;
     }
 
     /// <summary>长度前缀防止拼接碰撞；缓存键不保存明文凭证。</summary>
-    private static string GetCacheKey(string username, string password)
-        => Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes($"{username.Length}:{username}{password}")));
+    private static string GetCacheKey(string accountUser, string password)
+        => Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes($"{accountUser.Length}:{accountUser}{password}")));
 
     /// <summary>移除注册缓存并释放账号实体。</summary>
-    internal static void RemoveRegisterCache(this AuthenticationComponent self, string username)
+    internal static void RemoveRegisterCache(this AuthenticationComponent self, string accountUser)
     {
         // account：从数据库或缓存取得的账号实体，不是角色实体。
-        if (self.RegisterCacheDic.Remove(username, out var account)) account.Dispose();
+        if (self.RegisterCacheDic.Remove(accountUser, out var account)) account.Dispose();
     }
 
     /// <summary>移除登录结果并取消其过期任务。</summary>

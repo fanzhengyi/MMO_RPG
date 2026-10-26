@@ -7,7 +7,7 @@ enum ProtocolRevision
     // 未声明协议版本，旧客户端默认值；不能视为兼容当前协议。
     Unspecified = 0,
     // 当前要求的协议版本，修改协议兼容规则时两端同步发布。
-    Current = 3,
+    Current = 4,
 }
 
 ///业务结果；默认值不是成功，Fantasy 的 ErrorCode 只表示框架错误
@@ -45,6 +45,49 @@ enum ResultCode
     UnsupportedProtocol = 14,
     // 请求携带的世界会话不是当前有效会话。
     InvalidWorldSession = 15,
+    // 动作编号、连击顺序或取消目标不合法。
+    InvalidAction = 16,
+    // 技能或滑行仍在冷却中。
+    Cooldown = 17,
+}
+
+///战斗动作独立于移动状态；编号与共享 PlayerActionId 保持一致
+enum PlayerActionKind
+{
+    // 没有动作，或取消指定的上一次动作。
+    None = 0,
+    // 三段普通攻击。
+    Attack01 = 1,
+    Attack02 = 2,
+    Attack03 = 3,
+    // 数字键 1、2、3、4 对应的四个技能。
+    Skill01 = 11,
+    Skill02 = 12,
+    Skill03 = 13,
+    Skill04 = 14,
+    // F 键触发的一次向前滑行。
+    Slide = 20,
+}
+
+///由 Game 确认的一次动作；用开始时间恢复进度，用 Version 防止重复播放特效
+message PlayerActionSnapshot
+{
+    // 确认的动作编号；None 表示停止当前动作。
+    PlayerActionKind Kind = 1;
+    // Game 为本次上线实例生成的动作版本，和移动 Version 分开递增。
+    uint32 Version = 2;
+    // 触发该动作的客户端请求序号，供本人精确取消预测动作。
+    uint32 Sequence = 3;
+    // Game 单调时钟下的动作开始时间，单位毫秒。
+    int64 StartedAtServerTimeMs = 4;
+    // Game 根据共享配置给出的完整动作时长，单位毫秒；取消时为零。
+    int32 DurationMs = 5;
+    // 起手时绕世界 Y 轴的朝向，单位度。
+    float RotationY = 6;
+    // 起手时服务端确认的世界坐标，世界特效不能取延迟播放时角色的新位置。
+    float OriginX = 7;
+    float OriginY = 8;
+    float OriginZ = 9;
 }
 
 ///网络移动状态，不使用 Animator 的参数编号
@@ -117,6 +160,8 @@ message PlayerPresence
     int64 ServerTimeMs = 6;
     // 当前 Game 世界内递增的上线顺序，用于拒绝旧实例的迟到通知。
     uint64 SpawnRevision = 7;
+    // 当前或最近一次确认的动作；接收端按服务端时间跳过已经结束的动作。
+    PlayerActionSnapshot Action = 8;
 }
 
 ///注册账号
@@ -124,7 +169,7 @@ message PlayerPresence
 message C2A_RegisterRequest // IRequest,A2C_RegisterResponse
 {
     // 登录账号；鉴权和注册使用，不是角色昵称。
-    string Username = 1;
+    string AccountUser = 1;
     // 本次登录或注册输入的密码。
     string Password = 2;
 }
@@ -140,7 +185,7 @@ message A2C_RegisterResponse // IResponse
 message C2A_LoginRequest // IRequest,A2C_LoginResponse
 {
     // 登录账号；鉴权和注册使用，不是角色昵称。
-    string Username = 1;
+    string AccountUser = 1;
     // 本次登录或注册输入的密码。
     string Password = 2;
 }
@@ -225,8 +270,8 @@ message G2C_CreateRoleResponse // IResponse
     ResultCode Result = 1;
 }
 
-///客户端移动采样；Sequence 属于当前连接；MovementEpoch 只能回传服务端最近一次回正的代次
-message C2G_PlayerMove // IMessage
+///客户端移动采样；Gate 通过 PlayerRouteType 自动转发到当前 OnlineInfo 实体
+message C2G_PlayerMove // ICustomRouteMessage,PlayerRouteType
 {
     // 客户端上行移动序号，属于当前 Gate 连接，递增并允许 uint 回绕。
     uint32 Sequence = 1;
@@ -290,4 +335,51 @@ message G2C_PlayerLeft // IMessage
     int64 SpawnId = 3;
     // 当前 Game 世界内递增的上线顺序，用于拒绝旧实例的迟到通知。
     uint64 SpawnRevision = 4;
+}
+
+///动作命令单独发送，不与高频移动快照合并；Gate 通过 PlayerRouteType 自动转发到当前 OnlineInfo 实体
+message C2G_PlayerActionRequest // ICustomRouteRequest,G2C_PlayerActionResponse,PlayerRouteType
+{
+    // 本次世界内递增的动作命令序号，与移动 Sequence 独立。
+    uint32 Sequence = 1;
+    // 请求执行的动作；None 用来取消 CancelSequence 指定的动作。
+    PlayerActionKind Kind = 2;
+    // 起手朝向，单位度；位置仍走原有移动采样与位移校验。
+    float RotationY = 3;
+    // 本次进入世界的会话 ID。
+    int64 WorldSessionId = 4;
+    // 必须与服务端最近一次位置回正代次一致，拒绝回正前的在途动作。
+    uint32 MovementEpoch = 5;
+    // 仅 Kind=None 时使用，指向要取消的已接受动作命令序号。
+    uint32 CancelSequence = 6;
+}
+
+///请求序号原样回传，客户端只能回滚同一条仍在播放的预测，不能取消后发的新动作
+message G2C_PlayerActionResponse // ICustomRouteResponse
+{
+    // 动作接受或拒绝的业务结果。
+    ResultCode Result = 1;
+    // 对应的客户端动作请求序号。
+    uint32 Sequence = 2;
+    // 服务端当前确认的动作，拒绝时也可据此恢复表现。
+    PlayerActionSnapshot Action = 3;
+    // 生成响应时的 Game 单调时钟毫秒值，用于估算当前动作进度。
+    int64 ServerTimeMs = 4;
+}
+
+///立刻向其他可见玩家发送的一次动作，不经过移动复制周期合并
+message G2C_PlayerAction // IMessage
+{
+    // 执行动作的角色持久 ID。
+    int64 RoleId = 1;
+    // Game 确认的动作版本、时间和起手朝向。
+    PlayerActionSnapshot Action = 2;
+    // 接收方当前世界会话 ID。
+    int64 WorldSessionId = 3;
+    // 执行动作的角色本次上线实例 ID。
+    int64 SpawnId = 4;
+    // 执行动作的角色在当前 Game 世界中的上线顺序。
+    uint64 SpawnRevision = 5;
+    // Game 发送本条通知时的单调时钟毫秒值。
+    int64 ServerTimeMs = 6;
 }

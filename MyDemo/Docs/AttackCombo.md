@@ -1,5 +1,7 @@
 # 主角三段普攻
 
+> 历史记录：本文描述早期本地普攻实现及当时的验证。当前已统一到 [CombatSystem.md](CombatSystem.md)，支持技能、滑行和服务端动作同步。下文的 `PlayerAttackController`、`AttackComboDefinition`、`PlayerAttackCombo.asset` 已被替换，不再作为配置入口；当前使用 `PlayerCombatCore`、`PlayerActionPresentation`、`PlayerCombatDefinition` 和 `PlayerCombat.asset`。时序以两端共用的 `PlayerActionRules` 为准。
+
 鼠标左键开始普通攻击，按 **Atk01 → Atk02 → Atk03 → Atk01** 循环。一次点击只播放一段；提前点击最多缓存一次，缓存只保留 **0.25 秒**，到接段点仍有效才播放下一段。已进入接段窗口时，点击立即续段；连续点击不会积累一整串待播放动作，按住鼠标不会自动连击。
 
 没有续段时，在恢复点解除攻击对移动和跳跃的限制，并淡出攻击层，不等待动画尾部完整播完。恢复后的 **0.35 秒**内再次点击仍续接下一段，超过后重新从第一段开始。每段起手的前 **15%** 允许按移动输入调整朝向，之后固定出刀方向；从跑动进入攻击时按原有减速度自然停下。

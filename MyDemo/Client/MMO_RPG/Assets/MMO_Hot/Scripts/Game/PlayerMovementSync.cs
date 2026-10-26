@@ -37,6 +37,7 @@ public sealed class PlayerMovementSync : MonoBehaviour
     private float lastSpeed;
     /// <summary>上次发送的移动状态；切换状态时不等待普通发送间隔。</summary>
     private PlayerFsmCore.StateType lastState;
+    private uint lastActionGeneration; // 动作起手也立即采样，让朝向和滑行起步及时跟上。
     /// <summary>下次允许发送普通移动采样的本机时间，使用不受 Time.timeScale 影响的秒数。</summary>
     private float nextSendTime;
     /// <summary>当前连接和世界是否已经发送过基线；为 false 时下一次必须发送。</summary>
@@ -94,7 +95,7 @@ public sealed class PlayerMovementSync : MonoBehaviour
         // speed：碰撞后实际产生的水平速度，单位米/秒。
         var speed = playerController.HorizontalSpeed;
         // stateChanged：是否尚未发送基线，或移动状态相比上次发送已经改变。
-        var stateChanged = !hasSent || state != lastState;
+        var stateChanged = !hasSent || state != lastState || playerController.ActionGeneration != lastActionGeneration;
         if (!stateChanged && Time.unscaledTime < nextSendTime) return;
         if (hasSent && !stateChanged && Time.unscaledTime - lastSentTime < heartbeatInterval
             && !HasMovementChanged(position, rotationY, speed)) return;
@@ -124,6 +125,7 @@ public sealed class PlayerMovementSync : MonoBehaviour
             lastPosition = position;
             lastRotationY = rotationY;
             lastState = state;
+            lastActionGeneration = playerController.ActionGeneration;
             lastSpeed = speed;
             nextSendTime = Time.unscaledTime + sendInterval;
             lastSentTime = Time.unscaledTime;

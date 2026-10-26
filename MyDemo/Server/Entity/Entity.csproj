@@ -5,6 +5,7 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <Compile Include="../../Client/MMO_RPG/Assets/MMO_Hot/Scripts/Game/Player/Combat/PlayerActionRules.cs" Link="Shared/PlayerActionRules.cs" />
     <PackageReference Include="Fantasy-Net" Version="$(FantasyNetVersion)" />
     <PackageReference Include="System.IdentityModel.Tokens.Jwt" Version="8.0.2" />
   </ItemGroup>

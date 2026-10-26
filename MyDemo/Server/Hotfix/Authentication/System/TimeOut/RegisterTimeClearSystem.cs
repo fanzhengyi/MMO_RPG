@@ -24,7 +24,7 @@ public static class RegisterTimeClearSystem
         {
             if (account.IsDisposed || account.RuntimeId != runtimeId) return;
             self.TimerClearId = 0;
-            scene.GetComponent<AuthenticationComponent>().RemoveRegisterCache(account.Username);
+            scene.GetComponent<AuthenticationComponent>().RemoveRegisterCache(account.AccountUser);
         });
     }
 }

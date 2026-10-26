@@ -9097,6 +9097,7 @@ GameObject:
   - component: {fileID: 1532898103}
   - component: {fileID: 1532898102}
   - component: {fileID: 1532898107}
+  - component: {fileID: 1532898108}
   m_Layer: 0
   m_Name: PlayerRoot
   m_TagString: Untagged
@@ -9126,7 +9127,7 @@ MonoBehaviour:
   jumpHeight: 1.5
   gravity: -20
   terminalSpeed: 40
-  attackCombo: {fileID: 11400000, guid: 2347027e2b10fe84e99c9392df4503a8, type: 2}
+  combatDefinition: {fileID: 11400000, guid: 400744538080792459c2d49e4c0cb1aa, type: 2}
 --- !u!114 &1532898103
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -9143,6 +9144,12 @@ MonoBehaviour:
   runAction: {fileID: -8995969090107570898, guid: d50af30c9c7e4fd41bdcbc27e1e6c679, type: 3}
   jumpAction: {fileID: 2825981722264320158, guid: d50af30c9c7e4fd41bdcbc27e1e6c679, type: 3}
   attackAction: {fileID: 1903506563957944628, guid: d50af30c9c7e4fd41bdcbc27e1e6c679, type: 3}
+  skillActions:
+  - {fileID: 5787632240271778222, guid: d50af30c9c7e4fd41bdcbc27e1e6c679, type: 3}
+  - {fileID: 3430701257392159981, guid: d50af30c9c7e4fd41bdcbc27e1e6c679, type: 3}
+  - {fileID: -8413496203441358929, guid: d50af30c9c7e4fd41bdcbc27e1e6c679, type: 3}
+  - {fileID: 7665148036774929661, guid: d50af30c9c7e4fd41bdcbc27e1e6c679, type: 3}
+  slideAction: {fileID: 6812036045023109164, guid: d50af30c9c7e4fd41bdcbc27e1e6c679, type: 3}
 --- !u!143 &1532898104
 CharacterController:
   m_ObjectHideFlags: 0
@@ -9202,6 +9209,18 @@ MonoBehaviour:
   rotationThreshold: 1
   speedThreshold: 0.1
   heartbeatInterval: 0.5
+--- !u!114 &1532898108
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1532898101}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: dce965f52d555934cb8b4683ad1ca32a, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::PlayerActionSync
 --- !u!1 &1535173209
 GameObject:
   m_ObjectHideFlags: 0

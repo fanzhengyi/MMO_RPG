@@ -21,7 +21,7 @@ public sealed class C2G_WorldReadyHandler : MessageRPC<C2G_WorldReadyRequest, G2
         using var result = (Game2G_WorldReadyResponse)await session.Scene.Call(info.GameSceneAddress,
             new G2Game_WorldReadyRequest
             {
-                UserName = info.UserName, GateSessionRuntimeId = runtimeId,
+                AccountUser = info.AccountUser, GateSessionRuntimeId = runtimeId,
                 GateSceneAddress = info.GateSceneAddress, WorldSessionId = worldSessionId,
             });
         if (session.RuntimeId != runtimeId || !GateSessionHelper.TryGetPlayer(session, out info)

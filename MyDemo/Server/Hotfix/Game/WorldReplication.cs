@@ -21,7 +21,7 @@ public static class WorldReplication
     public static IEnumerable<OnlineInfo> VisiblePlayers(Scene scene, OnlineInfo observer)
     {
         // player：当前处理的服务端角色数据，包含持久资料和本次在线状态。
-        foreach (var player in scene.GetComponent<OnlineComponent>().PlayersByName.Values)
+        foreach (var player in scene.GetComponent<OnlineComponent>().PlayersByAccountUser.Values)
             if (player.Id != observer.Id && player.IsInWorld) yield return player;
     }
 
@@ -52,13 +52,31 @@ public static class WorldReplication
             });
     }
 
+    /// <summary>动作是一次性事件，立即逐条转发给其他可见玩家，不经过移动合并队列。</summary>
+    public static void PublishAction(Scene scene, OnlineInfo player, long now)
+    {
+        // action：本次确认的动作副本，广播期间保持不变。
+        var action = PlayerMessageMapper.ToAction(player);
+        foreach (var receiver in VisiblePlayers(scene, player))
+            scene.Send(receiver.GateSceneAddress, new Game2G_PlayerAction
+            {
+                GateSessionRuntimeId = receiver.GateSessionRuntimeId,
+                WorldSessionId = receiver.WorldSessionId,
+                RoleId = player.Id,
+                SpawnId = player.WorldSessionId,
+                SpawnRevision = player.SpawnRevision,
+                Action = action,
+                ServerTimeMs = now,
+            });
+    }
+
     /// <summary>同一复制周期只广播最后的确认状态，输入包频率不能放大世界广播。</summary>
     private static void Flush(OnlineComponent online)
     {
         // now：服务端单调时钟的当前毫秒值，不是现实日期。
         var now = Environment.TickCount64;
         // player：当前处理的服务端角色数据，包含持久资料和本次在线状态。
-        foreach (var player in online.PlayersByName.Values)
+        foreach (var player in online.PlayersByAccountUser.Values)
         {
             if (!player.NeedsReplication) continue;
             player.NeedsReplication = false;

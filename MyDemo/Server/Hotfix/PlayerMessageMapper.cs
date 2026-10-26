@@ -34,5 +34,20 @@ public static class PlayerMessageMapper
         SpawnId = player.WorldSessionId,
         SpawnRevision = player.SpawnRevision,
         ServerTimeMs = Environment.TickCount64,
+        Action = ToAction(player),
+    };
+
+    /// <summary>复制确认动作；接收方据开始时间判断续播或跳过，不重放已经过期的特效。</summary>
+    public static PlayerActionSnapshot ToAction(OnlineInfo player) => new()
+    {
+        Kind = (PlayerActionKind)player.Actions.Kind,
+        Version = player.Actions.Version,
+        Sequence = player.Actions.Sequence,
+        StartedAtServerTimeMs = player.Actions.StartedAtServerTimeMs,
+        DurationMs = PlayerActionRules.Get(player.Actions.Kind).DurationMs,
+        RotationY = player.Actions.RotationY,
+        OriginX = player.Actions.OriginX,
+        OriginY = player.Actions.OriginY,
+        OriginZ = player.Actions.OriginZ,
     };
 }

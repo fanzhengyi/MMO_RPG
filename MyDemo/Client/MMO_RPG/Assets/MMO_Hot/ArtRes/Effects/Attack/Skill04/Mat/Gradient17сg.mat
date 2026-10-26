@@ -2,23 +2,48 @@
 %TAG !u! tag:unity3d.com,2011:
 --- !u!21 &2100000
 Material:
-  serializedVersion: 6
+  serializedVersion: 8
   m_ObjectHideFlags: 0
-  m_PrefabParentObject: {fileID: 0}
-  m_PrefabInternal: {fileID: 0}
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
   m_Name: "Gradient17\u0441g"
-  m_Shader: {fileID: 4800000, guid: bd6af5d577c618947b73aa60db554e51, type: 3}
-  m_ShaderKeywords: 
+  m_Shader: {fileID: 4800000, guid: 704b28b85e983f349ada9120bb588c68, type: 3}
+  m_Parent: {fileID: 0}
+  m_ModifiedSerializedProperties: 0
+  m_ValidKeywords: []
+  m_InvalidKeywords: []
   m_LightmapFlags: 4
   m_EnableInstancingVariants: 0
   m_DoubleSidedGI: 0
-  m_CustomRenderQueue: -1
+  m_CustomRenderQueue: 3000
   stringTagMap: {}
   disabledShaderPasses: []
+  m_LockedProperties: 
   m_SavedProperties:
     serializedVersion: 3
     m_TexEnvs:
     - _BumpMap:
+        m_Texture: {fileID: 0}
+        m_Scale: {x: 1, y: 1}
+        m_Offset: {x: 0, y: 0}
+    - _CombatDissolveTex:
+        m_Texture: {fileID: 0}
+        m_Scale: {x: 1, y: 1}
+        m_Offset: {x: 0, y: 0}
+    - _CombatMainTex:
+        m_Texture: {fileID: 2800000, guid: 61e68320eb0a34646ae9e7855bba9d92, type: 3}
+        m_Scale: {x: 1, y: 1}
+        m_Offset: {x: 0, y: 0}
+    - _CombatMaskTex:
+        m_Texture: {fileID: 2800000, guid: ed3a5efebe958ba429d350e04f14d1ab, type: 3}
+        m_Scale: {x: 1, y: 1.1}
+        m_Offset: {x: 0, y: 0}
+    - _CombatNoiseTex:
+        m_Texture: {fileID: 2800000, guid: dbec9039c70e09e47b8ff15d508f39ac, type: 3}
+        m_Scale: {x: 1, y: 1}
+        m_Offset: {x: 0, y: 0}
+    - _CombatSecondaryTex:
         m_Texture: {fileID: 0}
         m_Scale: {x: 1, y: 1}
         m_Offset: {x: 0, y: 0}
@@ -78,10 +103,26 @@ Material:
         m_Texture: {fileID: 0}
         m_Scale: {x: 1, y: 1}
         m_Offset: {x: 0, y: 0}
+    m_Ints: []
     m_Floats:
     - _Blend2: 1
     - _BlendMode: 1
     - _BumpScale: 1
+    - _CombatAlphaFromLuminance: 0
+    - _CombatDissolve: 0
+    - _CombatDissolveSoftness: 0.035
+    - _CombatDstBlend: 10
+    - _CombatEmission: 4
+    - _CombatFresnelPower: 1
+    - _CombatFresnelStrength: 1
+    - _CombatNoiseStrength: 0
+    - _CombatOpacity: 1
+    - _CombatPremultiply: 0
+    - _CombatSrcBlend: 5
+    - _CombatUseDissolve: 0
+    - _CombatUseFresnel: 0
+    - _CombatUseMask: 1
+    - _CombatUseSecondary: 0
     - _CullMode: 0
     - _Cutoff: 0.5
     - _Depthpower: 0.15
@@ -108,9 +149,16 @@ Material:
     - __dirty: 1
     m_Colors:
     - _Color: {r: 1, g: 1, b: 1, a: 1}
+    - _CombatColor: {r: 1, g: 1, b: 1, a: 1}
+    - _CombatMainScroll: {r: 0, g: 0, b: 0, a: 1.5}
+    - _CombatMaskScroll: {r: 0, g: 0, b: 0, a: 0}
+    - _CombatNoiseScroll: {r: 0, g: 1.5, b: 0, a: 0}
+    - _CombatSecondaryScroll: {r: 0, g: 0, b: 0, a: 0}
     - _DistortionSpeedXYPowerZ: {r: 0, g: 1, b: -1, a: 0}
     - _EmissionColor: {r: 0, g: 0, b: 0, a: 1}
     - _NoisespeedUV: {r: 0, g: 1, b: 0, a: 0}
     - _SpeedMainTexUVNoiseUV: {r: 0.1, g: 1, b: 0, a: 0}
     - _SpeedMainTexUVNoiseZW: {r: 0, g: 0, b: 0, a: 1.5}
     - _TintColor: {r: 1, g: 1, b: 1, a: 1}
+  m_BuildTextureStacks: []
+  m_AllowLocking: 1

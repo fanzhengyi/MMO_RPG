@@ -19,7 +19,7 @@ public sealed class C2G_CreateRoleHandler : MessageRPC<C2G_CreateRoleRequest, G2
         using var result = (Game2G_CreateRoleResponse)await session.Scene.Call(
             info.GameSceneAddress, new G2Game_CreateRoleRequest
             {
-                UserName = info.UserName,
+                AccountUser = info.AccountUser,
                 NickName = request.NickName,
             });
         if (session.RuntimeId != runtimeId || !GateSessionHelper.TryGetPlayer(session, out _)) return;
